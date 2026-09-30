@@ -29,7 +29,7 @@ class Player(pygame.sprite.Sprite):
 
     # CARGAR SPRITES.
     def load_sprites(self):
-        SCALE_FACTOR = 3
+        SCALE_FACTOR = 2
         def cs(path):
             img = pygame.image.load(path).convert_alpha()
             w = int(img.get_width() * SCALE_FACTOR)
@@ -139,5 +139,18 @@ class Player(pygame.sprite.Sprite):
             
         # Dibujamos la imagen en la posición exacta del rect del jugador.
         surface.blit(current_image, self.rect)
+
+    def draw_with_camera(self, surface, camera):
+        # Seleccionamos el sprite correspondiente según el estado
+        if self.is_moving:
+            current_image = self.animations["WALK"][self.facing][self.frame_index]
+        else:
+            current_image = self.animations["IDLE"][self.facing]
+            
+        # Obtenemos el rectángulo ajustado por la cámara
+        dest_rect = camera.apply(self)
+        
+        # Dibujamos la imagen en la posición de la cámara
+        surface.blit(current_image, dest_rect)
 
         
