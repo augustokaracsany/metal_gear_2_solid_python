@@ -29,37 +29,46 @@ class Player(pygame.sprite.Sprite):
 
     # CARGAR SPRITES.
     def load_sprites(self):
+        SCALE_FACTOR = 3
+        def cs(path):
+            img = pygame.image.load(path).convert_alpha()
+            w = int(img.get_width() * SCALE_FACTOR)
+            h = int(img.get_height() * SCALE_FACTOR)
+            return pygame.transform.scale(img, (w, h))
         # Diccionario estructurado para acceder fácil a los sprites de las animaciones.
         self.animations = {
             "IDLE": {
-                "DOWN": pygame.image.load("assets/sprites/solid_python/stand_down.png").convert_alpha(),
-                "UP": pygame.image.load("assets/sprites/solid_python/stand_up.png").convert_alpha(),
-                "LEFT": pygame.image.load("assets/sprites/solid_python/stand_left.png").convert_alpha(),
-                "RIGHT": pygame.image.load("assets/sprites/solid_python/stand_right.png").convert_alpha(),
+                "DOWN": cs("assets/sprites/solid_python/stand_down.png"),
+                "UP": cs("assets/sprites/solid_python/stand_up.png"),
+                "LEFT": cs("assets/sprites/solid_python/stand_left.png"),
+                "RIGHT": cs("assets/sprites/solid_python/stand_right.png"),
             },
             "WALK": {
                 "DOWN": [
-                    pygame.image.load("assets/sprites/solid_python/walk_down1.png").convert_alpha(),
-                    pygame.image.load("assets/sprites/solid_python/stand_down.png").convert_alpha(),
-                    pygame.image.load("assets/sprites/solid_python/walk_down2.png").convert_alpha()
+                    cs("assets/sprites/solid_python/walk_down1.png"),
+                    cs("assets/sprites/solid_python/stand_down.png"),
+                    cs("assets/sprites/solid_python/walk_down2.png")
                 ],
                 "UP": [
-                    pygame.image.load("assets/sprites/solid_python/walk_up1.png").convert_alpha(),
-                    pygame.image.load("assets/sprites/solid_python/stand_up.png").convert_alpha(),
-                    pygame.image.load("assets/sprites/solid_python/walk_up2.png").convert_alpha()
+                    cs("assets/sprites/solid_python/walk_up1.png"),
+                    cs("assets/sprites/solid_python/stand_up.png"),
+                    cs("assets/sprites/solid_python/walk_up2.png")
                 ],
                 "LEFT": [
-                    pygame.image.load("assets/sprites/solid_python/walk_left1.png").convert_alpha(),
-                    pygame.image.load("assets/sprites/solid_python/stand_left.png").convert_alpha(),
-                    pygame.image.load("assets/sprites/solid_python/walk_left2.png").convert_alpha()
+                    cs("assets/sprites/solid_python/walk_left1.png"),
+                    cs("assets/sprites/solid_python/stand_left.png"),
+                    cs("assets/sprites/solid_python/walk_left2.png")
                 ],
                 "RIGHT": [
-                    pygame.image.load("assets/sprites/solid_python/walk_right1.png").convert_alpha(),
-                    pygame.image.load("assets/sprites/solid_python/stand_right.png").convert_alpha(),
-                    pygame.image.load("assets/sprites/solid_python/walk_right2.png").convert_alpha()
+                    cs("assets/sprites/solid_python/walk_right1.png"),
+                    cs("assets/sprites/solid_python/stand_right.png"),
+                    cs("assets/sprites/solid_python/walk_right2.png")
                 ]
             }
         }
+        # Actualizamos el ancho y alto del rect del jugador según el tamaño de la nueva imagen escalada
+        first_image = self.animations["IDLE"]["DOWN"]
+        self.rect = first_image.get_rect(topleft=(self.x, self.y))
 
     def handle_input(self):
         keys = pygame.key.get_pressed()
@@ -111,7 +120,7 @@ class Player(pygame.sprite.Sprite):
             if self.anim_timer >= self.animation_speed:
                 self.anim_timer = 0.0
                 # Alterna el índice del frame entre 0 y 1 ( Porque dos frames componen la anim. )
-                self.frame_index = (self.frame_index + 1) % 2
+                self.frame_index = (self.frame_index + 1) % 3
         else:
             # Si se detiene, se resetea al frame estático principal, el IDLE.
             self.frame_index = 0
