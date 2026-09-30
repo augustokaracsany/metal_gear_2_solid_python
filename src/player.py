@@ -45,21 +45,25 @@ class Player(pygame.sprite.Sprite):
             },
             "WALK": {
                 "DOWN": [
+                    cs("assets/sprites/solid_python/stand_down.png"),
                     cs("assets/sprites/solid_python/walk_down1.png"),
                     cs("assets/sprites/solid_python/stand_down.png"),
                     cs("assets/sprites/solid_python/walk_down2.png")
                 ],
                 "UP": [
+                    cs("assets/sprites/solid_python/stand_up.png"),
                     cs("assets/sprites/solid_python/walk_up1.png"),
                     cs("assets/sprites/solid_python/stand_up.png"),
                     cs("assets/sprites/solid_python/walk_up2.png")
                 ],
                 "LEFT": [
+                    cs("assets/sprites/solid_python/stand_left.png"),
                     cs("assets/sprites/solid_python/walk_left1.png"),
                     cs("assets/sprites/solid_python/stand_left.png"),
                     cs("assets/sprites/solid_python/walk_left2.png")
                 ],
                 "RIGHT": [
+                    cs("assets/sprites/solid_python/stand_right.png"),
                     cs("assets/sprites/solid_python/walk_right1.png"),
                     cs("assets/sprites/solid_python/stand_right.png"),
                     cs("assets/sprites/solid_python/walk_right2.png")
@@ -119,8 +123,8 @@ class Player(pygame.sprite.Sprite):
             self.anim_timer += dt
             if self.anim_timer >= self.animation_speed:
                 self.anim_timer = 0.0
-                # Alterna el índice del frame entre 0 y 1 ( Porque dos frames componen la anim. )
-                self.frame_index = (self.frame_index + 1) % 3
+                # Alterna el índice del frame entre 0 y 1 ( Porque cuatro frames componen la anim. )
+                self.frame_index = (self.frame_index + 1) % 4
         else:
             # Si se detiene, se resetea al frame estático principal, el IDLE.
             self.frame_index = 0
@@ -136,20 +140,4 @@ class Player(pygame.sprite.Sprite):
         # Dibujamos la imagen en la posición exacta del rect del jugador.
         surface.blit(current_image, self.rect)
 
-        # Indicador de dirección.
-        # Indicador visual simple de hacia dónde mira el Snake cuadrado ( Una barra blanca. ).
-        eye_rects = {
-            "DOWN": (self.rect.centerx - 4, self.rect.bottom - 6, 8, 4),
-            "UP": (self.rect.centerx - 4, self.rect.top + 2, 8, 4),
-            "LEFT": (self.rect.left + 2, self.centery if hasattr(self, 'centery') else self.rect.centery - 4, 4, 8),
-            "RIGHT": (self.rect.right - 6, self.rect.centery - 4, 4, 8)
-        }
-        # Dibujar indicador de dirección rápido.
-        if self.facing == "DOWN":
-            pygame.draw.rect(surface, (255, 255, 255), (self.rect.x + 12, self.rect.y + 24, 8, 4))
-        elif self.facing == "UP":
-            pygame.draw.rect(surface, (255, 255, 255), (self.rect.x + 12, self.rect.y + 4, 8, 4))
-        elif self.facing == "LEFT":
-            pygame.draw.rect(surface, (255, 255, 255), (self.rect.x + 4, self.rect.y + 12, 4, 8))
-        elif self.facing == "RIGHT":
-            pygame.draw.rect(surface, (255, 255, 255), (self.rect.x + 24, self.rect.y + 12, 4, 8))
+        
