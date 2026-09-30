@@ -1,6 +1,6 @@
 # Configuración de pantalla/ventana. 
-SCREEN_WIDTH = 1360
-SCREEN_HEIGHT = 768
+SCREEN_WIDTH = 768
+SCREEN_HEIGHT = 672
 FPS = 60
 
 # Velocidad de movimiento ( En píxeles por segundo, independiente de los FPS )

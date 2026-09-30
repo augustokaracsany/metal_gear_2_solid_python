@@ -10,8 +10,8 @@ class Player(pygame.sprite.Sprite):
         self.y = float(y)
         
         # Dimensiones temporales del sprite ( Placeholder esto. ).
-        self.width = 32
-        self.height = 32
+        self.width = 128
+        self.height = 128
         
         # Rect para colisiones y dibujado.
         self.rect = pygame.Rect(self.x, self.y, self.width, self.height)
@@ -19,6 +19,47 @@ class Player(pygame.sprite.Sprite):
         # Dirección actual ( "UP", "DOWN", "LEFT", "RIGHT" ).
         self.facing = "DOWN"
         self.is_moving = False
+
+        # CARGAR SPRITES.
+        # Control de animación y carga de sprites.
+        self.load_sprites()
+        self.anim_timer = 0.0
+        self.frame_index = 0
+        self.animation_speed = 0.15  # Velocidad de cambio de frame ( Segundos. )
+
+    # CARGAR SPRITES.
+    def load_sprites(self):
+        # Diccionario estructurado para acceder fácil a los sprites de las animaciones.
+        self.animations = {
+            "IDLE": {
+                "DOWN": pygame.image.load("assets/sprites/solid_python/stand_down.png").convert_alpha(),
+                "UP": pygame.image.load("assets/sprites/solid_python/stand_up.png").convert_alpha(),
+                "LEFT": pygame.image.load("assets/sprites/solid_python/stand_left.png").convert_alpha(),
+                "RIGHT": pygame.image.load("assets/sprites/solid_python/stand_right.png").convert_alpha(),
+            },
+            "WALK": {
+                "DOWN": [
+                    pygame.image.load("assets/sprites/solid_python/walk_down1.png").convert_alpha(),
+                    pygame.image.load("assets/sprites/solid_python/stand_down.png").convert_alpha(),
+                    pygame.image.load("assets/sprites/solid_python/walk_down2.png").convert_alpha()
+                ],
+                "UP": [
+                    pygame.image.load("assets/sprites/solid_python/walk_up1.png").convert_alpha(),
+                    pygame.image.load("assets/sprites/solid_python/stand_up.png").convert_alpha(),
+                    pygame.image.load("assets/sprites/solid_python/walk_up2.png").convert_alpha()
+                ],
+                "LEFT": [
+                    pygame.image.load("assets/sprites/solid_python/walk_left1.png").convert_alpha(),
+                    pygame.image.load("assets/sprites/solid_python/stand_left.png").convert_alpha(),
+                    pygame.image.load("assets/sprites/solid_python/walk_left2.png").convert_alpha()
+                ],
+                "RIGHT": [
+                    pygame.image.load("assets/sprites/solid_python/walk_right1.png").convert_alpha(),
+                    pygame.image.load("assets/sprites/solid_python/stand_right.png").convert_alpha(),
+                    pygame.image.load("assets/sprites/solid_python/walk_right2.png").convert_alpha()
+                ]
+            }
+        }
 
     def handle_input(self):
         keys = pygame.key.get_pressed()
@@ -64,11 +105,27 @@ class Player(pygame.sprite.Sprite):
         self.rect.x = round(self.x)
         self.rect.y = round(self.y)
 
+        # Lógica de animación por tiempo ( dt ).
+        if self.is_moving:
+            self.anim_timer += dt
+            if self.anim_timer >= self.animation_speed:
+                self.anim_timer = 0.0
+                # Alterna el índice del frame entre 0 y 1 ( Porque dos frames componen la anim. )
+                self.frame_index = (self.frame_index + 1) % 2
+        else:
+            # Si se detiene, se resetea al frame estático principal, el IDLE.
+            self.frame_index = 0
+            self.anim_timer = 0.0
+
     def draw(self, surface):
-        # Por ahora dibujamos un rectángulo ( Snake cuadrado ). 
-        # Más adelante acá va a ir la lógica de los sprites y los frames. Si Dios quiere.
-        color = (50, 168, 82) if self.facing != "UP" else (30, 100, 50)
-        pygame.draw.rect(surface, color, self.rect)
+        # Seleccionamos el sprite correspondiente según el estado.
+        if self.is_moving:
+            current_image = self.animations["WALK"][self.facing][self.frame_index]
+        else:
+            current_image = self.animations["IDLE"][self.facing]
+            
+        # Dibujamos la imagen en la posición exacta del rect del jugador.
+        surface.blit(current_image, self.rect)
 
         # Indicador de dirección.
         # Indicador visual simple de hacia dónde mira el Snake cuadrado ( Una barra blanca. ).
