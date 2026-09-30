@@ -1,0 +1,3 @@
+# Entorno virtual de Python. Recuerden núnca commitear el .venv.
+venv/
+.venv/
