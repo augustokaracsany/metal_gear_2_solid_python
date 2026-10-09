@@ -15,6 +15,15 @@ class Player(pygame.sprite.Sprite):
         
         # Rect para colisiones y dibujado.
         self.rect = pygame.Rect(self.x, self.y, self.width, self.height)
+
+        # Variables para golpear
+
+        self.is_punching = False
+        self.init_time_punch = 0
+        self.punch_length = 500
+
+        self.last_punch = 0
+        self.cooldown_punch = 600
         
         # Dirección actual ( "UP", "DOWN", "LEFT", "RIGHT" ).
         self.facing = "DOWN"
@@ -68,6 +77,12 @@ class Player(pygame.sprite.Sprite):
                     cs("assets/sprites/solid_python/stand_right.png"),
                     cs("assets/sprites/solid_python/walk_right2.png")
                 ]
+            },
+            "PUNCH": {
+                "DOWN": cs("assets/sprites/solid_python/punch_down.png"),
+                "UP": cs("assets/sprites/solid_python/punch_up.png"),
+                "LEFT": cs("assets/sprites/solid_python/punch_left.png"),
+                "RIGHT": cs("assets/sprites/solid_python/punch_right.png"),
             }
         }
         # Actualizamos el ancho y alto del rect del jugador según el tamaño de la nueva imagen escalada
@@ -76,25 +91,34 @@ class Player(pygame.sprite.Sprite):
 
     def handle_input(self):
         keys = pygame.key.get_pressed()
+
+        current_time = pygame.time.get_ticks()
         
         # Vector de movimiento en 2D.
         dx = 0
         dy = 0
         
         # Detecta teclas ( Flechas o WASD, como prefieras. ).
-        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-            dx = -1
-            self.facing = "LEFT"
-        elif keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-            dx = 1
-            self.facing = "RIGHT"
-            
-        if keys[pygame.K_UP] or keys[pygame.K_w]:
-            dy = -1
-            self.facing = "UP"
-        elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
-            dy = 1
-            self.facing = "DOWN"
+        if not self.is_punching:
+            if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+                dx = -1
+                self.facing = "LEFT"
+            elif keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+                dx = 1
+                self.facing = "RIGHT"
+                
+            if keys[pygame.K_UP] or keys[pygame.K_w]:
+                dy = -1
+                self.facing = "UP"
+            elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
+                dy = 1
+                self.facing = "DOWN"
+            if keys[pygame.K_e]:
+                if current_time - self.last_punch >= self.cooldown_punch:
+                    self.is_punching = True
+                    self.init_time_punch = current_time
+                    self.last_punch = current_time
+
             
         # Si se mueve en diagonal, se normaliza el vector para que no vaya más rápido de lo que debería en diagonal.
         if dx != 0 and dy != 0:
@@ -104,9 +128,15 @@ class Player(pygame.sprite.Sprite):
         return dx, dy
 
     def update(self, dt):
+        current_time = pygame.time.get_ticks()
+
+        if self.is_punching:
+            if current_time - self.init_time_punch >= self.punch_length:
+                self.is_punching = False
+
         dx, dy = self.handle_input()
         
-        if dx != 0 or dy != 0:
+        if (dx != 0 or dy != 0) and not self.is_punching:
             self.is_moving = True
             # Actualizamos la posición usando velocidad * delta_time.
             self.x += dx * PLAYER_SPEED * dt
@@ -132,7 +162,9 @@ class Player(pygame.sprite.Sprite):
 
     def draw(self, surface):
         # Seleccionamos el sprite correspondiente según el estado.
-        if self.is_moving:
+        if self.is_punching:
+            current_image = self.animations["PUNCH"][self.facing]
+        elif self.is_moving:
             current_image = self.animations["WALK"][self.facing][self.frame_index]
         else:
             current_image = self.animations["IDLE"][self.facing]
@@ -142,7 +174,9 @@ class Player(pygame.sprite.Sprite):
 
     def draw_with_camera(self, surface, camera):
         # Seleccionamos el sprite correspondiente según el estado
-        if self.is_moving:
+        if self.is_punching:
+            current_image = self.animations["PUNCH"][self.facing]
+        elif self.is_moving:
             current_image = self.animations["WALK"][self.facing][self.frame_index]
         else:
             current_image = self.animations["IDLE"][self.facing]

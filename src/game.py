@@ -10,6 +10,8 @@ class Game:
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pygame.display.set_caption("Metal Gear 2: Solid Python")
         self.clock = pygame.time.Clock()
+
+        pygame.mouse.set_visible(False)
         
         self.running = True 
 
