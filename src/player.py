@@ -1,5 +1,6 @@
 import pygame
 from src.settings import PLAYER_SPEED
+from src.obstacle import Obstacle
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, x, y):
@@ -35,6 +36,17 @@ class Player(pygame.sprite.Sprite):
         self.anim_timer = 0.0
         self.frame_index = 0
         self.animation_speed = 0.15  # Velocidad de cambio de frame ( Segundos. )
+
+    def punch_self_event(self, event):
+        current_time = pygame.time.get_ticks()
+
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_e:
+                if current_time - self.last_punch >= self.cooldown_punch:
+                    self.is_punching = True
+                    self.init_time_punch = current_time
+                    self.last_punch = current_time
+
 
     # CARGAR SPRITES.
     def load_sprites(self):
@@ -91,8 +103,6 @@ class Player(pygame.sprite.Sprite):
 
     def handle_input(self):
         keys = pygame.key.get_pressed()
-
-        current_time = pygame.time.get_ticks()
         
         # Vector de movimiento en 2D.
         dx = 0
@@ -113,11 +123,6 @@ class Player(pygame.sprite.Sprite):
             elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
                 dy = 1
                 self.facing = "DOWN"
-            if keys[pygame.K_e]:
-                if current_time - self.last_punch >= self.cooldown_punch:
-                    self.is_punching = True
-                    self.init_time_punch = current_time
-                    self.last_punch = current_time
 
             
         # Si se mueve en diagonal, se normaliza el vector para que no vaya más rápido de lo que debería en diagonal.
@@ -127,7 +132,7 @@ class Player(pygame.sprite.Sprite):
             
         return dx, dy
 
-    def update(self, dt):
+    def update(self, dt, walls_group):
         current_time = pygame.time.get_ticks()
 
         if self.is_punching:
@@ -138,9 +143,17 @@ class Player(pygame.sprite.Sprite):
         
         if (dx != 0 or dy != 0) and not self.is_punching:
             self.is_moving = True
-            # Actualizamos la posición usando velocidad * delta_time.
-            self.x += dx * PLAYER_SPEED * dt
-            self.y += dy * PLAYER_SPEED * dt
+            vel_x = dx * PLAYER_SPEED * dt
+            self.x += vel_x
+            self.rect.x = round(self.x)
+            self.check_collisions_x(walls_group, vel_x)
+            self.x = float(self.rect.x)
+
+            vel_y = dy * PLAYER_SPEED * dt
+            self.y += vel_y
+            self.rect.y = round(self.y)
+            self.check_collisions_y(walls_group, vel_y,)
+            self.y = float(self.rect.y)
         else:
             self.is_moving = False
 
@@ -159,6 +172,24 @@ class Player(pygame.sprite.Sprite):
             # Si se detiene, se resetea al frame estático principal, el IDLE.
             self.frame_index = 0
             self.anim_timer = 0.0
+
+    def check_collisions_x(self, walls_group, dx):
+        hits = pygame.sprite.spritecollide(self, walls_group, False)
+        for wall in hits:
+            if dx > 0:
+                self.rect.right = wall.rect.left
+            elif dx < 0:
+                self.rect.left = wall.rect.right
+            self.x = float(self.rect.x)
+
+    def check_collisions_y(self, walls_group, dy):
+        hits = pygame.sprite.spritecollide(self, walls_group, False)
+        for wall in hits:
+            if dy > 0:
+                self.rect.bottom = wall.rect.top
+            elif dy < 0:
+                self.rect.top = wall.rect.bottom
+            self.y = float(self.rect.y)
 
     def draw(self, surface):
         # Seleccionamos el sprite correspondiente según el estado.
