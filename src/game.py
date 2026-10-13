@@ -1,71 +1,60 @@
 import pygame
-import sys
-from src.settings import SCREEN_WIDTH, SCREEN_HEIGHT, FPS
 from src.player import Player
-from src.camera import Camera # Cámara.
+from src.camera import Camera
+from src.tilemap import TiledMap  # Asegúrate de haber creado este archivo
 
 class Game:
-    def __init__(self):
-        pygame.init()
-        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-        pygame.display.set_caption("Metal Gear 2: Solid Python")
-        self.clock = pygame.time.Clock()
+    def __init__(self, mission_number=1):
+        self.mission_number = mission_number
         
-        self.running = True 
-
-        # CARGAR EL MAPA DE FONDO.
+        # CARGAMOS EL MAPA DESDE TILED (.tmx)
         try:
-            raw_map = pygame.image.load("assets/sprites/maps/building1floor1.png").convert()
-        except FileNotFoundError:
-            # Por las dudas, si hay problemas de rutas, se crea una superficie de prueba provisional
-            print("AVISO: No se encontró el mapa en assets/maps/. Usando escenario VR temporal.")
-            raw_map = pygame.Surface((500, 500))
-            raw_map.fill((40, 40, 50))
+            self.map = TiledMap("assets/sprites/maps/entry_point_brightness3-576x768.tmx", scale=2)
+            
+        except Exception as e:
+            print(f"AVISO: No se pudo cargar el mapa TMX ({e}). Usando imagen plana de respaldo.")
+            self.map = None
+            # Retroceso a imagen anterior si falla Tiled o .tmx.
+            self.raw_map = pygame.image.load("assets/sprites/maps/entry_point_brightness3-576x768.png").convert()
+            self.map_scale = 2 
+            self.map_image = pygame.transform.scale(self.raw_map, (self.raw_map.get_width() * self.map_scale, self.raw_map.get_height() * self.map_scale))
 
-        # Definimos el factor de escala 
-        self.map_scale = 2 
-        new_width = raw_map.get_width() * self.map_scale
-        new_height = raw_map.get_height() * self.map_scale
+        # Definimos las dimensiones del mapa para la cámara.
+        if self.map:
+            map_width = self.map.width
+            map_height = self.map.height
+        else:
+            map_width = self.map_image.get_width()
+            map_height = self.map_image.get_height()
 
-        # Escalamos la imagen manteniendo los píxeles nítidos
-        self.map_image = pygame.transform.scale(raw_map, (new_width, new_height))
-
-        self.map_width = self.map_image.get_width()
-        self.map_height = self.map_image.get_height()
-
-        # Instanciamos la cámara con las dimensiones del mapa.
-        self.camera = Camera(self.map_width, self.map_height)
+        # Instanciamos la cámara con las dimensiones reales del mapa.
+        self.camera = Camera(map_width, map_height)
         
-        # Instanciamos a Snake en el centro de la pantalla.
-        self.player = Player(400, 400)
+        # Instanciamos a Snake en la posición inicial. <- Modificar si aparece afuera de límites.
+        self.player = Player(400, 350)
 
-    def run(self):
-        while self.running:
-            # 1. Calcular Delta Time
-            dt = self.clock.tick(FPS) / 1000.0
+    def handle_events(self, events):
+        # Eventos particulares del juego a futuro ( Pausa, disparos, etc. ).
+        pass
 
-            # 2. Eventos
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.running = False
+    def update(self, dt):
+        # 1. Obtener lista de rectángulos de colisión de Tiled.
+        walls = self.map.get_collision_rects() if self.map else []
+        
+        # 2. Actualización de Lógica del jugador pasándole los muros ( Walls. ).
+        self.player.update(dt, walls)
+        
+        # 3. Actualizamos la posición de la cámara centrada en Snake.
+        self.camera.update(self.player)
 
-            # 3. Actualización de Lógica
-            self.player.update(dt)
+    def draw(self, surface):
+        # 1. Limpiar pantalla.
+        surface.fill((0, 0, 0))
 
-            # 4. Renderizado
-            self.screen.fill((0, 0, 0))  # Limpiar pantalla
+        # 2. Dibujamos el mapa ( Tiled renderiza sus capas o usa la imagen plana de respaldo si falla. )
+        # NOTA: Dibujar el mapa de Tiled pasándole la cámara.
+        if self.map:
+            self.map.render(surface, self.camera)
 
-            # Actualizamos la posición de la cámara centrada en Snake
-            self.camera.update(self.player)
-
-            # Dibujamos el mapa desplazado por la cámara
-            self.screen.blit(self.map_image, self.camera.camera_rect.topleft)
-
-            # Dibujamos a Snake aplicando el desplazamiento de la cámara
-            # En lugar de pasarle self.screen directo, dibujamos usando la posición ajustada por la cámara:
-            self.player.draw_with_camera(self.screen, self.camera)
-
-            pygame.display.flip()
-
-        pygame.quit()
-        sys.exit()
+        # 3. Dibujamos a Snake aplicando el desplazamiento de la cámara. Explota.
+        self.player.draw_with_camera(surface, self.camera)

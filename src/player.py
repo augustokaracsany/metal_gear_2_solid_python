@@ -5,29 +5,22 @@ class Player(pygame.sprite.Sprite):
     def __init__(self, x, y):
         super().__init__()
         
-        # Posición exacta en decimales para que no sea tosco.
+        # Posición exacta en decimales para que el movimiento sea fluido.
         self.x = float(x)
         self.y = float(y)
         
-        # Dimensiones temporales del sprite ( Placeholder esto. ).
-        self.width = 128
-        self.height = 128
-        
-        # Rect para colisiones y dibujado.
-        self.rect = pygame.Rect(self.x, self.y, self.width, self.height)
-        
-        # Dirección actual ( "UP", "DOWN", "LEFT", "RIGHT" ).
+        # Dirección actual ("UP", "DOWN", "LEFT", "RIGHT").
         self.facing = "DOWN"
         self.is_moving = False
 
-        # CARGAR SPRITES.
         # Control de animación y carga de sprites.
-        self.load_sprites()
         self.anim_timer = 0.0
         self.frame_index = 0
-        self.animation_speed = 0.15  # Velocidad de cambio de frame ( Segundos. )
+        self.animation_speed = 0.15  # Segundos por CADA frame.
+        
+        # CARGAR SPRITES ( Inicializa self.rect con el tamaño real de la imagen escalada. ).
+        self.load_sprites()
 
-    # CARGAR SPRITES.
     def load_sprites(self):
         SCALE_FACTOR = 2
         def cs(path):
@@ -35,7 +28,7 @@ class Player(pygame.sprite.Sprite):
             w = int(img.get_width() * SCALE_FACTOR)
             h = int(img.get_height() * SCALE_FACTOR)
             return pygame.transform.scale(img, (w, h))
-        # Diccionario estructurado para acceder fácil a los sprites de las animaciones.
+
         self.animations = {
             "IDLE": {
                 "DOWN": cs("assets/sprites/solid_python/stand_down.png"),
@@ -70,18 +63,27 @@ class Player(pygame.sprite.Sprite):
                 ]
             }
         }
-        # Actualizamos el ancho y alto del rect del jugador según el tamaño de la nueva imagen escalada
+        
+        # Obtenemos la primera imagen para medir dimensiones.
         first_image = self.animations["IDLE"]["DOWN"]
-        self.rect = first_image.get_rect(topleft=(self.x, self.y))
+        img_width, img_height = first_image.get_size()
+
+        # CREAMOS UN RECT DE COLISIÓN AJUSTADO ( Más chico y ubicado en los pies. )
+        # Ancho menor para que no se trabe en pasillos angostos y alto reducido ( Ej: un tercio inferior. )
+        col_width = int(img_width * 0.6)   # 60% del ancho del Sprite.
+        col_height = int(img_height * 0.3) # 30% de la altura ( Zona de los pies. )
+        
+        self.rect = pygame.Rect(self.x, self.y, col_width, col_height)
+        
+        # Guardamos un offset para saber cuánto subir la imagen al dibujarla respecto al rect de colisión.
+        self.offset_x = (img_width - col_width) // 2
+        self.offset_y = img_height - col_height
 
     def handle_input(self):
         keys = pygame.key.get_pressed()
-        
-        # Vector de movimiento en 2D.
         dx = 0
         dy = 0
         
-        # Detecta teclas ( Flechas o WASD, como prefieras. ).
         if keys[pygame.K_LEFT] or keys[pygame.K_a]:
             dx = -1
             self.facing = "LEFT"
@@ -96,61 +98,76 @@ class Player(pygame.sprite.Sprite):
             dy = 1
             self.facing = "DOWN"
             
-        # Si se mueve en diagonal, se normaliza el vector para que no vaya más rápido de lo que debería en diagonal.
+        # Normalizar diagonal para velocidad constante
         if dx != 0 and dy != 0:
             dx *= 0.7071
             dy *= 0.7071
             
         return dx, dy
 
-    def update(self, dt):
+    def update(self, dt, walls):
         dx, dy = self.handle_input()
         
         if dx != 0 or dy != 0:
             self.is_moving = True
-            # Actualizamos la posición usando velocidad * delta_time.
+            
+            # MOVIMIENTO Y COLISIÓN EN EJE X 
             self.x += dx * PLAYER_SPEED * dt
+            self.rect.x = round(self.x)
+            
+            for wall in walls:
+                if self.rect.colliderect(wall):
+                    if dx > 0:
+                        self.rect.right = wall.left
+                    elif dx < 0:
+                        self.rect.left = wall.right # <- No volver a cambiar esto.
+                    self.x = float(self.rect.x)
+
+            # MOVIMIENTO Y COLISIÓN EN EJE Y 
             self.y += dy * PLAYER_SPEED * dt
+            self.rect.y = round(self.y)
+            
+            for wall in walls:
+                if self.rect.colliderect(wall):
+                    if dy > 0:
+                        self.rect.bottom = wall.top
+                    elif dy < 0:
+                        self.rect.top = wall.bottom
+                    self.y = float(self.rect.y)
         else:
             self.is_moving = False
 
-        # Sincronizamos el rect con la posición redondeada ( Clave para evitar tirones ).
-        self.rect.x = round(self.x)
-        self.rect.y = round(self.y)
-
-        # Lógica de animación por tiempo ( dt ).
+        # GESTIÓN DE ANIMACIÓN.
         if self.is_moving:
             self.anim_timer += dt
             if self.anim_timer >= self.animation_speed:
                 self.anim_timer = 0.0
-                # Alterna el índice del frame entre 0 y 1 ( Porque cuatro frames componen la anim. )
                 self.frame_index = (self.frame_index + 1) % 4
         else:
-            # Si se detiene, se resetea al frame estático principal, el IDLE.
             self.frame_index = 0
             self.anim_timer = 0.0
 
     def draw(self, surface):
-        # Seleccionamos el sprite correspondiente según el estado.
         if self.is_moving:
             current_image = self.animations["WALK"][self.facing][self.frame_index]
         else:
             current_image = self.animations["IDLE"][self.facing]
             
-        # Dibujamos la imagen en la posición exacta del rect del jugador.
-        surface.blit(current_image, self.rect)
+        # Se dibuja la imagen desplazada hacia arriba para que los pies coincidan con "self.rect".
+        draw_pos = (self.rect.x - self.offset_x, self.rect.y - self.offset_y)
+        surface.blit(current_image, draw_pos)
 
     def draw_with_camera(self, surface, camera):
-        # Seleccionamos el sprite correspondiente según el estado
         if self.is_moving:
             current_image = self.animations["WALK"][self.facing][self.frame_index]
         else:
             current_image = self.animations["IDLE"][self.facing]
             
-        # Obtenemos el rectángulo ajustado por la cámara
+        # Se obtiene la posición de la cámara basada en el rect de colisión ( Ubicado en los pies. )
         dest_rect = camera.apply(self)
         
-        # Dibujamos la imagen en la posición de la cámara
-        surface.blit(current_image, dest_rect)
-
+        # Offset visual para que el cuerpo quede arriba de los pies.
+        draw_x = dest_rect.x - self.offset_x
+        draw_y = dest_rect.y - self.offset_y
         
+        surface.blit(current_image, (draw_x, draw_y))
