@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="36" height="48" tilewidth="16" tileheight="16" infinite="0" nextlayerid="7" nextobjectid="99">
- <tileset firstgid="1" source="../../../../../../Desktop/metal_gear_2_solid_python_sprites/maps/colisiones.tsx"/>
+ <tileset firstgid="1" source="colisiones.tsx"/>
  <imagelayer id="2" name="entry point">
   <image source="../../../../../../Desktop/metal_gear_2_solid_python_sprites/maps/entry_point_brightness3-576x768.png" width="576" height="768"/>
  </imagelayer>

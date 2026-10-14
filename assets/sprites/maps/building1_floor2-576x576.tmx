@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="36" height="36" tilewidth="16" tileheight="16" infinite="0" nextlayerid="5" nextobjectid="21">
- <tileset firstgid="1" source="../../../Documents/GitHub/metal_gear_2_solid_python/assets/sprites/maps/colisiones.tsx"/>
+ <tileset firstgid="1" source="colisiones.tsx"/>
  <imagelayer id="2" name="building1_floor2">
   <image source="building1_floor2-576x576.png" width="576" height="576"/>
  </imagelayer>
