@@ -37,21 +37,20 @@ class Game:
         self.all_sprites.add(self.player)
 
     def handle_events(self, events):
-        # Procesamos eventos individuales (como el golpe con la 'E' de Lautaro)
+        # Procesamos eventos individuales ( Como GOLPEAR con la 'E'. )
         for event in events:
             if event.type == pygame.QUIT:
                 pygame.quit()
                 import sys
                 sys.exit()
             
-            # Incorporamos la función de golpear de Lautaro
+            # Incorporamos la función de golpear.
             self.player.punch_self_event(event)
 
     def update(self, dt):
         # 1. Obtener lista de rectángulos de colisión de Tiled o del grupo de paredes.
         walls = self.map.get_collision_rects() if self.map else []
-        
-        # Si prefieres usar también el walls_group, puedes combinarlos o pasar walls directamente.
+
         # 2. Actualización de Lógica del jugador pasándole los muros.
         self.player.update(dt, walls)
         
@@ -62,16 +61,11 @@ class Game:
         # 1. Limpiar pantalla.
         surface.fill((0, 0, 0))
 
-        # 2. Dibujamos el mapa (Tiled renderiza sus capas o usa la imagen plana de respaldo).
+        # 2. Dibujamos el mapa ( Tiled renderiza sus capas o usa la imagen plana de respaldo. ).
         if self.map:
             self.map.render(surface, self.camera)
         else:
             surface.blit(self.map_image, self.camera.camera_rect.topleft)
-
-        # (Opcional de Lautaro) Si quieres dibujar los rects de colisión para debug, descomenta esto:
-        # for wall in self.walls_group:
-        #     rect_en_pantalla = self.camera.apply(wall)
-        #     pygame.draw.rect(surface, (255, 0, 0), rect_en_pantalla, 2)
 
         # 3. Dibujamos a Snake aplicando el desplazamiento de la cámara.
         self.player.draw_with_camera(surface, self.camera)
