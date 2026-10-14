@@ -29,11 +29,6 @@ class Game:
             map_width = self.map_image.get_width()
             map_height = self.map_image.get_height()
 
-        # Cargar colisiones estáticas adicionales si usas map_data de Lautaro
-        for data in BUILDING_1_COLLIDERS:
-            wall = Obstacle(data["x"], data["y"], data["w"], data["h"])
-            self.walls_group.add(wall)
-
         # Instanciamos la cámara con las dimensiones reales del mapa.
         self.camera = Camera(map_width, map_height)
         
