@@ -2,9 +2,9 @@ import pygame
 import sys
 from src.settings import SCREEN_WIDTH, SCREEN_HEIGHT, FPS
 from src.player import Player
-from src.obstacle import Obstacle
-from src.map_data import BUILDING_1_COLLIDERS
-from src.camera import Camera # Cámara.
+from src.camera import Camera
+from src.enemy import Enemy
+from src.tilemap import TiledMap  # Tu sistema de mapas TMX
 
 class Game:
     def __init__(self):
@@ -19,6 +19,7 @@ class Game:
         # IMPORTANTE: Guardarlas como atributos de la clase (self.)
         self.all_sprites = pygame.sprite.Group()
         self.walls_group = pygame.sprite.Group()
+        self.enemies_group = pygame.sprite.Group()
 
         # CARGAR EL MAPA DE FONDO (Tu código actual de carga y escala...)
         try:
@@ -33,17 +34,54 @@ class Game:
         new_height = raw_map.get_height() * self.map_scale
         self.map_image = pygame.transform.scale(raw_map, (new_width, new_height))
 
-        self.map_width = self.map_image.get_width()
-        self.map_height = self.map_image.get_height()
+        # Instanciamos la cámara con las dimensiones reales del mapa.
+        self.camera = Camera(map_width, map_height)
+        
+        # Obtenemos las coordenadas de inicio desde el objeto 'player_spawn' del mapa Tiled
+        spawn_x, spawn_y = self.map.get_spawn_point("player_spawn", (400, 350)) if self.map else (400, 350)
+        
+        # Instanciamos a Snake en la posición del mapa
+        self.player = Player(spawn_x, spawn_y)
+        self.all_sprites.add(self.player)
+
+        patrol_routes = self.map.get_patrol_path("enemy_patrols")
+
+        if patrol_routes:
+            # Tomamos la primera ruta completa
+            ruta_actual = patrol_routes[0]
+            
+            # El punto de inicio (x, y) es el primer nodo de esa ruta (índice 0, 0 para X y 0, 1 para Y)
+            pos_inicial_x = ruta_actual[0][0]
+            pos_inicial_y = ruta_actual[0][1]
+            
+            # Instanciamos al enemigo usando tu constructor tal cual lo escribiste
+            guardia = Enemy(pos_inicial_x, pos_inicial_y, ruta_actual)
+            self.enemies_group.add(guardia)
+        
+    def handle_events(self, events):
+        # Procesamos eventos individuales ( Como GOLPEAR con la 'E'. )
+        for event in events:
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                import sys
+                sys.exit()
+            
+            # Incorporamos la función de golpear.
+            self.player.punch_self_event(event)
 
         # Llenar el grupo de paredes
         for data in BUILDING_1_COLLIDERS:
             wall = Obstacle(data["x"], data["y"], data["w"], data["h"])
             self.walls_group.add(wall)
 
-        # Instanciamos la cámara y al jugador
-        self.camera = Camera(self.map_width, self.map_height)
-        self.player = Player(400, 400)
+        # 2. Actualización de Lógica del jugador pasándole los muros.
+        self.player.update(dt, walls)
+
+        for enemy in self.enemies_group:
+            enemy.update(dt)
+        
+        # 3. Actualizamos la posición de la cámara centrada en Snake.
+        self.camera.update(self.player)
 
     def run(self):
         while self.running:
@@ -55,29 +93,8 @@ class Game:
                 if event.type == pygame.QUIT:
                     self.running = False
 
-                self.player.punch_self_event(event)
+        # 3. Dibujamos a Snake aplicando el desplazamiento de la cámara.
+        self.player.draw_with_camera(surface, self.camera)
 
-            # 3. Actualización de Lógica
-            self.player.update(dt, self.walls_group)
-
-            # 4. Renderizado
-            self.screen.fill((0, 0, 0))  # Limpiar pantalla
-
-            # Actualizamos la posición de la cámara centrada en Snake
-            self.camera.update(self.player)
-
-            # Dibujamos el mapa desplazado por la cámara
-            self.screen.blit(self.map_image, self.camera.camera_rect.topleft)
-
-            for wall in self.walls_group:
-                rect_en_pantalla = self.camera.apply(wall)
-                pygame.draw.rect(self.screen, (255, 0, 0), rect_en_pantalla, 2)
-
-            # Dibujamos a Snake aplicando el desplazamiento de la cámara
-            # En lugar de pasarle self.screen directo, dibujamos usando la posición ajustada por la cámara:
-            self.player.draw_with_camera(self.screen, self.camera)
-
-            pygame.display.flip()
-
-        pygame.quit()
-        sys.exit()
+        for enemy in self.enemies_group:
+            enemy.draw_with_camera(surface, self.camera)
