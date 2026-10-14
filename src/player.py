@@ -1,5 +1,6 @@
 import pygame
 from src.settings import PLAYER_SPEED
+from src.obstacle import Obstacle
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, x, y):
@@ -8,6 +9,13 @@ class Player(pygame.sprite.Sprite):
         # Posición exacta en decimales para que el movimiento sea fluido.
         self.x = float(x)
         self.y = float(y)
+        
+        # Variables para golpear (añadidas por Lautaro)
+        self.is_punching = False
+        self.init_time_punch = 0
+        self.punch_length = 500
+        self.last_punch = 0
+        self.cooldown_punch = 600
         
         # Dirección actual ("UP", "DOWN", "LEFT", "RIGHT").
         self.facing = "DOWN"
@@ -21,6 +29,16 @@ class Player(pygame.sprite.Sprite):
         # CARGAR SPRITES ( Inicializa self.rect con el tamaño real de la imagen escalada. ).
         self.load_sprites()
 
+    def punch_self_event(self, event):
+        current_time = pygame.time.get_ticks()
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_e:
+                if current_time - self.last_punch >= self.cooldown_punch:
+                    self.is_punching = True
+                    self.init_time_punch = current_time
+                    self.last_punch = current_time
+
+    # CARGAR SPRITES.
     def load_sprites(self):
         SCALE_FACTOR = 2
         def cs(path):
@@ -61,6 +79,12 @@ class Player(pygame.sprite.Sprite):
                     cs("assets/sprites/solid_python/stand_right.png"),
                     cs("assets/sprites/solid_python/walk_right2.png")
                 ]
+            },
+            "PUNCH": {
+                "DOWN": cs("assets/sprites/solid_python/punch_down.png"),
+                "UP": cs("assets/sprites/solid_python/punch_up.png"),
+                "LEFT": cs("assets/sprites/solid_python/punch_left.png"),
+                "RIGHT": cs("assets/sprites/solid_python/punch_right.png"),
             }
         }
         
@@ -68,8 +92,7 @@ class Player(pygame.sprite.Sprite):
         first_image = self.animations["IDLE"]["DOWN"]
         img_width, img_height = first_image.get_size()
 
-        # CREAMOS UN RECT DE COLISIÓN AJUSTADO ( Más chico y ubicado en los pies. )
-        # Ancho menor para que no se trabe en pasillos angostos y alto reducido ( Ej: un tercio inferior. )
+        # CREAMOS UN RECT DE COLISIÓN AJUSTADO
         col_width = int(img_width * 0.6)   # 60% del ancho del Sprite.
         col_height = int(img_height * 0.3) # 30% de la altura ( Zona de los pies. )
         
@@ -84,19 +107,21 @@ class Player(pygame.sprite.Sprite):
         dx = 0
         dy = 0
         
-        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-            dx = -1
-            self.facing = "LEFT"
-        elif keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-            dx = 1
-            self.facing = "RIGHT"
-            
-        if keys[pygame.K_UP] or keys[pygame.K_w]:
-            dy = -1
-            self.facing = "UP"
-        elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
-            dy = 1
-            self.facing = "DOWN"
+        # Detecta teclas solo si no está golpeando
+        if not self.is_punching:
+            if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+                dx = -1
+                self.facing = "LEFT"
+            elif keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+                dx = 1
+                self.facing = "RIGHT"
+                
+            if keys[pygame.K_UP] or keys[pygame.K_w]:
+                dy = -1
+                self.facing = "UP"
+            elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
+                dy = 1
+                self.facing = "DOWN"
             
         # Normalizar diagonal para velocidad constante
         if dx != 0 and dy != 0:
@@ -105,35 +130,32 @@ class Player(pygame.sprite.Sprite):
             
         return dx, dy
 
-    def update(self, dt, walls):
+    def update(self, dt, walls_group):
+        current_time = pygame.time.get_ticks()
+
+        # Control del temporizador del golpe
+        if self.is_punching:
+            if current_time - self.init_time_punch >= self.punch_length:
+                self.is_punching = False
+
         dx, dy = self.handle_input()
         
-        if dx != 0 or dy != 0:
+        if (dx != 0 or dy != 0) and not self.is_punching:
             self.is_moving = True
             
-            # MOVIMIENTO Y COLISIÓN EN EJE X 
-            self.x += dx * PLAYER_SPEED * dt
+            # MOVIMIENTO Y COLISIÓN EN EJE X (usando método auxiliar de Lautaro)
+            vel_x = dx * PLAYER_SPEED * dt
+            self.x += vel_x
             self.rect.x = round(self.x)
-            
-            for wall in walls:
-                if self.rect.colliderect(wall):
-                    if dx > 0:
-                        self.rect.right = wall.left
-                    elif dx < 0:
-                        self.rect.left = wall.right # <- No volver a cambiar esto.
-                    self.x = float(self.rect.x)
+            self.check_collisions_x(walls_group, vel_x)
+            self.x = float(self.rect.x)
 
-            # MOVIMIENTO Y COLISIÓN EN EJE Y 
-            self.y += dy * PLAYER_SPEED * dt
+            # MOVIMIENTO Y COLISIÓN EN EJE Y (usando método auxiliar de Lautaro)
+            vel_y = dy * PLAYER_SPEED * dt
+            self.y += vel_y
             self.rect.y = round(self.y)
-            
-            for wall in walls:
-                if self.rect.colliderect(wall):
-                    if dy > 0:
-                        self.rect.bottom = wall.top
-                    elif dy < 0:
-                        self.rect.top = wall.bottom
-                    self.y = float(self.rect.y)
+            self.check_collisions_y(walls_group, vel_y)
+            self.y = float(self.rect.y)
         else:
             self.is_moving = False
 
@@ -147,26 +169,45 @@ class Player(pygame.sprite.Sprite):
             self.frame_index = 0
             self.anim_timer = 0.0
 
+    def check_collisions_x(self, walls_group, dx):
+        hits = pygame.sprite.spritecollide(self, walls_group, False)
+        for wall in hits:
+            if dx > 0:
+                self.rect.right = wall.rect.left
+            elif dx < 0:
+                self.rect.left = wall.rect.right
+            self.x = float(self.rect.x)
+
+    def check_collisions_y(self, walls_group, dy):
+        hits = pygame.sprite.spritecollide(self, walls_group, False)
+        for wall in hits:
+            if dy > 0:
+                self.rect.bottom = wall.rect.top
+            elif dy < 0:
+                self.rect.top = wall.rect.bottom
+            self.y = float(self.rect.y)
+
     def draw(self, surface):
-        if self.is_moving:
+        if self.is_punching:
+            current_image = self.animations["PUNCH"][self.facing]
+        elif self.is_moving:
             current_image = self.animations["WALK"][self.facing][self.frame_index]
         else:
             current_image = self.animations["IDLE"][self.facing]
             
-        # Se dibuja la imagen desplazada hacia arriba para que los pies coincidan con "self.rect".
         draw_pos = (self.rect.x - self.offset_x, self.rect.y - self.offset_y)
         surface.blit(current_image, draw_pos)
 
     def draw_with_camera(self, surface, camera):
-        if self.is_moving:
+        if self.is_punching:
+            current_image = self.animations["PUNCH"][self.facing]
+        elif self.is_moving:
             current_image = self.animations["WALK"][self.facing][self.frame_index]
         else:
             current_image = self.animations["IDLE"][self.facing]
             
-        # Se obtiene la posición de la cámara basada en el rect de colisión ( Ubicado en los pies. )
         dest_rect = camera.apply(self)
         
-        # Offset visual para que el cuerpo quede arriba de los pies.
         draw_x = dest_rect.x - self.offset_x
         draw_y = dest_rect.y - self.offset_y
         
