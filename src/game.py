@@ -2,8 +2,6 @@ import pygame
 from src.player import Player
 from src.camera import Camera
 from src.tilemap import TiledMap  # Tu sistema de mapas TMX
-from src.obstacle import Obstacle
-from src.map_data import BUILDING_1_COLLIDERS
 
 class Game:
     def __init__(self, mission_number=1):
