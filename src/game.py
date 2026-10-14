@@ -32,10 +32,13 @@ class Game:
         # Instanciamos la cámara con las dimensiones reales del mapa.
         self.camera = Camera(map_width, map_height)
         
-        # Instanciamos a Snake en la posición inicial.
-        self.player = Player(400, 350)
+        # Obtenemos las coordenadas de inicio desde el objeto 'player_spawn' del mapa Tiled
+        spawn_x, spawn_y = self.map.get_spawn_point("player_spawn", (400, 350)) if self.map else (400, 350)
+        
+        # Instanciamos a Snake en la posición del mapa
+        self.player = Player(spawn_x, spawn_y)
         self.all_sprites.add(self.player)
-
+        
     def handle_events(self, events):
         # Procesamos eventos individuales ( Como GOLPEAR con la 'E'. )
         for event in events:
