@@ -4,7 +4,8 @@ SCREEN_HEIGHT = 672
 FPS = 60
 
 # Velocidad de movimiento ( En píxeles por segundo, independiente de los FPS. )
-PLAYER_SPEED = 100  # Se puede subir o bajar según qué tan rápido quieren que corra el Snake.
+PLAYER_SPEED = 500  # Se puede subir o bajar según qué tan rápido quieren que corra el Snake.
+# Velocidad = 500
 
 # Colores del MENÚ.
 COLOR_BG = (10, 10, 15)
