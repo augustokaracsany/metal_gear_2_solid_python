@@ -59,6 +59,8 @@ def main():
                 current_state = game_instance
 
         elif isinstance(current_state, Game):
+            # Se delegan los eventos al juego. Como la ACCIÓN DE GOLPEAR. ( E. )
+            current_state.handle_events(events)
             # Si el jugador presiona ESC dentro del juego, se vuelve al menú principal:
             for event in events:
                 if event.type == pygame.QUIT:
@@ -66,7 +68,7 @@ def main():
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                     current_state = menu_manager  # Volver al menú
 
-            current_state.update(dt)
+            current_state.update(dt) # CLAVE. NO CAMBIAR.
 
         # 2. RENDERIZADO.
         screen.fill((0, 0, 0))

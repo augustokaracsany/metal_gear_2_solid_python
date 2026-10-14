@@ -1,6 +1,5 @@
 import pygame
 from src.settings import PLAYER_SPEED
-from src.obstacle import Obstacle
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, x, y):
@@ -169,23 +168,23 @@ class Player(pygame.sprite.Sprite):
             self.frame_index = 0
             self.anim_timer = 0.0
 
-    def check_collisions_x(self, walls_group, dx):
-        hits = pygame.sprite.spritecollide(self, walls_group, False)
-        for wall in hits:
-            if dx > 0:
-                self.rect.right = wall.rect.left
-            elif dx < 0:
-                self.rect.left = wall.rect.right
-            self.x = float(self.rect.x)
+    def check_collisions_x(self, walls, dx):
+        for wall in walls:
+            if self.rect.colliderect(wall):
+                if dx > 0:
+                    self.rect.right = wall.left
+                elif dx < 0:
+                    self.rect.left = wall.right
+                self.x = float(self.rect.x)
 
-    def check_collisions_y(self, walls_group, dy):
-        hits = pygame.sprite.spritecollide(self, walls_group, False)
-        for wall in hits:
-            if dy > 0:
-                self.rect.bottom = wall.rect.top
-            elif dy < 0:
-                self.rect.top = wall.rect.bottom
-            self.y = float(self.rect.y)
+    def check_collisions_y(self, walls, dy):
+        for wall in walls:
+            if self.rect.colliderect(wall):
+                if dy > 0:
+                    self.rect.bottom = wall.top
+                elif dy < 0:
+                    self.rect.top = wall.bottom
+                self.y = float(self.rect.y)
 
     def draw(self, surface):
         if self.is_punching:
