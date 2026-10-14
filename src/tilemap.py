@@ -37,13 +37,16 @@ class TiledMap:
         rects = []
         
         # 1. Cajas de objetos, formas, selecciones ( Capa "colisiones_objs" Tiled. ) ESCALADO X2
-        for obj in self.tmx_data.objects:
-            rects.append(pygame.Rect(
-                int(obj.x * self.scale), 
-                int(obj.y * self.scale), 
-                int(obj.width * self.scale), 
-                int(obj.height * self.scale)
-            ))
+        for layer in self.tmx_data.visible_layers:
+            if layer.name == "colisiones_objs":
+                for obj in layer:
+                    rects.append(pygame.Rect(
+                        int(obj.x * self.scale), 
+                        int(obj.y * self.scale), 
+                        int(obj.width * self.scale), 
+                        int(obj.height * self.scale)
+                    ))
+            
             
         # 2. Tiles de grilla de CELDAS ( "colisiones_grid" Tiled. ) ESCALADO X2
         for layer in self.tmx_data.visible_layers:
@@ -58,3 +61,11 @@ class TiledMap:
                                 int(self.tmx_data.tileheight * self.scale)
                             ))
         return rects
+
+    def get_spawn_point(self, name="player_spawn", default=(400, 350)):
+        """Busca un objeto en el mapa de Tiled por su nombre y devuelve sus coordenadas escaladas."""
+        for obj in self.tmx_data.objects:
+            if obj.name == name:
+                return int(obj.x * self.scale), int(obj.y * self.scale)
+        return default
+    
