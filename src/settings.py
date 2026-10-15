@@ -8,7 +8,7 @@ PLAYER_SPEED = 500  # Se puede subir o bajar según qué tan rápido quieren que
 # Velocidad = 500
 
 # Colores del MENÚ.
-COLOR_BG = (10, 10, 15)
+COLOR_BG = (0, 0, 0) # Color de Fondo BackGround, Negro.
 COLOR_TEXT = (240, 240, 240)
 COLOR_ACCENT = (50, 205, 50)  # Verde.
 COLOR_HOVER = (255, 215, 0)   # Amarillo <- HOVER/Selección.
