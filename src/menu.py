@@ -34,7 +34,7 @@ class MenuManager:
         self.font_btn = pygame.font.Font(None, 32)
         
         # Datos de misiones ( Nivel 1 desbloqueado por defecto, 2, 3, 4 bloqueados. )
-        self.max_unlocked_mission = 1 
+        self.max_unlocked_mission = 2
         self.selected_mission = 1
 
         # Botones del Menú Principal:
