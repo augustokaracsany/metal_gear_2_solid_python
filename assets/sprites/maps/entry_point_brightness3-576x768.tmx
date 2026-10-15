@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="36" height="48" tilewidth="16" tileheight="16" infinite="0" nextlayerid="7" nextobjectid="99">
+<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="36" height="48" tilewidth="16" tileheight="16" infinite="0" nextlayerid="8" nextobjectid="106">
+ <editorsettings>
+  <export target="entry_point_brightness3-576x768.tmx" format="tmx"/>
+ </editorsettings>
  <tileset firstgid="1" source="colisiones.tsx"/>
  <imagelayer id="2" name="entry point">
-  <image source="../../../../../../Desktop/metal_gear_2_solid_python_sprites/maps/entry_point_brightness3-576x768.png" width="576" height="768"/>
+  <image source="entry_point_brightness3-576x768.png" width="576" height="768"/>
  </imagelayer>
  <layer id="1" name="colisiones_grid" width="36" height="48">
   <data encoding="csv">
@@ -141,6 +144,16 @@
   <object id="96" x="456" y="496" width="16" height="4"/>
  </objectgroup>
  <objectgroup color="#aa55ff" id="6" name="player_spawn" class="spawn">
-  <object id="98" name="player_spawn" x="332" y="704" width="12" height="12"/>
+  <object id="105" name="player_spawn" x="286.515" y="85.3333">
+   <point/>
+  </object>
+ </objectgroup>
+ <objectgroup id="7" name="enemy_patrols">
+  <object id="99" name="Soldier1_Waypoint" x="152" y="119.75">
+   <point/>
+  </object>
+  <object id="103" name="FirstZone_Path" x="145.25" y="113.285">
+   <polygon points="0,0 218.974,-0.285176 219.5,56.4647 0.263189,56.1796"/>
+  </object>
  </objectgroup>
 </map>

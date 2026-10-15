@@ -13,3 +13,7 @@ COLOR_TEXT = (240, 240, 240)
 COLOR_ACCENT = (50, 205, 50)  # Verde.
 COLOR_HOVER = (255, 215, 0)   # Amarillo <- HOVER/Selección.
 COLOR_DISABLED = (80, 80, 80)
+
+ENEMY_SPEED = 40
+
+

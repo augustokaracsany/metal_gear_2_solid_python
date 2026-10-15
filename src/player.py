@@ -9,7 +9,7 @@ class Player(pygame.sprite.Sprite):
         self.x = float(x)
         self.y = float(y)
         
-        # Variables para golpear. 
+        # Variables para golpear (añadidas por Lautaro)
         self.is_punching = False
         self.init_time_punch = 0
         self.punch_length = 500
@@ -247,6 +247,7 @@ class Player(pygame.sprite.Sprite):
         dx = 0
         dy = 0
         
+        # Detecta teclas solo si no está golpeando
         if not self.is_punching:
             if keys[pygame.K_LEFT] or keys[pygame.K_a]:
                 dx = -1
@@ -261,6 +262,11 @@ class Player(pygame.sprite.Sprite):
             elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
                 dy = 1
                 self.facing = "DOWN"
+            
+        # Normalizar diagonal para velocidad constante
+        if dx != 0 and dy != 0:
+            dx *= 0.7071
+            dy *= 0.7071
             
         # Velocidad en diagonal idéntica a los ejes cardinales ( Sin multiplicar por 0.7071. )
         return dx, dy
@@ -279,6 +285,7 @@ class Player(pygame.sprite.Sprite):
 
         current_time = pygame.time.get_ticks()
 
+        # Control del temporizador del golpe
         if self.is_punching:
             if current_time - self.init_time_punch >= self.punch_length:
                 self.is_punching = False

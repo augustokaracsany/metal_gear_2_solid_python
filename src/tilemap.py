@@ -68,4 +68,23 @@ class TiledMap:
             if obj.name == name:
                 return int(obj.x * self.scale), int(obj.y * self.scale)
         return default
-    
+
+    def get_patrol_path(self, layer_name="enemy_patrols"):
+        patrol_paths = []
+
+# PATRULLA ENEMIGO. RUTA.
+        for layer in self.tmx_data.visible_layers:
+            if layer.name == layer_name:
+                for obj in layer:
+                    if hasattr(obj, 'points'):
+                        scaled_points = []
+                        for p in obj.points:
+                            px = p[0] * self.scale
+                            # Si quieres subir toda la ruta, puedes restar un valor fijo (ej. 30 o 40 píxeles)
+                            py = (p[1] * self.scale) - 35 
+                            scaled_points.append((int(px), int(py)))
+                        
+                        if scaled_points:
+                            patrol_paths.append(scaled_points)
+                            
+        return patrol_paths
