@@ -2,7 +2,8 @@ import pygame
 from src.player import Player
 from src.camera import Camera
 from src.enemy import Enemy # MERGE.
-from src.tilemap import TiledMap  # Tu sistema de mapas TMX
+from src.tilemap import TiledMap  # Mapas TMX
+from src.settings import SCREEN_WIDTH, SCREEN_HEIGHT
 
 class Game:
     def __init__(self, mission_number=1):
@@ -35,7 +36,7 @@ class Game:
         self.all_sprites = pygame.sprite.Group()
         self.walls_group = pygame.sprite.Group()
         self.enemies_group = pygame.sprite.Group()
-
+        
         # 2. CARGAMOS EL MAPA DINÁMICAMENTE SEGÚN LA MISIÓN SELECCIONADA
         try:
             self.map = TiledMap(current_level["tmx"], scale=2)
@@ -46,7 +47,11 @@ class Game:
             self.map_scale = 2 
             self.map_image = pygame.transform.scale(self.raw_map, (self.raw_map.get_width() * self.map_scale, self.raw_map.get_height() * self.map_scale))
 
-        # Definimos las dimensiones del mapa para la cámara.
+        # Cargamos las zonas ocultas desde Tiled ( Si el mapa existe)
+        self.hidden_zones = self.map.get_hidden_zones("zonas_oculto") if self.map else []
+        
+
+        # Obtenemos las dimensiones reales del mapa para la cámara.
         if self.map:
             map_width = self.map.width
             map_height = self.map.height
@@ -54,12 +59,17 @@ class Game:
             map_width = self.map_image.get_width()
             map_height = self.map_image.get_height()
 
-        # Instanciamos la cámara con las dimensiones reales del mapa.
-        self.camera = Camera(map_width, map_height)
+        # Definimos una resolución virtual más pequeña (la mitad de la pantalla = zoom x2 visual perfecto)
+        self.virtual_width = SCREEN_WIDTH // 2
+        self.virtual_height = SCREEN_HEIGHT // 2
+        self.virtual_surface = pygame.Surface((self.virtual_width, self.virtual_height))
+
+        # Instanciamos la cámara pasándole el tamaño virtual correcto
+        self.camera = Camera(map_width, map_height, self.virtual_width, self.virtual_height)
         
         # Obtenemos las coordenadas de inicio desde el objeto 'player_spawn' del mapa Tiled
         spawn_x, spawn_y = self.map.get_spawn_point("player_spawn", (400, 350)) if self.map else (400, 350)
-        
+
         # Instanciamos a Snake en la posición del mapa
         self.player = Player(spawn_x, spawn_y)
         self.all_sprites.add(self.player)
@@ -98,22 +108,36 @@ class Game:
 
         for enemy in self.enemies_group:
             enemy.update(dt)
+
+        # --- VERIFICAR SI SNAKE ESTÁ EN UNA ZONA OCULTA ---
+        is_hidden_now = False
+        for zone in self.hidden_zones:
+            if self.player.rect.colliderect(zone):
+                is_hidden_now = True
+                break
         
+        self.player.is_hidden = is_hidden_now
+        if is_hidden_now:
+            print("¡Snake está oculto en el recoveco!")
+
         # 3. Actualizamos la posición de la cámara centrada en Snake.
         self.camera.update(self.player)
 
     def draw(self, surface):
-        # 1. Limpiar pantalla.
-        surface.fill((0, 0, 0))
+        # 1. Limpiamos el lienzo virtual interno
+        self.virtual_surface.fill((0, 0, 0))
 
-        # 2. Dibujamos el mapa ( Tiled renderiza sus capas o usa la imagen plana de respaldo. ).
+        # 2. Dibujamos todo en la superficie virtual (mapa, Snake y enemigos)
         if self.map:
-            self.map.render(surface, self.camera)
+            self.map.render(self.virtual_surface, self.camera)
         else:
-            surface.blit(self.map_image, self.camera.camera_rect.topleft) 
+            self.virtual_surface.blit(self.map_image, self.camera.camera_rect.topleft) 
         
-        # 3. Dibujamos a Snake aplicando el desplazamiento de la cámara.
-        self.player.draw_with_camera(surface, self.camera)
+        self.player.draw_with_camera(self.virtual_surface, self.camera)
 
         for enemy in self.enemies_group:
-            enemy.draw_with_camera(surface, self.camera)
+            enemy.draw_with_camera(self.virtual_surface, self.camera)
+
+        # 3. Escalamos la superficie virtual a la pantalla real de Pygame manteniendo la nitidez pixel art
+        scaled_surface = pygame.transform.scale(self.virtual_surface, (surface.get_width(), surface.get_height()))
+        surface.blit(scaled_surface, (0, 0))

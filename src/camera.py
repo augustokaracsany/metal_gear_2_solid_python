@@ -1,31 +1,30 @@
 import pygame
 
 class Camera:
-    def __init__(self, width, height):
-        # Ancho WIDTH y Alto HEIGHT total del mapa de fondo en píxeles.
+    def __init__(self, width, height, viewport_width=None, viewport_height=None):
         self.width = width
         self.height = height
+        
+        from src.settings import SCREEN_WIDTH, SCREEN_HEIGHT
+        self.viewport_width = viewport_width if viewport_width else SCREEN_WIDTH
+        self.viewport_height = viewport_height if viewport_height else SCREEN_HEIGHT
+        
         self.camera_rect = pygame.Rect(0, 0, width, height)
 
     def apply(self, entity):
-        # Desplaza la posición de cualquier entidad ( Snake, paredes, etc. ) según la cámara.
         return entity.rect.move(self.camera_rect.topleft)
 
     def apply_pos(self, x, y):
         return x + self.camera_rect.x, y + self.camera_rect.y
 
     def update(self, target):
-        # Centra la cámara en el objetivo ( Snake. ).
-        # SCREEN_WIDTH y SCREEN_HEIGHT deben coincidir con settings.
-        from src.settings import SCREEN_WIDTH, SCREEN_HEIGHT
-        
-        x = -target.rect.centerx + int(SCREEN_WIDTH / 2)
-        y = -target.rect.centery + int(SCREEN_HEIGHT / 2)
+        x = -target.rect.centerx + int(self.viewport_width / 2)
+        y = -target.rect.centery + int(self.viewport_height / 2)
 
-        # Limitamos la cámara para que no muestre nada "afuera" de los bordes del mapa.
-        x = min(0, x)  # Bordes izquierdos.
-        y = min(0, y)  # Bordes superiores.
-        x = max(-(self.width - SCREEN_WIDTH), x)   # Bordes derechos.
-        y = max(-(self.height - SCREEN_HEIGHT), y) # Bordes inferiores.
+        # Limitamos usando el tamaño del visor virtual para evitar espacios negros
+        x = min(0, x)
+        y = min(0, y)
+        x = max(-(self.width - self.viewport_width), x)
+        y = max(-(self.height - self.viewport_height), y)
 
-        self.camera_rect = pygame.Rect(x, y, self.width, self.height)
+        self.camera_rect = pygame.Rect(int(x), int(y), self.width, self.height)

@@ -502,4 +502,4 @@ class Player(pygame.sprite.Sprite):
         # Debería mostrarse a los pies de Snake, estando de pie, agachado,
         # y en el centro de su cuerpo ( Aprox. ) al estar cuerpo a tierra.
         # Descomentar para que funcione: 
-        # pygame.draw.rect(surface, (255, 0, 0), dest_rect, 2)
+        pygame.draw.rect(surface, (255, 0, 0), dest_rect, 2)

@@ -88,3 +88,20 @@ class TiledMap:
                             patrol_paths.append(scaled_points)
                             
         return patrol_paths
+
+    def get_hidden_zones(self, layer_name="zonas_oculto"):
+        """Devuelve una lista de pygame.Rect con las zonas donde Snake debe quedar oculto."""
+        print("Capa encontrada")
+        hidden_rects = []
+        print("Capa encontrada")
+        if layer_name in self.tmx_data.layers:
+            layer = self.tmx_data.get_layer_by_name(layer_name)
+            for obj in layer:
+                # Multiplicamos por la escala (x2) para que coincida con las coordenadas del mundo
+                rx = obj.x * self.scale
+                ry = obj.y * self.scale
+                rw = obj.width * self.scale
+                rh = obj.height * self.scale
+                hidden_rects.append(pygame.Rect(rx, ry, rw, rh))
+                print("Capa encontrada")
+        return hidden_rects
