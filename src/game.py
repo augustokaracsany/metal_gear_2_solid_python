@@ -80,6 +80,9 @@ class Game:
         self.camera.update(self.player)
 
     def draw(self, surface):
+
+        walls = self.map.get_collision_rects() if self.map else []
+
         # 1. Limpiar pantalla.
         surface.fill((0, 0, 0))
 
@@ -94,3 +97,6 @@ class Game:
 
         for enemy in self.enemies_group:
             enemy.draw_with_camera(surface, self.camera)
+            
+            # ¡Aquí llamamos a la función de visión para que se dibuje y compruebe colisiones!
+            enemy.check_vision(self.player, walls, surface, self.camera)
