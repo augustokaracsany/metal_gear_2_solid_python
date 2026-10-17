@@ -47,10 +47,6 @@ class Game:
             self.map_scale = 2 
             self.map_image = pygame.transform.scale(self.raw_map, (self.raw_map.get_width() * self.map_scale, self.raw_map.get_height() * self.map_scale))
 
-        # Cargamos las zonas ocultas desde Tiled ( Si el mapa existe)
-        self.hidden_zones = self.map.get_hidden_zones("zonas_oculto") if self.map else []
-        
-
         # Obtenemos las dimensiones reales del mapa para la cámara.
         if self.map:
             map_width = self.map.width
@@ -70,6 +66,18 @@ class Game:
         # Obtenemos las coordenadas de inicio desde el objeto 'player_spawn' del mapa Tiled
         spawn_x, spawn_y = self.map.get_spawn_point("player_spawn", (400, 350)) if self.map else (400, 350)
 
+        # Cargamos las zonas ocultas de forma segura
+        if self.map:
+            self.hidden_zones = self.map.get_hidden_zones("zonas_oculto")
+            self.hidden_zones_top = self.map.get_hidden_zones("zonas_oculto_top")
+        if not hasattr(self, "hidden_zones") or self.hidden_zones is None:
+            self.hidden_zones = []
+        if not hasattr(self, "hidden_zones_top") or self.hidden_zones_top is None:
+            self.hidden_zones_top = []
+
+        # LÍMITES SUPERIORES DE ZONAS OCULTAS POR DONDE NO SE PUEDE ENTRAR Y SALIR VERTICALMENTE. ( Que SÍ tienen límite. Un "tope superior." )
+        self.top_barriers = self.map.get_top_barriers("limites_top") if self.map else []
+                
         # Instanciamos a Snake en la posición del mapa
         self.player = Player(spawn_x, spawn_y)
         self.all_sprites.add(self.player)
@@ -77,59 +85,43 @@ class Game:
         patrol_routes = self.map.get_patrol_path("enemy_patrols")
 
         if patrol_routes:
-            # Tomamos la primera ruta completa
             ruta_actual = patrol_routes[0]
-            
-            # El punto de inicio (x, y) es el primer nodo de esa ruta (índice 0, 0 para X y 0, 1 para Y)
             pos_inicial_x = ruta_actual[0][0]
             pos_inicial_y = ruta_actual[0][1]
-            
-            # Instanciamos al enemigo usando tu constructor tal cual lo escribiste
             guardia = Enemy(pos_inicial_x, pos_inicial_y, ruta_actual)
             self.enemies_group.add(guardia)
         
     def handle_events(self, events):
-        # Procesamos eventos individuales ( Como GOLPEAR con la 'E'. )
         for event in events:
             if event.type == pygame.QUIT:
                 pygame.quit()
                 import sys
                 sys.exit()
-            
-            # Incorporamos la función de golpear.
             self.player.punch_self_event(event)
 
     def update(self, dt):
-        # 1. Obtener lista de rectángulos de colisión de Tiled o del grupo de paredes.
         walls = self.map.get_collision_rects() if self.map else []
 
-        # 2. Actualización de Lógica del jugador pasándole los muros.
-        self.player.update(dt, walls)
+        # Actualización de Lógica del jugador (toda la responsabilidad de estado y zonas vive en player.py)
+        self.player.update(
+            dt,
+            walls,
+            self.top_barriers,
+            self.hidden_zones,
+            self.hidden_zones_top,
+        )
 
         for enemy in self.enemies_group:
             enemy.update(dt)
-
-        # --- VERIFICAR SI SNAKE ESTÁ EN UNA ZONA OCULTA ---
-        is_hidden_now = False
-        for zone in self.hidden_zones:
-            if self.player.rect.colliderect(zone):
-                is_hidden_now = True
-                break
-        
-        self.player.is_hidden = is_hidden_now
-        if is_hidden_now:
-            print("¡Snake está oculto en el recoveco!")
 
         # 3. Actualizamos la posición de la cámara centrada en Snake.
         self.camera.update(self.player)
 
     def draw(self, surface):
-        # 1. Limpiamos el lienzo virtual interno
         self.virtual_surface.fill((0, 0, 0))
 
-        # 2. Dibujamos todo en la superficie virtual (mapa, Snake y enemigos)
         if self.map:
-            self.map.render(self.virtual_surface, self.camera)
+            self.map.render_below(self.virtual_surface, self.camera)
         else:
             self.virtual_surface.blit(self.map_image, self.camera.camera_rect.topleft) 
         
@@ -138,6 +130,18 @@ class Game:
         for enemy in self.enemies_group:
             enemy.draw_with_camera(self.virtual_surface, self.camera)
 
-        # 3. Escalamos la superficie virtual a la pantalla real de Pygame manteniendo la nitidez pixel art
+        if self.map:
+            self.map.render_roofs(
+                self.virtual_surface,
+                self.camera,
+                render_condition=self.player.is_hidden,
+            )
+
         scaled_surface = pygame.transform.scale(self.virtual_surface, (surface.get_width(), surface.get_height()))
         surface.blit(scaled_surface, (0, 0))
+
+        # --- DEBUG VISUAL DE ZONAS OCULTAS ---
+        if hasattr(self, "hidden_zones") and self.hidden_zones:
+            for zone in self.hidden_zones:
+                debug_screen_rect = zone.move(self.camera.camera_rect.topleft)
+                pygame.draw.rect(self.virtual_surface, (0, 255, 255), debug_screen_rect, 2)
