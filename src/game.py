@@ -124,6 +124,11 @@ class Game:
     def draw(self, surface):
         self.virtual_surface.fill((0, 0, 0))
 
+        walls = self.map.get_collision_rects() if self.map else []
+
+        # 1. Limpiar pantalla.
+        surface.fill((0, 0, 0))
+
         if self.map:
             self.map.render_below(self.virtual_surface, self.camera)
         else:
@@ -149,3 +154,7 @@ class Game:
             for zone in self.hidden_zones:
                 debug_screen_rect = zone.move(self.camera.camera_rect.topleft)
                 pygame.draw.rect(self.virtual_surface, (0, 255, 255), debug_screen_rect, 2)
+            enemy.draw_with_camera(surface, self.camera)
+            
+            # ¡Aquí llamamos a la función de visión para que se dibuje y compruebe colisiones!
+            enemy.check_vision(self.player, walls, surface, self.camera)

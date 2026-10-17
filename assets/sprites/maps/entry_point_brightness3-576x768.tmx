@@ -157,8 +157,8 @@
   <object id="99" name="Soldier1_Waypoint" x="152" y="119.75">
    <point/>
   </object>
-  <object id="103" name="FirstZone_Path" x="145.25" y="113.285">
-   <polygon points="0,0 218.974,-0.285176 219.5,56.4647 0.263189,56.1796"/>
+  <object id="103" name="FirstZone_Path" x="145.25" y="113.308">
+   <polygon points="0,0 217.659,-0.307789 218.182,60.942 0.261608,60.6343"/>
   </object>
  </objectgroup>
  <objectgroup color="#aa00ff" id="8" name="zonas_oculto">
