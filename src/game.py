@@ -69,11 +69,14 @@ class Game:
         # Cargamos las zonas ocultas de forma segura
         if self.map:
             self.hidden_zones = self.map.get_hidden_zones("zonas_oculto")
-            self.hidden_zones_top = self.map.get_hidden_zones("zonas_oculto_top")
+            self.hidden_zones_top = self.map.get_hidden_zones_top()
+            self.hidden_zones_bottom = self.map.get_hidden_zones_bottom()
         if not hasattr(self, "hidden_zones") or self.hidden_zones is None:
             self.hidden_zones = []
         if not hasattr(self, "hidden_zones_top") or self.hidden_zones_top is None:
             self.hidden_zones_top = []
+        if not hasattr(self, "hidden_zones_bottom") or self.hidden_zones_bottom is None:
+            self.hidden_zones_bottom = []
 
         # LÍMITES SUPERIORES DE ZONAS OCULTAS POR DONDE NO SE PUEDE ENTRAR Y SALIR VERTICALMENTE. ( Que SÍ tienen límite. Un "tope superior." )
         self.top_barriers = self.map.get_top_barriers("limites_top") if self.map else []
@@ -109,6 +112,7 @@ class Game:
             self.top_barriers,
             self.hidden_zones,
             self.hidden_zones_top,
+            self.hidden_zones_bottom,
         )
 
         for enemy in self.enemies_group:

@@ -36,7 +36,10 @@ class Player(pygame.sprite.Sprite):
         self.is_hidden = False
         self.hidden_zones = []
         self.hidden_zones_top = []
+        self.hidden_zones_bottom = []
         self.top_barriers = []
+        self.active_hidden_top_zone = None
+        self.active_hidden_bottom_marker = None
 
         # Control de animación y carga de sprites
         self.anim_timer = 0.0
@@ -232,11 +235,12 @@ class Player(pygame.sprite.Sprite):
             
         return dx, dy
 
-    def update(self, dt, walls_group, top_barriers=None, hidden_zones=None, hidden_zones_top=None):
+    def update(self, dt, walls_group, top_barriers=None, hidden_zones=None, hidden_zones_top=None, hidden_zones_bottom=None):
         self.current_walls = walls_group
         self.top_barriers = top_barriers if top_barriers is not None else []
         self.hidden_zones = hidden_zones if hidden_zones is not None else []
         self.hidden_zones_top = hidden_zones_top if hidden_zones_top is not None else []
+        self.hidden_zones_bottom = hidden_zones_bottom if hidden_zones_bottom is not None else []
 
         self.is_hidden = self.stance == "CRAWL" and self._is_inside_hidden_zone(self.rect)
 
@@ -254,20 +258,7 @@ class Player(pygame.sprite.Sprite):
                 self.is_punching = False
 
         facing_before_input = self.facing
-        was_inside_hidden_zone = self.stance == "CRAWL" and self.is_hidden
         dx, dy = self.handle_input()
-        if was_inside_hidden_zone:
-            dx = 0
-            if dy < 0:
-                self.facing = "UP"
-            elif dy > 0:
-                self.facing = "DOWN"
-            else:
-                self.facing = (
-                    facing_before_input
-                    if facing_before_input in ("UP", "DOWN")
-                    else "UP"
-                )
 
         self.update_offsets_for_stance()
 
@@ -277,6 +268,25 @@ class Player(pygame.sprite.Sprite):
             current_speed = PLAYER_SPEED * 0.10 
         elif self.stance == "CRAWL":
             current_speed = PLAYER_SPEED * 0.08  
+
+        if self.stance == "CRAWL" and dy < 0 and self.active_hidden_top_zone is None:
+            proposed_rect = self.rect.copy()
+            proposed_rect.x = round(self.x + dx * current_speed * dt)
+            proposed_rect.y = round(self.y + dy * current_speed * dt)
+            entry = self._find_hidden_top_entry(proposed_rect, self.rect)
+            if entry is not None:
+                self.active_hidden_top_zone, self.active_hidden_bottom_marker = entry
+
+        was_inside_hidden_zone = self.stance == "CRAWL" and self._is_inside_hidden_zone(self.rect)
+        if was_inside_hidden_zone:
+            dx = 0
+            if dy < 0:
+                self.facing = "UP"
+            elif dy > 0:
+                self.facing = "DOWN"
+            else:
+                self.facing = facing_before_input if facing_before_input in ("UP", "DOWN") else "UP"
+            self.update_offsets_for_stance()
 
         # Descontar temporizador de retención si está agachado forzosamente
         if self.forced_crouch:
@@ -331,6 +341,14 @@ class Player(pygame.sprite.Sprite):
                 self.frame_index = 0
             self.anim_timer = 0.0
 
+        if (
+            self.active_hidden_top_zone is not None
+            and not self.rect.colliderect(self.active_hidden_top_zone)
+            and not self.rect.colliderect(self.active_hidden_bottom_marker)
+        ):
+            self.active_hidden_top_zone = None
+            self.active_hidden_bottom_marker = None
+
         self.is_hidden = self.stance == "CRAWL" and self._is_inside_hidden_zone(self.rect)
 
     def check_collisions_x(self, walls, dx):
@@ -380,8 +398,7 @@ class Player(pygame.sprite.Sprite):
                 if not is_crawl_passage_wall:
                     collided_with_normal_wall = True
 
-        # 2. Comprobamos colisión con los topes superiores (top_barriers) únicamente en CRAWL
-        if self.stance == "CRAWL" and hasattr(self, 'top_barriers') and self.top_barriers:
+        if self.stance == "CRAWL" and self.top_barriers:
             for barrier in self.top_barriers:
                 if not self.rect.colliderect(barrier):
                     continue
@@ -392,10 +409,14 @@ class Player(pygame.sprite.Sprite):
                     if not zone.left <= previous_rect.centerx < zone.right:
                         continue
 
-                    if dy < 0 and self._rect_is_inside_top_zone(previous_rect, zone):
-                        self.rect.top = barrier.bottom
-                    elif dy > 0 and previous_rect.centery < zone.top:
+                    if dy > 0 and previous_rect.bottom <= barrier.top:
                         self.rect.bottom = barrier.top
+                    elif (
+                        dy < 0
+                        and self.active_hidden_top_zone is zone
+                        and self._rect_is_inside_top_zone(previous_rect, zone)
+                    ):
+                        self.rect.top = barrier.bottom
                     else:
                         continue
 
@@ -418,20 +439,79 @@ class Player(pygame.sprite.Sprite):
         return horizontal_overlap and barrier.bottom == zone.top
 
     def _is_inside_hidden_zone(self, rect):
+        if any(rect.colliderect(zone) for zone in self.hidden_zones):
+            return True
         return (
-            any(zone.collidepoint(rect.center) for zone in self.hidden_zones)
-            or any(self._rect_is_inside_top_zone(rect, zone) for zone in self.hidden_zones_top)
+            self.active_hidden_top_zone is not None
+            and (
+                self._rect_is_inside_top_zone(rect, self.active_hidden_top_zone)
+                or rect.colliderect(self.active_hidden_bottom_marker)
+            )
         )
+
+    def _find_hidden_top_entry(self, proposed_rect, previous_rect):
+        for marker in self.hidden_zones_bottom:
+            if not proposed_rect.colliderect(marker) or previous_rect.centery < marker.bottom:
+                continue
+
+            zone = next(
+                (
+                    zone for zone in self.hidden_zones_top
+                    if zone.left < marker.right
+                    and zone.right > marker.left
+                    and zone.bottom == marker.top
+                ),
+                None,
+            )
+            if zone is not None:
+                return zone, marker
+        return None
 
     def _wall_is_in_crawlable_zone(self, wall, player_rect=None):
         player_rect = player_rect if player_rect is not None else self.rect
         return (
-            any(zone.collidepoint(player_rect.center) and zone.colliderect(wall) for zone in self.hidden_zones)
-            or any(
-                player_rect.colliderect(zone) and zone.colliderect(wall)
+            any(player_rect.colliderect(zone) and zone.colliderect(wall) for zone in self.hidden_zones)
+            or (
+                self.active_hidden_top_zone is not None
+                and (
+                    player_rect.colliderect(self.active_hidden_top_zone)
+                    or player_rect.colliderect(self.active_hidden_bottom_marker)
+                )
+                and self.active_hidden_top_zone.colliderect(wall)
+            )
+        )
+
+    def _wall_is_on_inactive_top_surface(self, wall, player_rect):
+        return (
+            self.active_hidden_top_zone is None
+            and any(
+                zone.colliderect(wall)
+                and zone.left <= player_rect.centerx < zone.right
+                and player_rect.bottom <= zone.top
                 for zone in self.hidden_zones_top
             )
         )
+
+    def _wall_is_ahead_of_bottom_entry(self, wall, player_rect):
+        if self.stance != "CRAWL" or self.facing != "UP" or self.active_hidden_top_zone is not None:
+            return False
+
+        for marker in self.hidden_zones_bottom:
+            if not marker.left <= player_rect.centerx < marker.right or player_rect.top < marker.top:
+                continue
+
+            zone = next(
+                (
+                    zone for zone in self.hidden_zones_top
+                    if zone.left < marker.right
+                    and zone.right > marker.left
+                    and zone.bottom == marker.top
+                ),
+                None,
+            )
+            if zone is not None and zone.colliderect(wall):
+                return True
+        return False
 
     def can_crawl(self):
         if not hasattr(self, 'current_walls') or not self.current_walls:
@@ -451,7 +531,10 @@ class Player(pygame.sprite.Sprite):
 
         for wall in self.current_walls:
             if test_rect.colliderect(wall):
-                if not self._wall_is_in_crawlable_zone(wall, test_rect):
+                if (
+                    not self._wall_is_in_crawlable_zone(wall, test_rect)
+                    and not self._wall_is_on_inactive_top_surface(wall, self.rect)
+                ):
                     return False
         return True
 
@@ -473,7 +556,11 @@ class Player(pygame.sprite.Sprite):
 
         for wall in self.current_walls:
             if test_rect.colliderect(wall):
-                if not self._wall_is_in_crawlable_zone(wall, test_rect):
+                if (
+                    not self._wall_is_in_crawlable_zone(wall, test_rect)
+                    and not self._wall_is_on_inactive_top_surface(wall, self.rect)
+                    and not self._wall_is_ahead_of_bottom_entry(wall, self.rect)
+                ):
                     return True
         return False
 

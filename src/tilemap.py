@@ -155,6 +155,12 @@ class TiledMap:
             print(f"Aviso al leer las zonas ocultas (se ignora de forma segura): {e}")
             
         return hidden_rects  # SIEMPRE devuelve una lista, nunca None
+
+    def get_hidden_zones_top(self):
+        return self.get_hidden_zones("zonas_oculto_top")
+
+    def get_hidden_zones_bottom(self):
+        return self.get_hidden_zones("zonas_oculto_bottom")
     
     def get_top_barriers(self, layer_name="limites_top"):
         barriers = []
