@@ -21,7 +21,7 @@ class Camera:
         x = -target.rect.centerx + int(self.viewport_width / 2)
         y = -target.rect.centery + int(self.viewport_height / 2)
 
-        # Limitamos usando el tamaño del visor virtual para evitar espacios negros
+        # Limitamos usando el tamaño del visor virtual para evitar espacios negros.
         x = min(0, x)
         y = min(0, y)
         x = max(-(self.width - self.viewport_width), x)

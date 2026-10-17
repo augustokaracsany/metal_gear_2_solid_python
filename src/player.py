@@ -587,6 +587,15 @@ class Player(pygame.sprite.Sprite):
                 if not self._wall_is_in_crawlable_zone(wall, test_rect):
                     return False
         return True
+#NUEVO
+    def is_near_hidden_zone(self, margin=15):
+        # Solo aplica el margen anticipado si Snake está efectivamente en postura CRAWL
+        if self.stance != "CRAWL":
+            return False
+            
+        test_rect = self.rect.copy()
+        test_rect.inflate_ip(margin, margin)
+        return self._is_inside_hidden_zone(test_rect)
     
     def draw_with_camera(self, surface, camera):
         current_image = None

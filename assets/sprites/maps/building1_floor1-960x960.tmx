@@ -1,37 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="60" height="60" tilewidth="16" tileheight="16" infinite="0" nextlayerid="14" nextobjectid="279">
+<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="60" height="60" tilewidth="16" tileheight="16" infinite="0" nextlayerid="15" nextobjectid="279">
+ <editorsettings>
+  <export target="building1_floor1.tmx" format="tmx"/>
+ </editorsettings>
  <tileset firstgid="1" source="colisiones.tsx"/>
- <tileset firstgid="2" name="hidden_roofs" tilewidth="96" tileheight="64" tilecount="9" columns="0">
-  <grid orientation="orthogonal" width="1" height="1"/>
-  <tile id="0">
-   <image source="hid/hid1.png" width="96" height="48"/>
-  </tile>
-  <tile id="1">
-   <image source="hid/hid2.png" width="32" height="32"/>
-  </tile>
-  <tile id="2">
-   <image source="hid/hid3.png" width="32" height="48"/>
-  </tile>
-  <tile id="3">
-   <image source="hid/hid4.png" width="48" height="32"/>
-  </tile>
-  <tile id="4">
-   <image source="hid/hid5.png" width="32" height="32"/>
-  </tile>
-  <tile id="5">
-   <image source="hid/hid6.png" width="48" height="48"/>
-  </tile>
-  <tile id="6">
-   <image source="hid/tank_hid1.png" width="48" height="64"/>
-  </tile>
-  <tile id="7">
-   <image source="hid/tank_hid2.png" width="48" height="64"/>
-  </tile>
-  <tile id="8">
-   <image source="hid/hid7.png" width="80" height="48"/>
-  </tile>
- </tileset>
- <imagelayer id="4" name="building1_floor1">
+ <tileset firstgid="2" source="hidden_roofs.tsx"/>
+ <imagelayer id="14" name="building1_floor1-960x960">
   <image source="building1_floor1-960x960.png" width="960" height="960"/>
  </imagelayer>
  <layer id="1" name="colisiones_grid" width="60" height="60">
@@ -400,7 +374,7 @@
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,12,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,

@@ -138,7 +138,7 @@ class Game:
             self.map.render_roofs(
                 self.virtual_surface,
                 self.camera,
-                render_condition=self.player.is_hidden,
+                render_condition=self.player.is_hidden or self.player.is_near_hidden_zone(margin=30),
             )
 
         scaled_surface = pygame.transform.scale(self.virtual_surface, (surface.get_width(), surface.get_height()))
