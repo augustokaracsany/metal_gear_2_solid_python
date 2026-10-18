@@ -43,6 +43,10 @@ class Player(pygame.sprite.Sprite):
         self.anim_timer = 0.0
         self.frame_index = 0
         self.animation_speed = 0.15  # Segundos por CADA frame.
+
+        # --- SISTEMA DE INVENTARIO Y DISFRAZ (CAJA DE CARTÓN) ---
+        self.inventory = []          # Guardará ítems como "cardboard_box"
+        self.is_disguised = False    # True cuando Snake tiene puesta la caja
         
         # CARGAR SPRITES.
         self.load_sprites_data()
@@ -57,33 +61,61 @@ class Player(pygame.sprite.Sprite):
         # Offsets específicos por postura para evitar que flote.
         self.update_offsets_for_stance()
 
+    #CAJA
+
+    def collect_items(self, items_group):
+        """Mecánica para recoger ítems del piso (como la caja dentro del camión)."""
+        hits = pygame.sprite.spritecollide(self, items_group, True)
+        for item in hits:
+            if item.name not in self.inventory:
+                self.inventory.append(item.name)
+                print(f"¡Conseguido ítem: {item.name}!")
+
+    def toggle_box_disguise(self):
+        """Alterna el uso de la caja si está en el inventario."""
+        if "cardboard_box" in self.inventory:
+            self.is_disguised = not self.is_disguised
+            if self.is_disguised:
+                # Forzamos postura erguida al ponerse la caja y cancelamos transiciones pendientes.
+                self.is_transitioning = False
+                self.target_stance = None
+                self.forced_crouch = False
+                self.set_stance("STAND")
+            print("Disfraz:", "Caja equipada" if self.is_disguised else "Sin caja")
+
     def punch_self_event(self, event):
         current_time = pygame.time.get_ticks()
         if event.type == pygame.KEYDOWN:
+            # === AGREGADO: TECLA 'B' PARA EQUIPAR/DESEQUIPAR LA CAJA ===
+            if event.key == pygame.K_b:
+                if "cardboard_box" in self.inventory:
+                    self.toggle_box_disguise()
+
             if event.key == pygame.K_e:
-                # MECÁNICA NUEVA: Solo puede golpear si está completamente de pie ( "STAND" ). Imposible que te golpee un tipo tirado en el piso.
-                if self.stance == "STAND":
+                # Solo golpea si está erguido y no lleva la caja puesta
+                if self.stance == "STAND" and not self.is_disguised:
                     if current_time - self.last_punch >= self.cooldown_punch:
                         self.is_punching = True
                         self.init_time_punch = current_time
                         self.last_punch = current_time
             
             elif event.key == pygame.K_c:
-                if self.stance == "STAND":
-                    self.set_stance("CROUCH")
-                elif self.stance == "CROUCH":
-                    self.set_stance("STAND")
-                elif self.stance == "CRAWL":
-                    self.set_stance("CROUCH")
+                # 'C' solo sirve para agacharse (la caja se equipa con 'B'). Con la caja puesta no se agacha.
+                if not self.is_disguised:
+                    if self.stance == "STAND":
+                        self.set_stance("CROUCH")
+                    elif self.stance == "CROUCH":
+                        self.set_stance("STAND")
+                    elif self.stance == "CRAWL":
+                        self.set_stance("CROUCH")
                     
             elif event.key in (pygame.K_LCTRL, pygame.K_RCTRL):
-                if self.stance in ("STAND", "CROUCH"):
-                    if self.can_crawl() and self.has_space_behind():
-                        # De "Stand"/"Crouch" a "Crawl" pasando antes por agachado. 
-                        self.start_stance_transition("CRAWL")
-                elif self.stance == "CRAWL":
-                    # De "Crawl" a "Stand" pasando por agachado.
-                    self.start_stance_transition("STAND")
+                if not self.is_disguised:
+                    if self.stance in ("STAND", "CROUCH"):
+                        if self.can_crawl() and self.has_space_behind():
+                            self.start_stance_transition("CRAWL")
+                    elif self.stance == "CRAWL":
+                        self.start_stance_transition("STAND")
 
     def set_stance(self, new_stance):
         if new_stance != self.stance:
@@ -102,6 +134,16 @@ class Player(pygame.sprite.Sprite):
             w = int(img.get_width() * SCALE_FACTOR)
             h = int(img.get_height() * SCALE_FACTOR)
             return pygame.transform.scale(img, (w, h))
+
+    # Cargar sprite de la Caja de Cartón
+        try:
+            raw_box = pygame.image.load("assets/sprites/solid_python/cardboard_box.png").convert_alpha()
+            w = int(raw_box.get_width() * SCALE_FACTOR)
+            h = int(raw_box.get_height() * SCALE_FACTOR)
+            self.box_sprite = pygame.transform.scale(raw_box, (w, h))
+        except Exception as e:
+            print(f"Error cargando sprite de la caja: {e}")
+            self.box_sprite = None
 
         # Snake quieto, 4 dir.
         self.animations = {
@@ -181,7 +223,9 @@ class Player(pygame.sprite.Sprite):
         col_height = int(stand_h * 0.3)  # Alto compacto del rect físico.
 
         # Identificamos qué imagen se está usando.
-        if self.stance == "STAND":
+        if self.is_disguised and self.box_sprite:
+            ref_img = self.box_sprite
+        elif self.stance == "STAND":
             ref_img = self.animations["IDLE"][self.facing]
         elif self.stance == "CROUCH":
             ref_img = self.animations["CROUCH"][self.facing][0]
@@ -205,31 +249,6 @@ class Player(pygame.sprite.Sprite):
         else:
             # Para STAND/CROUCH, mantenemos la alineación en la base de los pies. Funciona.
             self.offset_y = img_height - col_height
-
-    # NOTA: Borrar.
-    # def update_offsets_for_stance(self):
-    #     """Calcula el offset ( FIXEAR DESPUÉS. ) exacto para cada postura para que la base del sprite encaje con los pies."""
-    #     stand_img = self.animations["IDLE"]["DOWN"]
-    #     stand_w, stand_h = stand_img.get_size()
-    #     col_width = int(stand_w * 0.6)
-    #     col_height = int(stand_h * 0.3)
-
-    # Se rompió todo.
-    #     if self.stance == "STAND":
-    #         ref_img = self.animations["IDLE"][self.facing]
-    #     elif self.stance == "CROUCH":
-    #         ref_img = self.animations["CROUCH"][self.facing][0]
-    #     else: 
-    #         ref_img = self.animations["CRAWL"][self.facing][0]
-
-    #     img_width, img_height = ref_img.get_size()
-
-    #     self.offset_x = (img_width - col_width) // 2
-        
-    #     if self.stance == "CRAWL":
-    #         self.offset_y = img_height - (col_height // 1.2)
-    #     else:
-    #         self.offset_y = img_height - col_height
 
     def start_stance_transition(self, target_stance):
         """Inicia una transición pasando brevemente por el estado CROUCH."""
@@ -474,7 +493,11 @@ class Player(pygame.sprite.Sprite):
     
     def draw_with_camera(self, surface, camera):
         current_image = None
-        if self.is_punching:
+
+        # === AGREGADO: MOSTRAR SPRITE DE LA CAJA SI ESTÁ DISFRAZADO ===
+        if self.is_disguised and self.box_sprite:
+            current_image = self.box_sprite
+        elif self.is_punching:
             current_image = self.animations["PUNCH"][self.facing]
         elif self.is_moving:
             if self.stance == "CROUCH":
@@ -497,9 +520,3 @@ class Player(pygame.sprite.Sprite):
         draw_y = dest_rect.y - self.offset_y
         
         surface.blit(current_image, (draw_x, draw_y))
-
-        # Para DEBUG: DIBUJA LA COLISIÓN EN TIEMPO REAL COMO UN CUADRADO ROJO.
-        # Debería mostrarse a los pies de Snake, estando de pie, agachado,
-        # y en el centro de su cuerpo ( Aprox. ) al estar cuerpo a tierra.
-        # Descomentar para que funcione: 
-        # pygame.draw.rect(surface, (255, 0, 0), dest_rect, 2)

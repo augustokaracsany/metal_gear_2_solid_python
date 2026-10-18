@@ -125,3 +125,5 @@ class Enemy(pygame.sprite.Sprite):
 
         # Dibujamos la imagen del enemigo en la posición de la cámara
         surface.blit(current_image, dest_rect)
+
+        

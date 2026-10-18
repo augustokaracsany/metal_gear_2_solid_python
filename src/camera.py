@@ -28,4 +28,10 @@ class Camera:
         x = max(-(self.width - SCREEN_WIDTH), x)   # Bordes derechos.
         y = max(-(self.height - SCREEN_HEIGHT), y) # Bordes inferiores.
 
+        # Si el mapa es más chico que la pantalla en algún eje, lo centramos en vez de pegarlo a un borde.
+        if self.width < SCREEN_WIDTH:
+            x = (SCREEN_WIDTH - self.width) // 2
+        if self.height < SCREEN_HEIGHT:
+            y = (SCREEN_HEIGHT - self.height) // 2
+
         self.camera_rect = pygame.Rect(x, y, self.width, self.height)

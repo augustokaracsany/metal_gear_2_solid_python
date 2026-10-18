@@ -1,6 +1,7 @@
 import pygame
 from src.settings import SCREEN_WIDTH, SCREEN_HEIGHT, COLOR_BG, COLOR_TEXT, COLOR_ACCENT, COLOR_HOVER, COLOR_DISABLED
 
+
 class Button:
     def __init__(self, text, x, y, width, height, font):
         self.text = text
@@ -30,8 +31,28 @@ class Button:
 class MenuManager:
     def __init__(self):
         self.state = "MAIN_MENU"  # MAIN_MENU, MISSIONS, CONTROLS, CREDITS, START_GAME, EXIT
-        self.font_title = pygame.font.Font(None, 48)
-        self.font_btn = pygame.font.Font(None, 32)
+        FONT_PATH = "assets/fonts/PressStart2P-Regular.ttf"
+        self.font_title = pygame.font.Font(FONT_PATH, 24)
+        self.font_subtitle = pygame.font.Font(FONT_PATH, 14) 
+        self.font_btn = pygame.font.Font(FONT_PATH, 12)       
+        self.font_small = pygame.font.Font(FONT_PATH, 9)      
+
+        # Cargar e escalar la imagen del título del juego
+        try:
+            raw_title_img = pygame.image.load("assets/intro/title_logo.png").convert_alpha()
+            # Escalar la imagen a un tamaño adecuado para la pantalla del menú
+            self.title_img = pygame.transform.scale(raw_title_img, (450, 90))
+        except Exception:
+            self.title_img = None
+
+        # Cargar e escalar la imagen del arma para los controles
+        try:
+            raw_gun_img = pygame.image.load("assets/intro/gun.png").convert_alpha()
+            # Aumentamos el tamaño de la imagen para que destaque en pantalla
+            self.gun_img = pygame.transform.scale(raw_gun_img, (500, 400))
+        except Exception as e:
+            print(f"Error al cargar la imagen del arma: {e}")
+            self.gun_img = None
         
         # Datos de misiones ( Nivel 1 desbloqueado por defecto, 2, 3, 4 bloqueados. )
         self.max_unlocked_mission = 2
@@ -99,10 +120,14 @@ class MenuManager:
         mouse_pos = pygame.mouse.get_pos()
 
         if self.state == "MAIN_MENU":
-            # Título del Juego.
-            title = self.font_title.render("METAL GEAR 2: SOLID PYTHON", True, COLOR_ACCENT)
-            surface.blit(title, title.get_rect(center=(SCREEN_WIDTH // 2, 100)))
-
+            # Dibujar la imagen del Título (si no existe, usa texto como fallback)
+            if self.title_img:
+                rect = self.title_img.get_rect(center=(SCREEN_WIDTH // 2, 110))
+                surface.blit(self.title_img, rect)
+            else:
+                title = self.font_title.render("METAL GEAR 2: SOLID PYTHON", True, COLOR_ACCENT)
+                surface.blit(title, title.get_rect(center=(SCREEN_WIDTH // 2, 100)))
+                
             for btn in self.main_buttons:
                 btn.draw(surface, mouse_pos)
 
@@ -129,34 +154,66 @@ class MenuManager:
             self.back_button.draw(surface, mouse_pos)
 
         elif self.state == "CONTROLS":
+            # Título principal
             title = self.font_title.render("CONTROLES", True, COLOR_ACCENT)
-            surface.blit(title, title.get_rect(center=(SCREEN_WIDTH // 2, 100)))
+            surface.blit(title, title.get_rect(center=(SCREEN_WIDTH // 2, 60)))
 
+            # 1. DIBUJAR LA IMAGEN MAS GRANDE A LA DERECHA (Puede quedar detrás del texto)
+            if self.gun_img:
+                gun_rect = self.gun_img.get_rect(center=(SCREEN_WIDTH // 2 + 120, 280))
+                surface.blit(self.gun_img, gun_rect)
+
+            # 2. DIBUJAR EL TEXTO DESPLAZADO MÁS HACIA EL CENTRO (x = 120)
             lines = [
-                "Movimiento: WASD o Flechas Direccionales",
-                "Diagonal: Soportada (8 direcciones)",
-                "Salir de Partida / Pausa: ESC"
+                "MOVIMIENTO:",
+                "WASD o Flechas",
+                "",
+                "DIAGONAL:",
+                "Soportada (8 dir.)",
+                "",
+                "PAUSA / SALIR:",
+                "Tecla ESC"
             ]
+            
+            start_y = 140
             for idx, line in enumerate(lines):
-                txt = self.font_btn.render(line, True, COLOR_TEXT)
-                surface.blit(txt, (SCREEN_WIDTH // 2 - 220, 200 + idx * 40))
+                color_linea = COLOR_ACCENT if line.endswith(":") else COLOR_TEXT
+                txt = self.font_btn.render(line, True, color_linea)
+                # Mover x a 120 para que el texto no quede pegado al borde izquierdo
+                surface.blit(txt, (120, start_y + idx * 32))
 
             self.back_button.draw(surface, mouse_pos)
+
+        
 
         elif self.state == "CREDITS":
+            # Título principal arriba
             title = self.font_title.render("CREDITOS", True, COLOR_ACCENT)
-            surface.blit(title, title.get_rect(center=(SCREEN_WIDTH // 2, 100)))
+            surface.blit(title, title.get_rect(center=(SCREEN_WIDTH // 2, 50)))
 
-            lines = [
-                "Desarrollado por:",
-                "Augusto Abel Karacsany",
-                "Lautaro Ezequiel Medina",
-                "Valentina Artaza",
-                "Ambar Fiszman",
-                "Basado en Metal Gear 2: Solid Snake ( MSX2 ) de Hideo Kojima & Konami"
-            ]
-            for idx, line in enumerate(lines):
-                txt = self.font_btn.render(line, True, COLOR_TEXT)
-                surface.blit(txt, txt.get_rect(center=(SCREEN_WIDTH // 2, 220 + idx * 40)))
+            # SECCIÓN: EQUIPO DE DESARROLLO (Bajado a y = 130 para dar aire al título)
+            sub_dev = self.font_subtitle.render("--- EQUIPO DE DESARROLLO ---", True, COLOR_ACCENT)
+            surface.blit(sub_dev, sub_dev.get_rect(center=(SCREEN_WIDTH // 2, 130)))
+
+            dev1 = self.font_btn.render("Augusto Abel Karacsany", True, COLOR_TEXT)
+            dev2 = self.font_btn.render("Lautaro Ezequiel Medina", True, COLOR_TEXT)
+            dev3 = self.font_btn.render("Ambar Fiszman Stilveman", True, COLOR_TEXT)
+            dev4 = self.font_btn.render("Valentina Artaza", True, COLOR_TEXT)
+
+            # Nombres con mayor tamaño y espaciado de 32px entre cada uno
+            surface.blit(dev1, dev1.get_rect(center=(SCREEN_WIDTH // 2, 175)))
+            surface.blit(dev2, dev2.get_rect(center=(SCREEN_WIDTH // 2, 207)))
+            surface.blit(dev3, dev3.get_rect(center=(SCREEN_WIDTH // 2, 239)))
+            surface.blit(dev4, dev4.get_rect(center=(SCREEN_WIDTH // 2, 271)))
+
+            # SECCIÓN: ATRIBUCIONES (Bajado a y = 335)
+            sub_attr = self.font_subtitle.render("--- ATRIBUCIONES ESPECIALES ---", True, COLOR_ACCENT)
+            surface.blit(sub_attr, sub_attr.get_rect(center=(SCREEN_WIDTH // 2, 335)))
+
+            attr1 = self.font_small.render("Basado en Metal Gear 2: Solid Snake (MSX2)", True, COLOR_TEXT)
+            attr2 = self.font_small.render("de Hideo Kojima & Konami", True, COLOR_TEXT)
+            surface.blit(attr1, attr1.get_rect(center=(SCREEN_WIDTH // 2, 375)))
+            surface.blit(attr2, attr2.get_rect(center=(SCREEN_WIDTH // 2, 395)))
 
             self.back_button.draw(surface, mouse_pos)
+
