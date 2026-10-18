@@ -44,9 +44,13 @@ class Player(pygame.sprite.Sprite):
         # Control de animación y carga de sprites
         self.anim_timer = 0.0
         self.frame_index = 0
-        self.animation_speed = 0.15
+        self.animation_speed = 0.15  # Segundos por CADA frame.
 
-        # Cargar sprites
+        # --- SISTEMA DE INVENTARIO Y DISFRAZ (CAJA DE CARTÓN) ---
+        self.inventory = []          # Guardará ítems como "cardboard_box"
+        self.is_disguised = False    # True cuando Snake tiene puesta la caja
+        
+        # CARGAR SPRITES.
         self.load_sprites_data()
 
         # Instancia el rect de colisión base
@@ -58,38 +62,61 @@ class Player(pygame.sprite.Sprite):
         
         self.update_offsets_for_stance()
 
+    #CAJA
+
+    def collect_items(self, items_group):
+        """Mecánica para recoger ítems del piso (como la caja dentro del camión)."""
+        hits = pygame.sprite.spritecollide(self, items_group, True)
+        for item in hits:
+            if item.name not in self.inventory:
+                self.inventory.append(item.name)
+                print(f"¡Conseguido ítem: {item.name}!")
+
+    def toggle_box_disguise(self):
+        """Alterna el uso de la caja si está en el inventario."""
+        if "cardboard_box" in self.inventory:
+            self.is_disguised = not self.is_disguised
+            if self.is_disguised:
+                # Forzamos postura erguida al ponerse la caja y cancelamos transiciones pendientes.
+                self.is_transitioning = False
+                self.target_stance = None
+                self.forced_crouch = False
+                self.set_stance("STAND")
+            print("Disfraz:", "Caja equipada" if self.is_disguised else "Sin caja")
+
     def punch_self_event(self, event):
         current_time = pygame.time.get_ticks()
         if event.type == pygame.KEYDOWN:
-            if (
-                event.key in (pygame.K_c, pygame.K_LCTRL, pygame.K_RCTRL)
-                and self.stance == "CRAWL"
-                and self._is_inside_hidden_zone(self.rect)
-            ):
-                return
+            # === AGREGADO: TECLA 'B' PARA EQUIPAR/DESEQUIPAR LA CAJA ===
+            if event.key == pygame.K_b:
+                if "cardboard_box" in self.inventory:
+                    self.toggle_box_disguise()
 
             if event.key == pygame.K_e:
-                if self.stance == "STAND":
+                # Solo golpea si está erguido y no lleva la caja puesta
+                if self.stance == "STAND" and not self.is_disguised:
                     if current_time - self.last_punch >= self.cooldown_punch:
                         self.is_punching = True
                         self.init_time_punch = current_time
                         self.last_punch = current_time
             
             elif event.key == pygame.K_c:
-                if self.stance == "STAND":
-                    self.set_stance("CROUCH")
-                elif self.stance == "CROUCH":
-                    self.set_stance("STAND")
-                elif self.stance == "CRAWL":
-                    self.set_stance("CROUCH")
+                # 'C' solo sirve para agacharse (la caja se equipa con 'B'). Con la caja puesta no se agacha.
+                if not self.is_disguised:
+                    if self.stance == "STAND":
+                        self.set_stance("CROUCH")
+                    elif self.stance == "CROUCH":
+                        self.set_stance("STAND")
+                    elif self.stance == "CRAWL":
+                        self.set_stance("CROUCH")
                     
             elif event.key in (pygame.K_LCTRL, pygame.K_RCTRL):
-                if self.stance in ("STAND", "CROUCH"):
-                    # AUTOMATIZACIÓN DE SEGURIDAD: Solo permite pasar a CRAWL si hay espacio adelante y atrás
-                    if self.can_crawl() and self.has_space_behind():
-                        self.start_stance_transition("CRAWL")
-                elif self.stance == "CRAWL":
-                    self.start_stance_transition("STAND")
+                if not self.is_disguised:
+                    if self.stance in ("STAND", "CROUCH"):
+                        if self.can_crawl() and self.has_space_behind():
+                            self.start_stance_transition("CRAWL")
+                    elif self.stance == "CRAWL":
+                        self.start_stance_transition("STAND")
 
     def set_stance(self, new_stance):
         if new_stance != "CRAWL" and self._is_inside_hidden_zone(self.rect):
@@ -111,6 +138,17 @@ class Player(pygame.sprite.Sprite):
             h = int(img.get_height() * SCALE_FACTOR)
             return pygame.transform.scale(img, (w, h))
 
+    # Cargar sprite de la Caja de Cartón
+        try:
+            raw_box = pygame.image.load("assets/sprites/solid_python/cardboard_box.png").convert_alpha()
+            w = int(raw_box.get_width() * SCALE_FACTOR)
+            h = int(raw_box.get_height() * SCALE_FACTOR)
+            self.box_sprite = pygame.transform.scale(raw_box, (w, h))
+        except Exception as e:
+            print(f"Error cargando sprite de la caja: {e}")
+            self.box_sprite = None
+
+        # Snake quieto, 4 dir.
         self.animations = {
             "IDLE": {
                 "DOWN": cs("assets/sprites/solid_python/stand_down.png"),
@@ -182,7 +220,10 @@ class Player(pygame.sprite.Sprite):
         col_width = int(stand_w * 0.6)
         col_height = int(stand_h * 0.3)
 
-        if self.stance == "STAND":
+        # Identificamos qué imagen se está usando.
+        if self.is_disguised and self.box_sprite:
+            ref_img = self.box_sprite
+        elif self.stance == "STAND":
             ref_img = self.animations["IDLE"][self.facing]
         elif self.stance == "CROUCH":
             ref_img = self.animations["CROUCH"][self.facing][0]
@@ -599,7 +640,11 @@ class Player(pygame.sprite.Sprite):
     
     def draw_with_camera(self, surface, camera):
         current_image = None
-        if self.is_punching:
+
+        # === AGREGADO: MOSTRAR SPRITE DE LA CAJA SI ESTÁ DISFRAZADO ===
+        if self.is_disguised and self.box_sprite:
+            current_image = self.box_sprite
+        elif self.is_punching:
             current_image = self.animations["PUNCH"][self.facing]
         elif self.is_moving:
             if self.stance == "CROUCH":
