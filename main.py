@@ -5,6 +5,7 @@ from src.menu import MenuManager
 from src.intro_state import IntroState
 from src.game import Game  # Clase principal de juego ( El game.py. )
 
+
 def main():
     pygame.init()
     pygame.mixer.init()
