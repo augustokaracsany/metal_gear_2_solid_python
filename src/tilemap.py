@@ -126,7 +126,7 @@ class TiledMap:
                         for p in obj.points:
                             px = p[0] * self.scale
                             # Si quieres subir toda la ruta, puedes restar un valor fijo (ej. 30 o 40 píxeles)
-                            py = (p[1] * self.scale) - 35 
+                            py = (p[1] * self.scale) - 7
                             scaled_points.append((int(px), int(py)))
                         
                         if scaled_points:

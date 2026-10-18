@@ -1,7 +1,8 @@
 import pygame
+from src import enemy
 from src.player import Player
 from src.camera import Camera
-from src.enemy import Enemy # MERGE.
+from src.enemy import Enemy  # MERGE.
 from src.tilemap import TiledMap  # Mapas TMX
 from src.settings import SCREEN_WIDTH, SCREEN_HEIGHT
 
@@ -78,7 +79,7 @@ class Game:
         if not hasattr(self, "hidden_zones_bottom") or self.hidden_zones_bottom is None:
             self.hidden_zones_bottom = []
 
-        # LÍMITES SUPERIORES DE ZONAS OCULTAS POR DONDE NO SE PUEDE ENTRAR Y SALIR VERTICALMENTE. ( Que SÍ tienen límite. Un "tope superior." )
+        # LÍMITES SUPERIORES DE ZONAS OCULTAS POR DONDE NO SE PUEDE ENTRAR Y SALIR VERTICALMENTE.
         self.top_barriers = self.map.get_top_barriers("limites_top") if self.map else []
                 
         # Instanciamos a Snake en la posición del mapa
@@ -105,7 +106,7 @@ class Game:
     def update(self, dt):
         walls = self.map.get_collision_rects() if self.map else []
 
-        # Actualización de Lógica del jugador (toda la responsabilidad de estado y zonas vive en player.py)
+        # Actualización de Lógica del jugador
         self.player.update(
             dt,
             walls,
@@ -116,34 +117,38 @@ class Game:
         )
 
         for enemy in self.enemies_group:
-            enemy.update(dt)
+            enemy.update(dt, walls)  # Le pasamos las paredes al enemigo
+        
 
-        # 3. Actualizamos la posición de la cámara centrada en Snake.
+        # Actualizamos la posición de la cámara centrada en Snake.
         self.camera.update(self.player)
 
     def draw(self, surface):
         self.virtual_surface.fill((0, 0, 0))
 
+        # Obtenemos las paredes aquí también para poder pasárselas al cono de visión
         walls = self.map.get_collision_rects() if self.map else []
-
-        # 1. Limpiar pantalla.
-        surface.fill((0, 0, 0))
 
         if self.map:
             self.map.render_below(self.virtual_surface, self.camera)
         else:
             self.virtual_surface.blit(self.map_image, self.camera.camera_rect.topleft) 
         
-        self.player.draw_with_camera(self.virtual_surface, self.camera)
+        # Dibujamos ordenados por profundidad (Z-index clásico de Metal Gear basado en rect.bottom)
+        entities_to_draw = [self.player] + list(self.enemies_group)
+        entities_to_draw.sort(key=lambda entity: entity.rect.bottom)
+
+        for entity in entities_to_draw:
+            entity.draw_with_camera(self.virtual_surface, self.camera)
 
         for enemy in self.enemies_group:
-            enemy.draw_with_camera(self.virtual_surface, self.camera)
-
+            enemy.check_vision(self.player, walls, self.virtual_surface, self.camera)
+        
         if self.map:
             self.map.render_roofs(
                 self.virtual_surface,
                 self.camera,
-                render_condition=self.player.is_hidden or self.player.is_near_hidden_zone(margin=30),
+                render_condition=self.player.is_hidden or self.player.is_near_hidden_zone(margin=15),
             )
 
         scaled_surface = pygame.transform.scale(self.virtual_surface, (surface.get_width(), surface.get_height()))
@@ -154,7 +159,3 @@ class Game:
             for zone in self.hidden_zones:
                 debug_screen_rect = zone.move(self.camera.camera_rect.topleft)
                 pygame.draw.rect(self.virtual_surface, (0, 255, 255), debug_screen_rect, 2)
-            enemy.draw_with_camera(surface, self.camera)
-            
-            # ¡Aquí llamamos a la función de visión para que se dibuje y compruebe colisiones!
-            enemy.check_vision(self.player, walls, surface, self.camera)

@@ -622,4 +622,4 @@ class Player(pygame.sprite.Sprite):
         draw_y = dest_rect.y - self.offset_y
         
         surface.blit(current_image, (draw_x, draw_y))
-        # pygame.draw.rect(surface, (255, 0, 0), dest_rect, 2)
+        pygame.draw.rect(surface, (255, 0, 0), dest_rect, 2)
