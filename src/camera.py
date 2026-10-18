@@ -21,10 +21,19 @@ class Camera:
         x = -target.rect.centerx + int(self.viewport_width / 2)
         y = -target.rect.centery + int(self.viewport_height / 2)
 
-        # Limitamos usando el tamaño del visor virtual para evitar espacios negros.
-        x = min(0, x)
-        y = min(0, y)
-        x = max(-(self.width - self.viewport_width), x)
-        y = max(-(self.height - self.viewport_height), y)
+        # Si el mapa es MÁS PEQUEÑO que el visor virtual, lo centramos a la fuerza
+        if self.width < self.viewport_width:
+            x = (self.viewport_width - self.width) // 2
+        else:
+            # Limitamos normalmente para mapas grandes
+            x = min(0, x)
+            x = max(-(self.width - self.viewport_width), x)
+
+        if self.height < self.viewport_height:
+            y = (self.viewport_height - self.height) // 2
+        else:
+            # Limitamos normalmente para mapas grandes
+            y = min(0, y)
+            y = max(-(self.height - self.viewport_height), y)
 
         self.camera_rect = pygame.Rect(int(x), int(y), self.width, self.height)

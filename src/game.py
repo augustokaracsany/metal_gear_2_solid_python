@@ -42,24 +42,10 @@ class Game:
         # Grupos de Sprites
         self.all_sprites = pygame.sprite.Group()
         self.enemies_group = pygame.sprite.Group()
+        self.items_group = pygame.sprite.Group()
         
-        # 2. CARGAMOS EL MAPA DINÁMICAMENTE SEGÚN LA MISIÓN SELECCIONADA
-        try:
-            self.map = TiledMap(current_level["tmx"], scale=2)
-        except Exception as e:
-            print(f"AVISO: No se pudo cargar el mapa TMX para la misión {self.mission_number} ({e}). Usando imagen plana de respaldo.")
-            self.map = None
-            self.raw_map = pygame.image.load(current_level["png"]).convert()
-            self.map_scale = 2 
-            self.map_image = pygame.transform.scale(self.raw_map, (self.raw_map.get_width() * self.map_scale, self.raw_map.get_height() * self.map_scale))
-
-        # Obtenemos las dimensiones reales del mapa para la cámara.
-        if self.map:
-            map_width = self.map.width
-            map_height = self.map.height
-        else:
-            map_width = self.map_image.get_width()
-            map_height = self.map_image.get_height()
+        # Instanciación inicial del mapa y entidades mediante el método modular
+        self.load_level(current_level["tmx"])
 
         # Definimos una resolución virtual más pequeña (la mitad de la pantalla = zoom x2 visual perfecto)
         self.virtual_width = SCREEN_WIDTH // 2
@@ -67,46 +53,62 @@ class Game:
         self.virtual_surface = pygame.Surface((self.virtual_width, self.virtual_height))
 
         # Instanciamos la cámara pasándole el tamaño virtual correcto
+        if self.map:
+            map_width = self.map.width
+            map_height = self.map.height
+        else:
+            map_width = self.map_image.get_width()
+            map_height = self.map_image.get_height()
+
         self.camera = Camera(map_width, map_height, self.virtual_width, self.virtual_height)
         
         # Obtenemos las coordenadas de inicio desde el objeto 'player_spawn' del mapa Tiled
         spawn_x, spawn_y = self.map.get_spawn_point("player_spawn", (400, 350)) if self.map else (400, 350)
-
-        # Cargamos las zonas ocultas de forma segura
-        if self.map:
-            self.hidden_zones = self.map.get_hidden_zones("zonas_oculto")
-            self.hidden_zones_top = self.map.get_hidden_zones_top()
-            self.hidden_zones_bottom = self.map.get_hidden_zones_bottom()
-        if not hasattr(self, "hidden_zones") or self.hidden_zones is None:
-            self.hidden_zones = []
-        if not hasattr(self, "hidden_zones_top") or self.hidden_zones_top is None:
-            self.hidden_zones_top = []
-        if not hasattr(self, "hidden_zones_bottom") or self.hidden_zones_bottom is None:
-            self.hidden_zones_bottom = []
-
-        # LÍMITES SUPERIORES DE ZONAS OCULTAS POR DONDE NO SE PUEDE ENTRAR Y SALIR VERTICALMENTE.
-        self.top_barriers = self.map.get_top_barriers("limites_top") if self.map else []
                 
         # Instanciamos a Snake en la posición del mapa
         self.player = Player(spawn_x, spawn_y)
         self.all_sprites.add(self.player)
 
-        # 2. Cargar el nivel inicial y sus entidades (enemigos, ítems)
-        self.load_level(current_level["tmx"])
+    def load_level(self, tmx_or_key):
+        """Carga un nivel (puede recibir la ruta tmx o la clave del diccionario como 'truck')"""
+        if tmx_or_key in self.levels_data:
+            level_info = self.levels_data[tmx_or_key]
+            tmx_path = level_info["tmx"]
+            png_path = level_info["png"]
+        else:
+            tmx_path = tmx_or_key
+            png_path = None
 
-        if patrol_routes:
-            ruta_actual = patrol_routes[0]
-            pos_inicial_x = ruta_actual[0][0]
-            pos_inicial_y = ruta_actual[0][1]
-            guardia = Enemy(pos_inicial_x, pos_inicial_y, ruta_actual)
-            self.enemies_group.add(guardia)
-        
+        try:
+            self.map = TiledMap(tmx_path, scale=2)
+        except Exception as e:
+            print(f"AVISO: No se pudo cargar el mapa TMX ({e}). Usando imagen plana de respaldo.")
+            self.map = None
+            if png_path and os.path.exists(png_path):
+                self.raw_map = pygame.image.load(png_path).convert()
+            else:
+                self.raw_map = pygame.Surface((576, 768)) # Respaldo por defecto
+            self.map_scale = 2 
+            self.map_image = pygame.transform.scale(self.raw_map, (self.raw_map.get_width() * self.map_scale, self.raw_map.get_height() * self.map_scale))
+
+        # Actualizar zonas ocultas y barreras de forma segura
+        if self.map:
+            self.hidden_zones = self.map.get_hidden_zones("zonas_oculto") or []
+            self.hidden_zones_top = self.map.get_hidden_zones_top() or []
+            self.hidden_zones_bottom = self.map.get_hidden_zones_bottom() or []
+            self.top_barriers = self.map.get_top_barriers("limites_top") or []
+        else:
+            self.hidden_zones = []
+            self.hidden_zones_top = []
+            self.hidden_zones_bottom = []
+            self.top_barriers = []
+
         # Limpiar grupos de la escena previa
         self.enemies_group.empty()
         self.items_group.empty()
 
         if self.map:
-            # A. RE-INSTANCIAR ENEMIGOS: Si el mapa actual contiene la capa 'enemy_patrols'
+            # A. RE-INSTANCIAR ENEMIGOS
             patrol_routes = self.map.get_patrol_path("enemy_patrols")
             if patrol_routes:
                 for ruta in patrol_routes:
@@ -115,14 +117,13 @@ class Game:
                     guardia = Enemy(pos_inicial_x, pos_inicial_y, ruta)
                     self.enemies_group.add(guardia)
 
-            # B. RE-INSTANCIAR LA CAJA DE CARTÓN: Si existe el objeto en Tiled y no se ha recogido
+            # B. RE-INSTANCIAR ÍTEMS (CAJA DE CARTÓN, ETC.)
             if hasattr(self.map.tmx_data, 'objects'):
                 for obj in self.map.tmx_data.objects:
                     if obj.name == "cardboard_box" and hasattr(self, 'player') and "cardboard_box" not in self.player.inventory:
                         scale = self.map.scale
                         try:
-                            # El objeto de Tiled es una zona; dibujamos la caja (a la escala del mapa) en el centro.
-                            box_item = Item("cardboard_box", 0, 0, "assets/sprites/solid_python/cardboard_box.png", scale=2)  # x2 = mismo factor que los sprites de Snake
+                            box_item = Item("cardboard_box", 0, 0, "assets/sprites/solid_python/cardboard_box.png", scale=2)
                             box_item.rect.center = (int((obj.x + obj.width / 2) * scale), int((obj.y + obj.height / 2) * scale))
                             self.items_group.add(box_item)
                         except Exception as e:
@@ -144,14 +145,18 @@ class Game:
                 # Cargar el mapa objetivo y reubicar a Snake
                 self.load_level(target_map)
 
-                # La escala se toma del mapa NUEVO (ya cargado), porque cada mapa puede tener la suya.
-                scale = self.map.scale
+                scale = self.map.scale if self.map else 2
                 spawn_x = float(props.get("spawn_x", 180)) * scale
                 spawn_y = float(props.get("spawn_y", 550)) * scale
                 self.player.x = spawn_x
                 self.player.y = spawn_y
                 self.player.rect.x = int(spawn_x)
                 self.player.rect.y = int(spawn_y)
+                
+                # Actualizar dimensiones de la cámara para el nuevo mapa
+                map_width = self.map.width if self.map else self.map_image.get_width()
+                map_height = self.map.height if self.map else self.map_image.get_height()
+                self.camera = Camera(map_width, map_height, self.virtual_width, self.virtual_height)
                 break
 
     def handle_events(self, events):
@@ -175,17 +180,16 @@ class Game:
             self.hidden_zones_bottom,
         )
 
-        # 3. Recoger ítems del piso
+        # Recoger ítems del piso
         if hasattr(self.player, 'collect_items'):
             self.player.collect_items(self.items_group)
 
-        # 4. Transición de mapa
+        # Transición de mapa
         self.check_map_transitions()
 
-        # 5. Actualizar enemigos
+        # Actualizar enemigos
         for enemy in self.enemies_group:
-            enemy.update(dt, walls)  # Le pasamos las paredes al enemigo
-        
+            enemy.update(dt, walls)  
 
         # Actualizamos la posición de la cámara centrada en Snake.
         self.camera.update(self.player)
@@ -193,7 +197,6 @@ class Game:
     def draw(self, surface):
         self.virtual_surface.fill((0, 0, 0))
 
-        # Obtenemos las paredes aquí también para poder pasárselas al cono de visión
         walls = self.map.get_collision_rects() if self.map else []
 
         if self.map:
@@ -201,19 +204,19 @@ class Game:
         else:
             self.virtual_surface.blit(self.map_image, self.camera.camera_rect.topleft) 
 
-        # 2. Dibujar ítems del piso
-            for item in self.items_group:
-                    item_rect = self.camera.apply(item)
-                    surface.blit(item.image, item_rect)
+        # Dibujar ítems del piso
+        for item in self.items_group:
+            item_rect = self.camera.apply(item)
+            self.virtual_surface.blit(item.image, item_rect)
         
-        
-        # Dibujamos ordenados por profundidad (Z-index clásico de Metal Gear basado en rect.bottom)
+        # Dibujamos ordenados por profundidad (Z-index clásico de Metal Gear)
         entities_to_draw = [self.player] + list(self.enemies_group)
         entities_to_draw.sort(key=lambda entity: entity.rect.bottom)
 
         for entity in entities_to_draw:
             entity.draw_with_camera(self.virtual_surface, self.camera)
 
+        # Dibujar conos de visión de los enemigos
         for enemy in self.enemies_group:
             enemy.check_vision(self.player, walls, self.virtual_surface, self.camera)
         
