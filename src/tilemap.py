@@ -8,30 +8,73 @@ class TiledMap:
         self.width = int(self.tmx_data.width * self.tmx_data.tilewidth * self.scale)
         self.height = int(self.tmx_data.height * self.tmx_data.tileheight * self.scale)
 
-    def render(self, surface, camera):
+    def render_below(self, surface, camera):
+        """Renderiza todas las capas EXCEPTO la capa de techos aplicando la escala correcta."""
         offset = camera.camera_rect.topleft
 
         for layer in self.tmx_data.visible_layers:
-            # 1. Capa de imagen de fondo ( El nivel en sí. ) ESCALADO X2
+            # Si es la capa de techos, la ignoramos por ahora
+            if layer.name in ("techos", "roof", "capa_techo"):
+                continue
+
+            # 1. Capa de imagen de fondo
             if hasattr(layer, "image") and layer.image:
                 img_scaled = pygame.transform.scale(
                     layer.image, 
                     (int(layer.image.get_width() * self.scale), int(layer.image.get_height() * self.scale))
                 )
+                # Aplicamos la posición con el offset de la cámara
                 surface.blit(img_scaled, offset)
                 
-            # 2. Capa de patrones de colisión ( Capa "colisiones_grid" en Tiled. ) ESCALADO X2
-            elif hasattr(layer, "data") and layer.name == "colisiones_grid":
+            # 2. Capa de patrones de colisión / grid o tilelayers normales
+            elif hasattr(layer, "data"):
                 for x, y, gid in layer:
-                    tile = self.tmx_data.get_tile_image_by_gid(gid)
-                    if tile:
-                        tile_scaled = pygame.transform.scale(
-                            tile, 
-                            (int(tile.get_width() * self.scale), int(tile.get_height() * self.scale))
-                        )
-                        pos_x = (x * self.tmx_data.tilewidth * self.scale) + offset[0]
-                        pos_y = (y * self.tmx_data.tileheight * self.scale) + offset[1]
-                        surface.blit(tile_scaled, (pos_x, pos_y))
+                    if gid != 0:
+                        tile = self.tmx_data.get_tile_image_by_gid(gid)
+                        if tile:
+                            tile_scaled = pygame.transform.scale(
+                                tile, 
+                                (int(tile.get_width() * self.scale), int(tile.get_height() * self.scale))
+                            )
+                            pos_x = (x * self.tmx_data.tilewidth * self.scale) + offset[0]
+                            pos_y = (y * self.tmx_data.tileheight * self.scale) + offset[1]
+                            surface.blit(tile_scaled, (pos_x, pos_y))
+
+    def render_roofs(self, surface, camera, render_condition=True):
+        """Renderiza la capa de techos únicamente si se cumple la condición (Snake oculto en recoveco)."""
+        # Si Snake no está oculto/bajo techo, no dibujamos nada de esta capa
+        if not render_condition:
+            return
+
+        offset = camera.camera_rect.topleft
+
+        for layer in self.tmx_data.visible_layers:
+            if layer.name in ("techos", "roof", "capa_techo"):
+                if hasattr(layer, "image") and layer.image:
+                    img_scaled = pygame.transform.scale(
+                        layer.image, 
+                        (int(layer.image.get_width() * self.scale), int(layer.image.get_height() * self.scale))
+                    )
+                    surface.blit(img_scaled, offset)
+                elif hasattr(layer, "data"):
+                    standard_tile_h = self.tmx_data.tileheight
+
+                    for x, y, gid in layer:
+                        if gid != 0:
+                            tile = self.tmx_data.get_tile_image_by_gid(gid)
+                            if tile:
+                                tile_scaled = pygame.transform.scale(
+                                    tile, 
+                                    (int(tile.get_width() * self.scale), int(tile.get_height() * self.scale))
+                                )
+                                pos_x = (x * self.tmx_data.tilewidth * self.scale) + offset[0]
+                                
+                                tile_h = tile.get_height()
+                                height_difference = tile_h - standard_tile_h
+                                
+                                pos_y = (y * standard_tile_h * self.scale) + offset[1] - (height_difference * self.scale)
+                                
+                                surface.blit(tile_scaled, (pos_x, pos_y))
 
     def get_collision_rects(self):
         rects = []
@@ -71,7 +114,10 @@ class TiledMap:
 
     def get_patrol_path(self, layer_name="enemy_patrols"):
         patrol_paths = []
-        
+
+
+
+# PATRULLA ENEMIGO. RUTA.
         for layer in self.tmx_data.visible_layers:
             if layer.name == layer_name:
                 for obj in layer:
@@ -80,10 +126,54 @@ class TiledMap:
                         for p in obj.points:
                             px = p[0] * self.scale
                             # Si quieres subir toda la ruta, puedes restar un valor fijo (ej. 30 o 40 píxeles)
-                            py = (p[1] * self.scale) - 35 
+                            py = (p[1] * self.scale) - 7
                             scaled_points.append((int(px), int(py)))
                         
                         if scaled_points:
                             patrol_paths.append(scaled_points)
                             
         return patrol_paths
+
+    def get_hidden_zones(self, layer_name="zonas_oculto"):
+        """Devuelve una lista de pygame.Rect con las zonas donde Snake debe quedar oculto."""
+        hidden_rects = []
+        print(f"Buscando capa: {layer_name}")
+        
+        try:
+            if self.tmx_data:
+                layer = self.tmx_data.get_layer_by_name(layer_name)
+                obj_list = getattr(layer, 'objects', layer)
+                
+                for obj in obj_list:
+                    print(f"¡Objeto encontrado en {layer_name}!")
+                    rx = obj.x * self.scale
+                    ry = obj.y * self.scale
+                    rw = obj.width * self.scale
+                    rh = obj.height * self.scale
+                    hidden_rects.append(pygame.Rect(rx, ry, rw, rh))
+        except Exception as e:
+            print(f"Aviso al leer las zonas ocultas (se ignora de forma segura): {e}")
+            
+        return hidden_rects  # SIEMPRE devuelve una lista, nunca None
+
+    def get_hidden_zones_top(self):
+        return self.get_hidden_zones("zonas_oculto_top")
+
+    def get_hidden_zones_bottom(self):
+        return self.get_hidden_zones("zonas_oculto_bottom")
+    
+    def get_top_barriers(self, layer_name="limites_top"):
+        barriers = []
+        try:
+            layer = self.tmx_data.get_layer_by_name(layer_name)
+            obj_list = getattr(layer, 'objects', layer)
+            for obj in obj_list:
+                rx = obj.x * self.scale
+                ry = obj.y * self.scale
+                rw = obj.width * self.scale
+                rh = obj.height * self.scale
+                barriers.append(pygame.Rect(rx, ry, rw, rh))
+        except Exception:
+            # Si la capa aún no fue creada en Tiled, devuelve una lista vacía sin romper nada
+            pass
+        return barriers

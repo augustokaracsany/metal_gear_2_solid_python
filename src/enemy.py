@@ -8,7 +8,7 @@ class Enemy(pygame.sprite.Sprite):
         self.x = float(x)
         self.y = float(y)
 
-        self.patrol_points = patrol_points  # Lista de coordenadas (x, y) sacadas de Tiled
+        self.patrol_points = patrol_points  
         self.current_target_index = 0
         self.speed = 1.55
 
@@ -17,14 +17,16 @@ class Enemy(pygame.sprite.Sprite):
         # Control de animación y carga de sprites.
         self.anim_timer = 0.0
         self.frame_index = 0
-        self.animation_speed = 0.2  # Segundos por CADA frame.
+        self.animation_speed = 0.2  
 
         self.state = "WALKING"
         self.look_timer = 0.0
         self.look_duration = 1.5
         self.look_step = 0
         
-        # CARGAR SPRITES ( Inicializa self.rect con el tamaño real de la imagen escalada. ).
+        self.current_walls = []
+        
+        # CARGAR SPRITES 
         self.load_sprites()
 
     def load_sprites(self):
@@ -43,66 +45,35 @@ class Enemy(pygame.sprite.Sprite):
                 "RIGHT": cs("assets/sprites/red_beret/look_right2.png"),
             },
             "WALK": {
-                "DOWN": [
-                    cs("assets/sprites/red_beret/walk_down1.png"),
-                    cs("assets/sprites/red_beret/walk_down2.png")
-                ],
-                "UP": [
-                    cs("assets/sprites/red_beret/walk_up1.png"),
-                    cs("assets/sprites/red_beret/walk_up2.png")
-                ],
-                "LEFT": [
-                    cs("assets/sprites/red_beret/walk_left1.png"),
-                    cs("assets/sprites/red_beret/walk_left2.png")
-                ],
-                "RIGHT": [
-                    cs("assets/sprites/red_beret/walk_right1.png"),
-                    cs("assets/sprites/red_beret/walk_right2.png")
-                ]
+                "DOWN": [cs("assets/sprites/red_beret/walk_down1.png"), cs("assets/sprites/red_beret/walk_down2.png")],
+                "UP": [cs("assets/sprites/red_beret/walk_up1.png"), cs("assets/sprites/red_beret/walk_up2.png")],
+                "LEFT": [cs("assets/sprites/red_beret/walk_left1.png"), cs("assets/sprites/red_beret/walk_left2.png")],
+                "RIGHT": [cs("assets/sprites/red_beret/walk_right1.png"), cs("assets/sprites/red_beret/walk_right2.png")]
             },
             "LOOK": {
-                "DOWN": [
-                    cs("assets/sprites/red_beret/walk_down2.png"),
-                    cs("assets/sprites/red_beret/look_down1.png"),
-                    cs("assets/sprites/red_beret/walk_down2.png"),
-                    cs("assets/sprites/red_beret/look_down2.png")
-                ],
-                "UP": [
-                    cs("assets/sprites/red_beret/walk_up1.png"),
-                    cs("assets/sprites/red_beret/look_up1.png"),
-                    cs("assets/sprites/red_beret/walk_up1.png"),
-                    cs("assets/sprites/red_beret/look_up2.png")
-                ],
-                "LEFT": [
-                    cs("assets/sprites/red_beret/walk_left1.png"),
-                    cs("assets/sprites/red_beret/look_left1.png"),
-                    cs("assets/sprites/red_beret/walk_left1.png"),
-                    cs("assets/sprites/red_beret/look_left2.png")
-                ],
-                "RIGHT": [
-                    cs("assets/sprites/red_beret/walk_right1.png"),
-                    cs("assets/sprites/red_beret/look_right1.png"),
-                    cs("assets/sprites/red_beret/walk_right1.png"),
-                    cs("assets/sprites/red_beret/look_right2.png")
-                ]
+                "DOWN": [cs("assets/sprites/red_beret/walk_down2.png"), cs("assets/sprites/red_beret/look_down1.png"), cs("assets/sprites/red_beret/walk_down2.png"), cs("assets/sprites/red_beret/look_down2.png")],
+                "UP": [cs("assets/sprites/red_beret/walk_up1.png"), cs("assets/sprites/red_beret/look_up1.png"), cs("assets/sprites/red_beret/walk_up1.png"), cs("assets/sprites/red_beret/look_up2.png")],
+                "LEFT": [cs("assets/sprites/red_beret/walk_left1.png"), cs("assets/sprites/red_beret/look_left1.png"), cs("assets/sprites/red_beret/walk_left1.png"), cs("assets/sprites/red_beret/look_left2.png")],
+                "RIGHT": [cs("assets/sprites/red_beret/walk_right1.png"), cs("assets/sprites/red_beret/look_right1.png"), cs("assets/sprites/red_beret/walk_right1.png"), cs("assets/sprites/red_beret/look_right2.png")]
             }
         }
         
-        # Obtenemos la primera imagen para medir dimensiones.
         first_image = self.animations["IDLE"]["DOWN"]
         img_width, img_height = first_image.get_size()
 
-        # CREAMOS UN RECT DE COLISIÓN AJUSTADO
-        col_width = int(img_width * 0.6)   # 60% del ancho del Sprite.
-        col_height = int(img_height * 0.3) # 30% de la altura ( Zona de los pies. )
+        # Hitbox compacto en los pies (igual que Snake) para evitar que se trabe en esquinas
+        col_width = int(img_width * 0.5) 
+        col_height = int(img_height * 0.3) 
         
         self.rect = pygame.Rect(self.x, self.y, col_width, col_height)
         
-        # Guardamos un offset para saber cuánto subir la imagen al dibujarla respecto al rect de colisión.
+        # Offsets correctos para alinear el sprite visual con su hitbox
         self.offset_x = (img_width - col_width) // 2
         self.offset_y = img_height - col_height
 
-    def update(self, dt):
+    def update(self, dt, walls_group=None):
+        self.current_walls = walls_group if walls_group is not None else []
+
         if self.state == "WALKING":
             target_x, target_y = self.patrol_points[self.current_target_index]
 
@@ -114,24 +85,30 @@ class Enemy(pygame.sprite.Sprite):
                 self.state = "LOOKING"
                 self.look_timer = 0.0
                 self.look_step = 0
-                
-                # Avanzamos el índice del target de una vez para que sepa a dónde irá después
                 self.current_target_index = (self.current_target_index + 1) % len(self.patrol_points)
             else:
-                # Nos movemos hacia el target
                 direction_x = dx / distance
                 direction_y = dy / distance
 
-                self.x += direction_x * self.speed * dt * 60  # Multiplicado por 60 para ajustar escala de velocidad por frame
-                self.y += direction_y * self.speed * dt * 60
+                vel_x = direction_x * self.speed * dt * 60
+                vel_y = direction_y * self.speed * dt * 60
 
-                # Actualizar hacia dónde mira según el movimiento
+                # Movimiento y colisiones en X separadas
+                self.x += vel_x
+                self.rect.x = round(self.x)
+                self.check_collisions_x(self.current_walls, vel_x)
+
+                # Movimiento y colisiones en Y separadas
+                self.y += vel_y
+                self.rect.y = round(self.y)
+                self.check_collisions_y(self.current_walls, vel_y)
+
+                # Actualizar hacia dónde mira según el movimiento dominante
                 if abs(dx) > abs(dy):
                     self.facing = "RIGHT" if dx > 0 else "LEFT"
                 else:
                     self.facing = "DOWN" if dy > 0 else "UP"
 
-            # Animación normal de caminar (si usa 2 frames)
             self.anim_timer += dt
             if self.anim_timer >= self.animation_speed:
                 self.anim_timer = 0.0
@@ -139,65 +116,43 @@ class Enemy(pygame.sprite.Sprite):
 
         elif self.state == "LOOKING":
             self.look_timer += dt
-            
-            # Cada vez que transcurra 'look_duration' segundos, pasa al siguiente paso de giro
             if self.look_timer >= self.look_duration:
                 self.look_timer = 0.0
                 self.look_step += 1
                 
-                # Si ya completó los 4 pasos (0: frente, 1: izq, 2: frente nuevamente, 3: der), vuelve a caminar
                 if self.look_step > 3:
                     self.state = "WALKING"
                     self.look_step = 0
 
-            # Aquí manejas qué frame mostrar según el 'look_step' y tu diccionario LOOK
-            # frame_index 0 = Frente (walk_X2 o look_X1)
-            # frame_index 1 = Costado izquierdo
-            # frame_index 2 = Costado derecho
             self.frame_index = self.look_step 
 
-        # Sincronizamos el rect de colisión con la posición flotante
-        self.rect.x = round(self.x)
-        self.rect.y = round(self.y)
+    def check_collisions_x(self, walls, dx):
+        for wall in walls:
+            if self.rect.colliderect(wall):
+                if dx > 0:
+                    self.rect.right = wall.left
+                elif dx < 0:
+                    self.rect.left = wall.right
+                self.x = float(self.rect.x)
 
-    # Sistema de colisiones, se va a implementar una vez se desarrolle la logica de redireccion
+    def check_collisions_y(self, walls, dy):
+        for wall in walls:
+            if self.rect.colliderect(wall):
+                if dy > 0:
+                    self.rect.bottom = wall.top
+                elif dy < 0:
+                    self.rect.top = wall.bottom
+                self.y = float(self.rect.y)
 
-    # def check_collisions_x(self, walls, dx):
-    #     for wall in walls:
-    #         if self.rect.colliderect(wall):
-    #             if dx > 0:
-    #                 self.rect.right = wall.left
-    #             elif dx < 0:
-    #                 self.rect.left = wall.right
-    #             self.x = float(self.rect.x)
-
-    # def check_collisions_y(self, walls, dy):
-    #     for wall in walls:
-    #         if self.rect.colliderect(wall):
-    #             if dy > 0:
-    #                 self.rect.bottom = wall.top
-    #             elif dy < 0:
-    #                 self.rect.top = wall.bottom
-    #             self.y = float(self.rect.y)
-
-    def has_reached(self, target):
-        # Esta función auxiliar evalúa si está muy cerca del objetivo
-        target_x, target_y = target
-        distance = ((target_x - self.x) ** 2 + (target_y - self.y) ** 2) ** 0.5
-        return distance < 2.0
-
-    def check_vision(self, player, walls_rects, screen_surface, camera):
-        # Configuración del cono
-        max_distance = 5 * 32  # 5 tiles de distancia (160 px con scale=2)
-        cone_color_green = (0, 255, 0, 100)   # Verde semitransparente
-        cone_color_red = (255, 0, 0, 100)     # Rojo si detecta al jugador
+    def check_vision(self, player, walls_rects, surface, camera):
+        max_distance = 5 * 32  
+        cone_color_green = (0, 255, 0, 100)  
+        cone_color_red = (255, 0, 0, 100)    
         
-        # Centro del enemigo (origen de la visión)
-        start_x = self.x + self.rect.width / 2
-        start_y = self.y + self.rect.height / 2
+        # Origen del cono: alineado al centro superior del rect (pecho/cabeza)
+        start_x = self.rect.centerx
+        start_y = self.rect.top - (self.offset_y // 2)  # Ajustado a la cabeza del soldado
         
-        # Rotar la dirección del cono adaptado a tus 4 pasos de LOOK:
-        # [Frente, Izquierda, Frente, Derecha]
         current_facing = self.facing
         if getattr(self, "state", "") == "LOOKING":
             look_rotations = {
@@ -218,15 +173,13 @@ class Enemy(pygame.sprite.Sprite):
         }
         
         dir_x, dir_y = angles.get(current_facing, (0, 1))
-        
         detected = False
         
-        # Superficie con transparencia para el cono
-        vision_surface = pygame.Surface((screen_surface.get_width(), screen_surface.get_height()), pygame.SRCALPHA)
+        # Crear superficie para transparencias del tamaño de la superficie de juego
+        vision_surface = pygame.Surface((surface.get_width(), surface.get_height()), pygame.SRCALPHA)
         
-        # Vector perpendicular para abrir el cono a los costados
         perp_x, perp_y = -dir_y, dir_x
-        cone_width_factor = 0.8
+        cone_width_factor = 0.4
         
         left_edge_x = start_x + (dir_x - perp_x * cone_width_factor) * max_distance
         left_edge_y = start_y + (dir_y - perp_y * cone_width_factor) * max_distance
@@ -234,15 +187,14 @@ class Enemy(pygame.sprite.Sprite):
         right_edge_x = start_x + (dir_x + perp_x * cone_width_factor) * max_distance
         right_edge_y = start_y + (dir_y + perp_y * cone_width_factor) * max_distance
         
+        # Convertir a coordenadas de cámara
         p_center = (start_x + camera.camera_rect.x, start_y + camera.camera_rect.y)
         p_left = (left_edge_x + camera.camera_rect.x, left_edge_y + camera.camera_rect.y)
         p_right = (right_edge_x + camera.camera_rect.x, right_edge_y + camera.camera_rect.y)
         
-        # Coordenadas del centro del jugador
         player_center_x = player.rect.centerx
         player_center_y = player.rect.centery
         
-        # Vector hacia el jugador y distancia
         to_player_x = player_center_x - start_x
         to_player_y = player_center_y - start_y
         dist_to_player = (to_player_x**2 + to_player_y**2)**0.5
@@ -252,20 +204,17 @@ class Enemy(pygame.sprite.Sprite):
             norm_px = to_player_x / dist_to_player
             norm_py = to_player_y / dist_to_player
             
-            # Producto escalar para verificar si está dentro del ángulo frontal (~35 grados de apertura)
             dot_product = norm_px * dir_x + norm_py * dir_y
             if dot_product >= 0.65:
                 in_cone = True
 
         if in_cone:
-            # Comprobación de paredes más fina y precisa (caja de colisión más pequeña para evitar falsos positivos en pasillos)
             blocked_by_wall = False
-            steps = 15  # Mayor muestreo para mayor precisión en espacios cerrados
+            steps = 15  
             for i in range(1, steps + 1):
                 check_x = start_x + to_player_x * (i / steps)
                 check_y = start_y + to_player_y * (i / steps)
                 
-                # Rectángulo de prueba más pequeño (1x1 píxel) para no chocar con las paredes de los costados
                 test_rect = pygame.Rect(check_x, check_y, 1, 1)
                 for wall in walls_rects:
                     if test_rect.colliderect(wall):
@@ -277,12 +226,11 @@ class Enemy(pygame.sprite.Sprite):
             if not blocked_by_wall:
                 detected = True
 
-        # Color del cono según si detectó o no a Snake
         current_color = cone_color_red if detected else cone_color_green
         
-        # Dibujar el triángulo del cono en pantalla
+        # Renderizado del polígono
         pygame.draw.polygon(vision_surface, current_color, [p_center, p_left, p_right])
-        screen_surface.blit(vision_surface, (0, 0))
+        surface.blit(vision_surface, (0, 0))
         
         return detected
 
@@ -292,8 +240,12 @@ class Enemy(pygame.sprite.Sprite):
         else:
             current_image = self.animations["WALK"][self.facing][self.frame_index]
         
-        # Obtenemos el rectángulo ajustado por la cámara
         dest_rect = camera.apply(self)
+        
+        # Aplicamos los offsets correctamente para que no se dibuje desfasado ni duplicado
+        draw_x = dest_rect.x - self.offset_x
+        draw_y = dest_rect.y - self.offset_y
 
-        # Dibujamos la imagen del enemigo en la posición de la cámara
-        surface.blit(current_image, dest_rect)
+        pygame.draw.rect(surface, (255, 0, 0), dest_rect, 1)
+        
+        surface.blit(current_image, (draw_x, draw_y))

@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="36" height="36" tilewidth="16" tileheight="16" infinite="0" nextlayerid="5" nextobjectid="21">
- <tileset firstgid="1" source="colisiones.tsx"/>
- <imagelayer id="2" name="building1_floor2">
+<tileset firstgid="1" source="colisiones.tsx"/>
+<imagelayer id="2" name="building1_floor2">
   <image source="building1_floor2-576x576.png" width="576" height="576"/>
- </imagelayer>
- <layer id="1" name="colisiones_grid" width="36" height="36">
+</imagelayer>
+<layer id="1" name="colisiones_grid" width="36" height="36">
   <data encoding="csv">
 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
@@ -43,8 +43,8 @@
 1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
 1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
 </data>
- </layer>
- <objectgroup color="#ff0000" id="3" name="colisiones_objs">
+</layer>
+<objectgroup color="#ff0000" id="3" name="colisiones_objs">
   <object id="1" x="48" y="448" width="8" height="48"/>
   <object id="3" x="96" y="560" width="32" height="16"/>
   <object id="4" x="64" y="256" width="8" height="160"/>
@@ -64,6 +64,6 @@
   <object id="18" x="36" y="64" width="4" height="48"/>
   <object id="19" x="56" y="64" width="4" height="48"/>
   <object id="20" x="380" y="224" width="4" height="32"/>
- </objectgroup>
- <objectgroup id="4" name="player_spawn"/>
+</objectgroup>
+<objectgroup id="4" name="player_spawn"/>
 </map>
