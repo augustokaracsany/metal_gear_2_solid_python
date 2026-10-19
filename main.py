@@ -61,7 +61,6 @@ def main():
     # Estados iniciales.
     current_state = IntroState(intro_script, music_path=music_file)
     menu_manager = MenuManager()
-    prologue_instance = PrologueState()
     game_instance = None
 
     running = True
