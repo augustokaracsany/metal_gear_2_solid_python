@@ -38,7 +38,7 @@ def main():
     # Definir el guion de secuencias modular:
     # - Secuencia 1: Del 1 al 60, con el tramo del 8 al 60 repetido 3 veces.
     # - Secuencia 2: De corrido desde el frame 1 al 70 (sin bucles adicionales).
-    intro_script = [d
+    intro_script = [
         {
             "frames": intro_frames_1,
             "scale": 2,
