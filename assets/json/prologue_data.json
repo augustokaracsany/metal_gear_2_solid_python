@@ -1,0 +1,31 @@
+{
+    "prologue_id": "prologue",
+    "background_music": "assets/audio/music/midnight_shadow.mp3",
+    "panels": [
+        {
+            "text": "Cuando creiamos que no podía empeorar, \nunidades tácticas de espionaje dieron con una ubicación \nen Africa Central de creación de armas \naltamente destructivas.",
+            "image": "assets/prologue/frame1.jpg",
+            "advance_mode": "keypress"
+        },
+        {
+            "text": "En ese lugar, esta en desarrollo un nuevo tanque \nllamado 'Metal Gear: Destroyer of Worlds', con el poder \nsuficiente para dominar un continente entero.",
+            "image": "assets/prologue/frame1.jpg",
+            "advance_mode": "keypress"
+        },
+        {
+            "text": "El laboratorio MSX ha pasado desapercibido por mucho tiempo. \nHoy, ya hemos detectado que estan planeando y cual \nes su futuro gran proyecto.",
+            "image": "assets/prologue/frame1.jpg",
+            "advance_mode": "keypress"
+        },
+        {
+            "text": "Snake, tu objetivo es entrar a la base y \ndestruir al Metal Gear: Destroyer of Worlds.",
+            "image": "assets/prologue/frame2.jpg",
+            "advance_mode": "keypress"
+        },
+        {
+            "text": "Sera necesario contar con algo de agilidad, si la maquina \nes terminada y activada, la misión se acaba.",
+            "image": "assets/prologue/frame2.jpg",
+            "advance_mode": "keypress"
+        }
+    ]
+}
