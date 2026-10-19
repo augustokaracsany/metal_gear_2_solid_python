@@ -9,6 +9,13 @@ class Player(pygame.sprite.Sprite):
         # Posición exacta en decimales para que el movimiento sea fluido.
         self.x = float(x)
         self.y = float(y)
+
+        # Variables iniciales de muerte
+
+        self.is_dying = False
+        self.death_frame_index = 0
+        self.death_timer = 0.0
+        self.death_animation_speed = 0.6
         
         # Variables para golpear
         self.is_punching = False
@@ -222,7 +229,12 @@ class Player(pygame.sprite.Sprite):
                 "UP": cs("assets/sprites/solid_python/punch_up.png"),
                 "LEFT": cs("assets/sprites/solid_python/punch_left.png"),
                 "RIGHT": cs("assets/sprites/solid_python/punch_right.png"),
-            }
+            },
+            "DIE": [
+                cs("assets/sprites/solid_python/crouch_down1.png"),
+                cs("assets/sprites/solid_python/crawl_down1.png"),
+                cs("assets/sprites/solid_python/crawl_down2.png")
+            ]
         }
 
     def update_offsets_for_stance(self):
@@ -266,7 +278,6 @@ class Player(pygame.sprite.Sprite):
         dx = 0
         dy = 0
         
-        # Detecta teclas solo si no está golpeando
         if not self.is_punching:
             if keys[pygame.K_LEFT] or keys[pygame.K_a]:
                 dx = -1
@@ -281,8 +292,7 @@ class Player(pygame.sprite.Sprite):
             elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
                 dy = 1
                 self.facing = "DOWN"
-            
-        # Normalizar diagonal para velocidad constante
+
         if dx != 0 and dy != 0:
             dx *= 0.7071
             dy *= 0.7071
@@ -307,7 +317,6 @@ class Player(pygame.sprite.Sprite):
 
         current_time = pygame.time.get_ticks()
 
-        # Control del temporizador del golpe
         if self.is_punching:
             if current_time - self.init_time_punch >= self.punch_length:
                 self.is_punching = False
@@ -651,29 +660,50 @@ class Player(pygame.sprite.Sprite):
         test_rect = self.rect.copy()
         test_rect.inflate_ip(margin, margin)
         return self._is_inside_hidden_zone(test_rect)
+
+    def start_death_animation(self):
+        self.is_dying = True
+        self.death_frame_index = 0
+        self.death_timer = 0.0
+
+    def update_death(self, dt):
+        if not self.is_dying:
+            return
+            
+        self.death_timer += dt
+        if self.death_timer >= self.death_animation_speed:
+            self.death_timer = 0.0
+            # Si aún hay frames en la animación de muerte, avanzamos
+            if self.death_frame_index < len(self.animations["DIE"]) - 1:
+                self.death_frame_index += 1
     
     def draw_with_camera(self, surface, camera):
         current_image = None
 
         # === AGREGADO: MOSTRAR SPRITE DE LA CAJA SI ESTÁ DISFRAZADO ===
-        if self.is_disguised and self.box_sprite:
-            current_image = self.box_sprite
-        elif self.is_punching:
-            current_image = self.animations["PUNCH"][self.facing]
-        elif self.is_moving:
-            if self.stance == "CROUCH":
-                current_image = self.animations["CROUCH"][self.facing][self.frame_index]
-            elif self.stance == "CRAWL":
-                current_image = self.animations["CRAWL"][self.facing][self.frame_index]
-            else:
-                current_image = self.animations["WALK"][self.facing][self.frame_index]
+
+        if self.is_dying:
+            current_image = self.animations["DIE"][self.death_frame_index]
         else:
-            if self.stance == "CROUCH":
-                current_image = self.animations["CROUCH"][self.facing][0]
-            elif self.stance == "CRAWL":
-                current_image = self.animations["CRAWL"][self.facing][0]
+            if self.is_disguised and self.box_sprite:
+                current_image = self.box_sprite
+            elif self.is_punching:
+                current_image = self.animations["PUNCH"][self.facing]
+            elif self.is_moving:
+                if self.stance == "CROUCH":
+                    current_image = self.animations["CROUCH"][self.facing][self.frame_index]
+                elif self.stance == "CRAWL":
+                    current_image = self.animations["CRAWL"][self.facing][self.frame_index]
+                else:
+                    current_image = self.animations["WALK"][self.facing][self.frame_index]
             else:
-                current_image = self.animations["IDLE"][self.facing]
+                if self.stance == "CROUCH":
+                    current_image = self.animations["CROUCH"][self.facing][0]
+                elif self.stance == "CRAWL":
+                    current_image = self.animations["CRAWL"][self.facing][0]
+                else:
+                    current_image = self.animations["IDLE"][self.facing]
+            
             
         dest_rect = camera.apply(self)
         
