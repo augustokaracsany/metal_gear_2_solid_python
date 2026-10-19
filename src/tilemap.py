@@ -1,6 +1,7 @@
 import pygame
 import pytmx
 from pytmx.util_pygame import load_pygame
+from pathfinding.core.grid import Grid
 
 class TiledMap:
     def __init__(self, filename, scale=2):
@@ -210,3 +211,24 @@ class TiledMap:
                             "properties": props
                         })
         return triggers
+
+    def create_pathfinding_grid(self, tile_size=16, actor_size=(16, 16)):
+        """
+        Una celda es caminable solo si un cuerpo de tamaño actor_size, centrado en ella,
+        no toca ninguna pared. Así 'celda libre' significa 'el guardia entra entero'.
+        """
+        cols = self.width // tile_size
+        rows = self.height // tile_size
+        walls = self.get_collision_rects()
+        aw, ah = actor_size
+
+        matrix = []
+        for row in range(rows):
+            line = []
+            for col in range(cols):
+                body = pygame.Rect(0, 0, aw, ah)
+                body.center = (col * tile_size + tile_size // 2, row * tile_size + tile_size // 2)
+                line.append(0 if body.collidelist(walls) != -1 else 1)
+            matrix.append(line)
+
+        return Grid(matrix=matrix)

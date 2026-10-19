@@ -1,9 +1,8 @@
 import os
 import pygame
-from src import enemy
+from src.enemy import Enemy
 from src.player import Player
 from src.camera import Camera
-from src.enemy import Enemy  # MERGE.
 from src.tilemap import TiledMap  # Mapas TMX
 from src.settings import SCREEN_WIDTH, SCREEN_HEIGHT
 from src.items import Item  
@@ -91,7 +90,7 @@ class Game:
             self.map_scale = 2 
             self.map_image = pygame.transform.scale(self.raw_map, (self.raw_map.get_width() * self.map_scale, self.raw_map.get_height() * self.map_scale))
 
-        # Actualizar zonas ocultas y barreras de forma segura
+                # Actualizar zonas ocultas y barreras de forma segura
         if self.map:
             self.hidden_zones = self.map.get_hidden_zones("zonas_oculto") or []
             self.hidden_zones_top = self.map.get_hidden_zones_top() or []
@@ -102,6 +101,7 @@ class Game:
             self.hidden_zones_top = []
             self.hidden_zones_bottom = []
             self.top_barriers = []
+            self.pathfinding_grid = None
 
         # Limpiar grupos de la escena previa
         self.enemies_group.empty()
@@ -128,6 +128,13 @@ class Game:
                             self.items_group.add(box_item)
                         except Exception as e:
                             print(f"Error cargando sprite de la caja: {e}")
+
+            # C. GRILLA DE PATHFINDING (después de crear los enemigos: usa el tamaño de su hitbox)
+            if self.enemies_group:
+                actor_size = self.enemies_group.sprites()[0].rect.size
+                self.pathfinding_grid = self.map.create_pathfinding_grid(16, actor_size)
+            else:
+                self.pathfinding_grid = None
 
     def check_map_transitions(self):
         """Detecta colisiones con triggers de cambio de mapa."""
@@ -187,9 +194,8 @@ class Game:
         # Transición de mapa
         self.check_map_transitions()
 
-        # Actualizar enemigos
         for enemy in self.enemies_group:
-            enemy.update(dt, walls)  
+            enemy.update(dt, walls, self.player, self.pathfinding_grid)
 
         # Actualizamos la posición de la cámara centrada en Snake.
         self.camera.update(self.player)
@@ -218,7 +224,7 @@ class Game:
 
         # Dibujar conos de visión de los enemigos
         for enemy in self.enemies_group:
-            enemy.check_vision(self.player, walls, self.virtual_surface, self.camera)
+            enemy.draw_vision(self.virtual_surface, self.camera)
         
         if self.map:
             self.map.render_roofs(
