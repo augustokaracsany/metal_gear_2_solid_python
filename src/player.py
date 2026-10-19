@@ -1,0 +1,535 @@
+import pygame
+from src.settings import PLAYER_SPEED
+from src.settings import PLAYER_SPEED, PLAYER_MAX_HEALTH, PLAYER_INVULNERABLE_TIME
+
+class Player(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        super().__init__()
+        
+        # Posición exacta en decimales para que el movimiento sea fluido.
+        self.x = float(x)
+        self.y = float(y)
+        
+        # Variables para golpear (añadidas por Lautaro)
+        self.is_punching = False
+        self.init_time_punch = 0
+        self.punch_length = 500
+        self.last_punch = 0
+        self.cooldown_punch = 600
+        
+        # Estados de postura: "STAND", "CROUCH" ( Agachado. ), "CRAWL" ( Cuerpo a tierra, tirado. )
+        self.stance = "STAND"
+
+        # FLAG. Bandera para saber si se agachó automáticamente por chocar contra de cara con una col.
+        self.forced_crouch = False
+
+        # Bandera y temporizador para mantener el crouch un momento y evitar parpadeos. FLAG.
+        self.forced_crouch = False # <- La famosa Flag.
+        self.crouch_hold_timer = 0.0
+        self.crouch_hold_duration = 1.5  # Tiempo mínimo en segundos que se quedará agachado.
+
+        # Control de transición de posturas.
+        # Al pasar de "STAND" a "CRAWL" hace un frame de "CROUCH" en la dirección correcta.
+        # Si no parpadea, pasa de estar de pie a tirado en un frame.
+        self.is_transitioning = False
+        self.transition_timer = 0.0
+        self.transition_duration = 0.18  # Duración del frame de transición en segundos ( Aprox 180ms. )
+        self.target_stance = None
+        
+        # Dirección actual ( "UP", "DOWN", "LEFT", "RIGHT" ).
+        self.facing = "DOWN"
+        self.is_moving = False
+
+        # Vida del jugador.
+        self.max_health = PLAYER_MAX_HEALTH
+        self.health = self.max_health
+        self.is_dead = False
+        self.last_hit_time = -PLAYER_INVULNERABLE_TIME  # Para que el primer golpe sí cuente.
+
+        # Control de animación y carga de sprites.
+        self.anim_timer = 0.0
+        self.frame_index = 0
+        self.animation_speed = 0.15  # Segundos por CADA frame.
+        
+        # CARGAR SPRITES.
+        self.load_sprites_data()
+
+        # Instancia el rect de colisión base ( Basado pero en STAND_DOWN. )
+        stand_img = self.animations["IDLE"]["DOWN"]
+        stand_w, stand_h = stand_img.get_size()
+        col_width = int(stand_w * 0.6)
+        col_height = int(stand_h * 0.3)
+        self.rect = pygame.Rect(self.x, self.y, col_width, col_height)
+        
+        # Offsets específicos por postura para evitar que flote.
+        self.update_offsets_for_stance()
+
+    def punch_self_event(self, event):
+        current_time = pygame.time.get_ticks()
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_e:
+                # MECÁNICA NUEVA: Solo puede golpear si está completamente de pie ( "STAND" ). Imposible que te golpee un tipo tirado en el piso.
+                if self.stance == "STAND":
+                    if current_time - self.last_punch >= self.cooldown_punch:
+                        self.is_punching = True
+                        self.init_time_punch = current_time
+                        self.last_punch = current_time
+            
+            elif event.key == pygame.K_c:
+                if self.stance == "STAND":
+                    self.set_stance("CROUCH")
+                elif self.stance == "CROUCH":
+                    self.set_stance("STAND")
+                elif self.stance == "CRAWL":
+                    self.set_stance("CROUCH")
+                    
+            elif event.key in (pygame.K_LCTRL, pygame.K_RCTRL):
+                if self.stance in ("STAND", "CROUCH"):
+                    if self.can_crawl() and self.has_space_behind():
+                        # De "Stand"/"Crouch" a "Crawl" pasando antes por agachado. 
+                        self.start_stance_transition("CRAWL")
+                elif self.stance == "CRAWL":
+                    # De "Crawl" a "Stand" pasando por agachado.
+                    self.start_stance_transition("STAND")
+
+    def set_stance(self, new_stance):
+        if new_stance != self.stance:
+            self.stance = new_stance
+            self.frame_index = 0 
+            self.anim_timer = 0.0
+            self.update_offsets_for_stance()
+            # Si cambia de postura manualmente, reseteamos la bandera de agachado forzado.
+            if new_stance != "CROUCH":
+                self.forced_crouch = False
+
+    def load_sprites_data(self):
+        SCALE_FACTOR = 2
+        def cs(path):
+            img = pygame.image.load(path).convert_alpha()
+            w = int(img.get_width() * SCALE_FACTOR)
+            h = int(img.get_height() * SCALE_FACTOR)
+            return pygame.transform.scale(img, (w, h))
+
+        # Snake quieto, 4 dir.
+        self.animations = {
+            "IDLE": {
+                "DOWN": cs("assets/sprites/solid_python/stand_down.png"),
+                "UP": cs("assets/sprites/solid_python/stand_up.png"),
+                "LEFT": cs("assets/sprites/solid_python/stand_left.png"),
+                "RIGHT": cs("assets/sprites/solid_python/stand_right.png"),
+            },
+            # Snake caminando, 4 dir. ( En bucle: quieto_dir -> caminar_dir1 -> quieto_dir -> caminar_dir2 )
+            "WALK": {
+                "DOWN": [
+                    cs("assets/sprites/solid_python/stand_down.png"), cs("assets/sprites/solid_python/walk_down1.png"),
+                    cs("assets/sprites/solid_python/stand_down.png"), cs("assets/sprites/solid_python/walk_down2.png")
+                ],
+                "UP": [
+                    cs("assets/sprites/solid_python/stand_up.png"), cs("assets/sprites/solid_python/walk_up1.png"),
+                    cs("assets/sprites/solid_python/stand_up.png"), cs("assets/sprites/solid_python/walk_up2.png")
+                ],
+                "LEFT": [
+                    cs("assets/sprites/solid_python/stand_left.png"), cs("assets/sprites/solid_python/walk_left1.png"),
+                    cs("assets/sprites/solid_python/stand_left.png"), cs("assets/sprites/solid_python/walk_left2.png")
+                ],
+                "RIGHT": [
+                    cs("assets/sprites/solid_python/stand_right.png"), cs("assets/sprites/solid_python/walk_right1.png"),
+                    cs("assets/sprites/solid_python/stand_right.png"), cs("assets/sprites/solid_python/walk_right2.png")
+                ]
+            },
+            # Para la mecánica de agacharse hay solo dos sprites por dir.
+            "CROUCH": {
+                "DOWN": [cs("assets/sprites/solid_python/crouch_down1.png"), cs("assets/sprites/solid_python/crouch_down2.png")],
+                "UP": [cs("assets/sprites/solid_python/crouch_up1.png"), cs("assets/sprites/solid_python/crouch_up2.png")],
+                "LEFT": [cs("assets/sprites/solid_python/crouch_left1.png"), cs("assets/sprites/solid_python/crouch_left2.png")],
+                "RIGHT": [cs("assets/sprites/solid_python/crouch_right1.png"), cs("assets/sprites/solid_python/crouch_right2.png")]
+            },
+            # Misma lógica que en el bucle de caminar.
+            "CRAWL": {
+                "DOWN": [
+                    cs("assets/sprites/solid_python/crawl_down.png"), 
+                    cs("assets/sprites/solid_python/crawl_down1.png"), 
+                    cs("assets/sprites/solid_python/crawl_down.png"), 
+                    cs("assets/sprites/solid_python/crawl_down2.png")
+                ],
+                "UP": [
+                    cs("assets/sprites/solid_python/crawl_up.png"), 
+                    cs("assets/sprites/solid_python/crawl_up1.png"), 
+                    cs("assets/sprites/solid_python/crawl_up.png"), 
+                    cs("assets/sprites/solid_python/crawl_up2.png")
+                ],
+                "LEFT": [
+                    cs("assets/sprites/solid_python/crawl_left.png"), 
+                    cs("assets/sprites/solid_python/crawl_left1.png"), 
+                    cs("assets/sprites/solid_python/crawl_left.png"), 
+                    cs("assets/sprites/solid_python/crawl_left2.png")
+                ],
+                "RIGHT": [
+                    cs("assets/sprites/solid_python/crawl_right.png"), 
+                    cs("assets/sprites/solid_python/crawl_right1.png"), 
+                    cs("assets/sprites/solid_python/crawl_right.png"), 
+                    cs("assets/sprites/solid_python/crawl_right2.png")
+                ]
+            },
+            "PUNCH": {
+                "DOWN": cs("assets/sprites/solid_python/punch_down.png"),
+                "UP": cs("assets/sprites/solid_python/punch_up.png"),
+                "LEFT": cs("assets/sprites/solid_python/punch_left.png"),
+                "RIGHT": cs("assets/sprites/solid_python/punch_right.png"),
+            }
+        }
+
+    def update_offsets_for_stance(self):
+        """Calcula el offset para centrar la colisión bajo el cuerpo de Snake en CRAWL UP/DOWN."""
+        # Tomamos como referencia el tamaño base ( STAND_DOWN ) para definir el rect físico.
+        stand_img = self.animations["IDLE"]["DOWN"]
+        stand_w, stand_h = stand_img.get_size()
+        col_width = int(stand_w * 0.6)   # Ancho compacto del rect físico.
+        col_height = int(stand_h * 0.3)  # Alto compacto del rect físico.
+
+        # Identificamos qué imagen se está usando.
+        if self.stance == "STAND":
+            ref_img = self.animations["IDLE"][self.facing]
+        elif self.stance == "CROUCH":
+            ref_img = self.animations["CROUCH"][self.facing][0]
+        else: 
+            ref_img = self.animations["CRAWL"][self.facing][0]
+
+        img_width, img_height = ref_img.get_size()
+
+        # 1. Offset Horizontal ( Centrado invariable, funciona bien siempre. )
+        self.offset_x = (img_width - col_width) // 2
+        
+        # 2. Offset Vertical CORREGIDO. 
+        if self.stance == "CRAWL" and self.facing in ("UP", "DOWN"):
+            # NUEVO CÁLCULO DE CENTRADO:
+            # Alineamos el centro de la imagen con el centro del rectángulo físico.
+            # Esto hace que el rectángulo rojo se ubique en el medio del cuerpo durante Crawl Up/Down.
+            self.offset_y = (img_height - col_height) // 2
+        elif self.stance == "CRAWL":
+            # Para CRAWL LEFT/RIGHT, mantenemos el ajuste bajo, funciona.
+            self.offset_y = img_height - (col_height // 1.2)
+        else:
+            # Para STAND/CROUCH, mantenemos la alineación en la base de los pies. Funciona.
+            self.offset_y = img_height - col_height
+
+    # NOTA: Borrar.
+    # def update_offsets_for_stance(self):
+    #     """Calcula el offset ( FIXEAR DESPUÉS. ) exacto para cada postura para que la base del sprite encaje con los pies."""
+    #     stand_img = self.animations["IDLE"]["DOWN"]
+    #     stand_w, stand_h = stand_img.get_size()
+    #     col_width = int(stand_w * 0.6)
+    #     col_height = int(stand_h * 0.3)
+
+    # Se rompió todo.
+    #     if self.stance == "STAND":
+    #         ref_img = self.animations["IDLE"][self.facing]
+    #     elif self.stance == "CROUCH":
+    #         ref_img = self.animations["CROUCH"][self.facing][0]
+    #     else: 
+    #         ref_img = self.animations["CRAWL"][self.facing][0]
+
+    #     img_width, img_height = ref_img.get_size()
+
+    #     self.offset_x = (img_width - col_width) // 2
+        
+    #     if self.stance == "CRAWL":
+    #         self.offset_y = img_height - (col_height // 1.2)
+    #     else:
+    #         self.offset_y = img_height - col_height
+
+    def start_stance_transition(self, target_stance):
+        """Inicia una transición pasando brevemente por el estado CROUCH."""
+        if not self.is_transitioning:
+            self.target_stance = target_stance
+            self.is_transitioning = True
+            self.transition_timer = 0.0
+            # Forzamos temporalmente la postura a CROUCH para que dibuje el frame agachado.
+            self.stance = "CROUCH"
+            self.frame_index = 0
+            self.update_offsets_for_stance()
+
+    def handle_input(self):
+        keys = pygame.key.get_pressed()
+        dx = 0
+        dy = 0
+        
+        # Detecta teclas solo si no está golpeando
+        if not self.is_punching:
+            if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+                dx = -1
+                self.facing = "LEFT"
+            elif keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+                dx = 1
+                self.facing = "RIGHT"
+                
+            if keys[pygame.K_UP] or keys[pygame.K_w]:
+                dy = -1
+                self.facing = "UP"
+            elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
+                dy = 1
+                self.facing = "DOWN"
+            
+        # Normalizar diagonal para velocidad constante
+        if dx != 0 and dy != 0:
+            dx *= 0.7071
+            dy *= 0.7071
+            
+        # Velocidad en diagonal idéntica a los ejes cardinales ( Sin multiplicar por 0.7071. )
+        return dx, dy
+
+    def update(self, dt, walls_group):
+        # Guardamos la referencia de los muros.
+        self.current_walls = walls_group
+
+        # GESTIÓN DE TRANSICIÓN DE POSTURA/STANCE.
+        if self.is_transitioning:
+            self.transition_timer += dt
+            if self.transition_timer >= self.transition_duration:
+                self.set_stance(self.target_stance)
+                self.is_transitioning = False
+                self.target_stance = None
+
+        current_time = pygame.time.get_ticks()
+
+        # Control del temporizador del golpe
+        if self.is_punching:
+            if current_time - self.init_time_punch >= self.punch_length:
+                self.is_punching = False
+
+        dx, dy = self.handle_input()
+        
+        self.update_offsets_for_stance()
+
+        if self.stance == "STAND":
+            current_speed = PLAYER_SPEED * 0.20 
+        elif self.stance == "CROUCH":
+            current_speed = PLAYER_SPEED * 0.10 
+        elif self.stance == "CRAWL":
+            current_speed = PLAYER_SPEED * 0.08  
+
+        # Descontamos el tiempo de retención si está agachado a la fuerza. Flag.
+        if self.forced_crouch:
+            if self.crouch_hold_timer > 0:
+                self.crouch_hold_timer -= dt
+
+        if (dx != 0 or dy != 0) and not self.is_punching:
+            self.is_moving = True
+
+            # DETECTOR DE PAREDES/COLISIONES.
+
+            # REGLA 1: ANTICIPACIÓN FRONTAL ( Pasar de CRAWL -> CROUCH. ).
+            # Si va cuerpo a tierra y detecta un obstáculo a pocos píxeles al frente, 
+            # se agacha ANTES de chocar con los dientes bruscamente.
+        
+            if self.stance == "CRAWL" and self.check_upcoming_obstacle():
+                self.set_stance("CROUCH")
+                self.forced_crouch = True
+                self.crouch_hold_timer = self.crouch_hold_duration  # Activamos el timer de gracia.
+                # El tiempo de gracia está en init.
+
+            # REGLA 2: Recuperación trasera/lateral retención de timer.
+            if self.stance == "CROUCH" and self.forced_crouch:
+                # Solo vuelve a CRAWL si ya pasó el tiempo de gracia Y hay espacio adelante y atrás
+                if self.crouch_hold_timer <= 0 and self.can_crawl() and self.has_space_behind():
+                    self.set_stance("CRAWL")
+                    self.forced_crouch = False
+
+            # Movimiento en Eje X con acumulación real de decimales.
+            vel_x = dx * current_speed * dt
+            self.x += vel_x
+            self.rect.x = round(self.x)
+            self.check_collisions_x(walls_group, vel_x)
+
+            # Movimiento en Eje Y con acumulación real de decimales.
+            vel_y = dy * current_speed * dt
+            self.y += vel_y
+            self.rect.y = round(self.y)
+            self.check_collisions_y(walls_group, vel_y)
+        else:
+            self.is_moving = False
+
+        # GESTIÓN DE ANIMACIÓN.
+        if self.is_moving:
+            self.anim_timer += dt
+            if self.anim_timer >= self.animation_speed:
+                self.anim_timer = 0.0
+                if self.stance == "CROUCH":
+                    num_frames = len(self.animations["CROUCH"][self.facing])
+                    self.frame_index = (self.frame_index + 1) % num_frames
+                elif self.stance == "CRAWL":
+                    num_frames = len(self.animations["CRAWL"][self.facing])
+                    self.frame_index = (self.frame_index + 1) % num_frames
+                else:
+                    self.frame_index = (self.frame_index + 1) % 4  
+        else:
+            if self.stance != "STAND":
+                self.frame_index = 0
+            self.anim_timer = 0.0
+
+    def check_collisions_x(self, walls, dx):
+        collided = False
+        for wall in walls:
+            if self.rect.colliderect(wall):
+                collided = True
+                if dx > 0:
+                    self.rect.right = wall.left
+                elif dx < 0:
+                    self.rect.left = wall.right
+                self.x = float(self.rect.x) # SÍ se sincroniza porque chocó.
+
+        if collided and self.stance == "CRAWL":
+            self.set_stance("CROUCH")
+            self.forced_crouch = True # BANDERA DE AGACHADO FORZADO.
+            self.crouch_hold_timer = self.crouch_hold_duration  # Activamos el timer/tiempo de gracia.
+            # El timer lo definí en init.
+
+    def check_collisions_y(self, walls, dy):
+        collided = False
+        for wall in walls:
+            if self.rect.colliderect(wall):
+                collided = True
+                if dy > 0:
+                    self.rect.bottom = wall.top
+                elif dy < 0:
+                    self.rect.top = wall.bottom
+                self.y = float(self.rect.y) # SÍ se sincroniza porque chocó.
+
+        if collided and self.stance == "CRAWL":
+            self.set_stance("CROUCH")
+            self.forced_crouch = True # Bandera de AGACHADO FORZADO.
+            self.crouch_hold_timer = self.crouch_hold_duration  # Activamos el tiempo de gracia.
+            # El tiempo está definido en init.
+
+    # Chequea que haya lugar adelante antes de pasar a stance "CRAWL".
+    def can_crawl(self):
+        """Verifica si hay espacio libre en la dirección en la que mira Snake para poder tumbarse."""
+        if not hasattr(self, 'current_walls') or not self.current_walls:
+            return True # Por seguridad si aún no cargaron los muros.
+
+        # Copia del rect del jugador y lo desplazamos un poco hacia adelante según el facing.
+        test_rect = self.rect.copy()
+        check_distance = 6  # Píxeles hacia adelante a revisar.
+
+        if self.facing == "UP":
+            test_rect.y -= check_distance
+        elif self.facing == "DOWN":
+            test_rect.y += check_distance
+        elif self.facing == "LEFT":
+            test_rect.x -= check_distance
+        elif self.facing == "RIGHT":
+            test_rect.x += check_distance
+
+        # Comprobamos si ese rect de prueba colisiona con algún muro/col.
+        for wall in self.current_walls:
+            if test_rect.colliderect(wall):
+                return False  # Hay un obstáculo justo enfrente, no se puede tumbar.
+        
+        return True  # Hay espacio libre, sí se puede tumbar.
+
+    # Método de detección anticipada al frente ( Proactivo. ):
+    def check_upcoming_obstacle(self):
+        """Detecta si hay una pared muy cerca al frente para agacharse ANTES de colisionar."""
+        if not hasattr(self, 'current_walls') or not self.current_walls:
+            return False
+
+        test_rect = self.rect.copy()
+        look_ahead = 30  # Píxeles de anticipación hacia adelante. Ajustar variable en testing.
+
+        if self.facing == "UP":
+            test_rect.y -= look_ahead
+        elif self.facing == "DOWN":
+            test_rect.y += look_ahead
+        elif self.facing == "LEFT":
+            test_rect.x -= look_ahead
+        elif self.facing == "RIGHT":
+            test_rect.x += look_ahead
+
+        for wall in self.current_walls:
+            if test_rect.colliderect(wall):
+                return True
+        return False
+
+    # Método para verificar si hay espacio detrás ( Para las piernas. ):
+    def has_space_behind(self):
+        """Verifica de forma precisa si hay espacio físico detrás de Snake en cualquier eje para estirar el cuerpo."""
+        if not hasattr(self, 'current_walls') or not self.current_walls:
+            return True
+
+        body_length = 26 
+        test_rect = self.rect.copy()
+
+        # Extendemos el rectángulo de prueba hacia atrás considerando tanto la dirección a la que mira. 
+        # como los ejes de movimiento lateral/vertical para que respete el espacio en cualquier giro.
+        if self.facing == "UP":
+            test_rect.height += body_length
+        elif self.facing == "DOWN":
+            test_rect.y -= body_length
+            test_rect.height += body_length
+        elif self.facing == "LEFT":
+            test_rect.width += body_length
+        elif self.facing == "RIGHT":
+            test_rect.x -= body_length
+            test_rect.width += body_length
+
+        # Verificamos si esa zona de extensión trasera choca con algún muro.
+        for wall in self.current_walls:
+            if test_rect.colliderect(wall):
+                return False  # Hay un obstáculo en la zona trasera, se mantiene en CROUCH.
+                
+        return True
+    
+    def draw_with_camera(self, surface, camera):
+        current_image = None
+        if self.is_punching:
+            current_image = self.animations["PUNCH"][self.facing]
+        elif self.is_moving:
+            if self.stance == "CROUCH":
+                current_image = self.animations["CROUCH"][self.facing][self.frame_index]
+            elif self.stance == "CRAWL":
+                current_image = self.animations["CRAWL"][self.facing][self.frame_index]
+            else:
+                current_image = self.animations["WALK"][self.facing][self.frame_index]
+        else:
+            if self.stance == "CROUCH":
+                current_image = self.animations["CROUCH"][self.facing][0]
+            elif self.stance == "CRAWL":
+                current_image = self.animations["CRAWL"][self.facing][0]
+            else:
+                current_image = self.animations["IDLE"][self.facing]
+            
+        dest_rect = camera.apply(self)
+        
+        draw_x = dest_rect.x - self.offset_x
+        draw_y = dest_rect.y - self.offset_y
+
+        # Parpadeo mientras es invulnerable (se salta un frame de cada dos).
+        if self.is_invulnerable() and not self.is_dead and (pygame.time.get_ticks() // 100) % 2 == 0:
+            return
+        
+        surface.blit(current_image, (draw_x, draw_y))
+
+        # Para DEBUG: DIBUJA LA COLISIÓN EN TIEMPO REAL COMO UN CUADRADO ROJO.
+        # Debería mostrarse a los pies de Snake, estando de pie, agachado,
+        # y en el centro de su cuerpo ( Aprox. ) al estar cuerpo a tierra.
+        # Descomentar para que funcione: 
+        # pygame.draw.rect(surface, (255, 0, 0), dest_rect, 2)
+
+    def is_invulnerable(self):
+        return pygame.time.get_ticks() - self.last_hit_time < PLAYER_INVULNERABLE_TIME
+
+    def take_damage(self, amount):
+
+        #Resta vida. Ignora el golpe si todavía está en el tiempo de invulnerabilidad.
+        
+        if self.is_dead or self.is_invulnerable():
+            return
+        self.health = max(0, self.health - amount)
+        self.last_hit_time = pygame.time.get_ticks()
+        if self.health == 0:
+            self.is_dead = True
+
+    def heal(self, amount):
+        if self.is_dead:
+            return
+        self.health = min(self.max_health, self.health + amount)
