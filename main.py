@@ -2,6 +2,7 @@ import pygame
 import sys
 from src.settings import SCREEN_WIDTH, SCREEN_HEIGHT, FPS
 from src.menu import MenuManager
+from src.prologue import PrologueState
 from src.intro_state import IntroState
 from src.game import Game  # Clase principal de juego ( El game.py. )
 
@@ -37,7 +38,7 @@ def main():
     # Definir el guion de secuencias modular:
     # - Secuencia 1: Del 1 al 60, con el tramo del 8 al 60 repetido 3 veces.
     # - Secuencia 2: De corrido desde el frame 1 al 70 (sin bucles adicionales).
-    intro_script = [
+    intro_script = [d
         {
             "frames": intro_frames_1,
             "scale": 2,
@@ -55,11 +56,12 @@ def main():
     ]
 
     # Ruta de la música global para la intro
-    music_file = r"C:\Users\Agues\Documents\GitHub\metal_gear_2_solid_python\assets\audio\music\Theme_of_Solid_Snake.mp3"
+    music_file = r"assets\audio\music\Theme_of_Solid_Snake.mp3"
 
     # Estados iniciales.
     current_state = IntroState(intro_script, music_path=music_file)
     menu_manager = MenuManager()
+    prologue_instance = PrologueState()
     game_instance = None
 
     running = True
@@ -83,9 +85,15 @@ def main():
                 current_state = IntroState(intro_script, music_path=music_file)
             elif action and action.startswith("START_MISSION_"):
                 mission_num = int(action.split("_")[-1])
-                # Iniciar el juego con la misión seleccionada.
-                game_instance = Game(mission_num)
-                current_state = game_instance
+                if mission_num == 1:
+                    # Asignamos el prólogo como estado actual y guardamos la misión pendiente
+                    prologue_instance = PrologueState()
+                    prologue_instance.target_mission = mission_num  # Para saber a qué misión ir al terminar
+                    current_state = prologue_instance
+                else:
+                    # Si es otra misión sin prólogo, entra directo
+                    game_instance = Game(mission_num)
+                    current_state = game_instance
 
         elif isinstance(current_state, Game):
             # Procesa los eventos dentro de Game (pausa, jugador, teclado)
@@ -97,7 +105,18 @@ def main():
                 game_instance = None               # <- opcional, libera la partida
                 current_state = menu_manager
 
-            current_state.update(dt) # CLAVE. NO CAMBIAR.
+            # Una única llamada limpia al update por frame
+            if isinstance(current_state, Game): # Nos aseguramos de seguir en el juego por si presionó ESC
+                current_state.update(dt)
+
+        elif isinstance(current_state, PrologueState):
+            current_state.handle_events(events)
+            current_state.update(dt)
+            if current_state.finished:
+                # Al terminar el prólogo, saltamos a la misión guardada
+                next_mission = getattr(current_state, "target_mission", 1)
+                game_instance = Game(next_mission)
+                current_state = game_instance
 
         # 2. RENDERIZADO.m
         screen.fill((0, 0, 0))
