@@ -1,5 +1,6 @@
 import os
 import pygame
+import sys
 from src.enemy import Enemy
 from src.player import Player
 from src.camera import Camera
@@ -293,6 +294,13 @@ class Game:
                         self.trigger_victory_sequence()
                 self.player.punch_self_event(event)
 
+                # SOLO PARA PROBAR (borrar después): H = recibir daño, J = curarse.
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_h:
+                        self.player.take_damage(10)
+                    elif event.key == pygame.K_j:
+                        self.player.heal(10)
+
     def confirm_victory_option(self):
         """Ejecuta la acción seleccionada en el menú de Victoria"""
         pygame.mixer.music.fadeout(1000)
@@ -317,14 +325,6 @@ class Game:
         else:
             # Indicar que queremos volver al menú principal
             self.return_to_menu = True
-
-                # SOLO PARA PROBAR (borrar después): H = recibir daño, J = curarse.
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_h:
-                    self.player.take_damage(10)
-                elif event.key == pygame.K_j:
-                    self.player.heal(10)
-
 
     def update(self, dt):
         # Manejo limpio del fundido de entrada (Fade-in) sin alterar la velocidad del juego
@@ -627,10 +627,7 @@ class Game:
             for zone in self.hidden_zones:
                 debug_screen_rect = zone.move(self.camera.camera_rect.topleft)
                 pygame.draw.rect(self.virtual_surface, (0, 255, 255), debug_screen_rect, 2)
-
-        # 4. HUD ( Va al final para dibujarse encima de todo. ).
-            self.health_bar.draw(surface, self.player)
-                
+  
         # --- 3. EFECTO DE FADE-OUT SI ESTAMOS EN EL ESTADO "DYING" ---
         if self.state == "DYING" or self.fading_in:
             fade_surface = pygame.Surface((self.virtual_surface.get_width(), self.virtual_surface.get_height()))
@@ -641,3 +638,7 @@ class Game:
         # Escalamos la superficie virtual a la pantalla principal
         scaled_surface = pygame.transform.scale(self.virtual_surface, (surface.get_width(), surface.get_height()))
         surface.blit(scaled_surface, (0, 0))
+
+        # 4. HUD ( Va al final para dibujarse encima de todo. ).
+        self.health_bar.draw(surface, self.player)
+              

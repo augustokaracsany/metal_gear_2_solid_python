@@ -27,13 +27,13 @@ class Enemy(pygame.sprite.Sprite):
 
     GRID_TILE = 16                 # Tiene que coincidir con tile_size de create_pathfinding_grid()
     PATROL_SPEED = 1 * 60       # px/seg
-    CHASE_SPEED = 1.9 * 60  # px/seg ( Debería ser más rápido que patrullando)
-    SEARCH_SPEED = 1.4 * 60        # px/seg
+    CHASE_SPEED = 1.5 * 60  # px/seg ( Debería ser más rápido que patrullando)
+    SEARCH_SPEED = 1.5 * 60        # px/seg
 
     VISION_RANGE = 3 * 120      # Alcance del cono en px
     CONE_HALF_ANGLE = 20        # Ángulo del cono en grados ( Dibujo Y detección usan lo mismo. )
     CONE_TAN = math.tan(math.radians(CONE_HALF_ANGLE))
-    AWARENESS_RADIUS = 600          # En ALERT/CHASE te "siente" cerca aunque estés fuera del cono de VISIÓN.
+    AWARENESS_RADIUS = 10000          # En ALERT/CHASE te "siente" cerca aunque estés fuera del cono de VISIÓN.
 # A* <- Algoritmo.
     ALERT_TIME = 0.8               # Segundos que se queda con el ícono de alerta antes de correr.
     LOSE_SIGHT_TIME = 600.0          # S sin verte antes de pasar de CHASE a SEARCH.
