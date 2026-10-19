@@ -9,6 +9,7 @@ from src.settings import SCREEN_WIDTH, SCREEN_HEIGHT
 from src.items import Item  
 from src.hud import HealthBar
 from src.settings import ENEMY_CONTACT_DAMAGE
+from src.pause import PauseMenu
 
 class Game:
     def __init__(self, mission_number=1):
@@ -26,6 +27,10 @@ class Game:
         self.fade_in_timer = pygame.time.get_ticks()
         self.game_over_selected_option = 0
         self.return_to_menu = False
+
+        # --- SISTEMA DE PAUSA ---
+        self.is_paused = False
+        self.pause_menu = PauseMenu(SCREEN_WIDTH, SCREEN_HEIGHT)
         
         # 1. DICCIONARIO DE NIVELES: Mapea cada misión a sus respectivas rutas de archivos
         self.levels_data = {
@@ -45,7 +50,6 @@ class Game:
                 "tmx": "assets/sprites/maps/mission4_map.tmx",
                 "png": "assets/sprites/maps/mission4_map.png"
             },
-            # === AGREGADO: MAPA INTERIOR DEL CAMIÓN ===
             "truck": {
                 "tmx": "assets/sprites/maps/truck_interior.tmx",
                 "png": "assets/sprites/maps/truck_interior.jpg"
@@ -59,15 +63,13 @@ class Game:
         self.enemies_group = pygame.sprite.Group()
         self.items_group = pygame.sprite.Group()
         
-        # Instanciación inicial del mapa y entidades mediante el método modular
+        # Instanciación inicial del mapa y entidades
         self.load_level(current_level["tmx"])
 
-        # Definimos una resolución virtual más pequeña (la mitad de la pantalla = zoom x2 visual perfecto)
         self.virtual_width = SCREEN_WIDTH // 2
         self.virtual_height = SCREEN_HEIGHT // 2
         self.virtual_surface = pygame.Surface((self.virtual_width, self.virtual_height))
 
-        # Instanciamos la cámara pasándole el tamaño virtual correcto
         if self.map:
             map_width = self.map.width
             map_height = self.map.height
@@ -77,17 +79,14 @@ class Game:
 
         self.camera = Camera(map_width, map_height, self.virtual_width, self.virtual_height)
         
-        # Obtenemos las coordenadas de inicio desde el objeto 'player_spawn' del mapa Tiled
         spawn_x, spawn_y = self.map.get_spawn_point("player_spawn", (400, 350)) if self.map else (400, 350)
-                
-        # Instanciamos a Snake en la posición del mapa
         self.player = Player(spawn_x, spawn_y)
         self.all_sprites.add(self.player)
 
         self.health_bar = HealthBar()
 
     def load_level(self, tmx_or_key):
-        """Carga un nivel (puede recibir la ruta tmx o la clave del diccionario como 'truck')"""
+        """Carga un nivel"""
         if tmx_or_key in self.levels_data:
             level_info = self.levels_data[tmx_or_key]
             tmx_path = level_info["tmx"]
@@ -104,7 +103,7 @@ class Game:
             if png_path and os.path.exists(png_path):
                 self.raw_map = pygame.image.load(png_path).convert()
             else:
-                self.raw_map = pygame.Surface((576, 768)) # Respaldo por defecto
+                self.raw_map = pygame.Surface((576, 768))
             self.map_scale = 2 
             self.map_image = pygame.transform.scale(self.raw_map, (self.raw_map.get_width() * self.map_scale, self.raw_map.get_height() * self.map_scale))
 
@@ -121,12 +120,10 @@ class Game:
             self.top_barriers = []
             self.pathfinding_grid = None
 
-        # Limpiar grupos de la escena previa
         self.enemies_group.empty()
         self.items_group.empty()
 
         if self.map:
-            # A. RE-INSTANCIAR ENEMIGOS
             patrol_routes = self.map.get_patrol_path("enemy_patrols")
             if patrol_routes:
                 for ruta in patrol_routes:
@@ -135,7 +132,6 @@ class Game:
                     guardia = Enemy(pos_inicial_x, pos_inicial_y, ruta)
                     self.enemies_group.add(guardia)
 
-            # B. RE-INSTANCIAR ÍTEMS (CAJA DE CARTÓN, ETC.)
             if hasattr(self.map.tmx_data, 'objects'):
                 for obj in self.map.tmx_data.objects:
                     if obj.name == "cardboard_box" and hasattr(self, 'player') and "cardboard_box" not in self.player.inventory:
@@ -155,7 +151,6 @@ class Game:
                 self.pathfinding_grid = None
 
     def check_map_transitions(self):
-        """Detecta colisiones con triggers de cambio de mapa."""
         if not self.map:
             return
 
@@ -164,10 +159,6 @@ class Game:
             if self.player.rect.colliderect(trigger["rect"]):
                 props = trigger["properties"]
                 target_map = props.get("target_map")
-                
-                print(f"¡Transición! Entrando a: {target_map}")
-
-                # Cargar el mapa objetivo y reubicar a Snake
                 self.load_level(target_map)
 
                 scale = self.map.scale if self.map else 2
@@ -178,7 +169,6 @@ class Game:
                 self.player.rect.x = int(spawn_x)
                 self.player.rect.y = int(spawn_y)
                 
-                # Actualizar dimensiones de la cámara para el nuevo mapa
                 map_width = self.map.width if self.map else self.map_image.get_width()
                 map_height = self.map.height if self.map else self.map_image.get_height()
                 self.camera = Camera(map_width, map_height, self.virtual_width, self.virtual_height)
@@ -301,6 +291,34 @@ class Game:
                     elif event.key == pygame.K_j:
                         self.player.heal(10)
 
+            # Abrir/cerrar Pausa con la tecla M
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_m:
+                        self.is_paused = not self.is_paused
+                        continue
+            
+                        # Si el juego está en pausa, la navegación y selección las procesa la pausa
+                if self.is_paused:
+                            action = self.pause_menu.handle_input(event)
+                            if action == "CONTINUAR":
+                                self.is_paused = False
+                            elif action == "PUNTO DE CONTROL":
+                                self.pause_menu.trigger_feedback("No se encontró ningún punto de guardado previo.")
+                            elif action == "REINICIAR MISIÓN":
+                                # Reinicia el nivel y reubica a Snake en el spawn
+                                current_key = self.mission_number
+                                self.load_level(current_key)
+                                spawn_x, spawn_y = self.map.get_spawn_point("player_spawn", (400, 350)) if self.map else (400, 350)
+                                self.player.x, self.player.y = spawn_x, spawn_y
+                                self.player.rect.x, self.player.rect.y = int(spawn_x), int(spawn_y)
+                                self.is_paused = False
+                            elif action == "VOLVER AL MENÚ":
+                                self.is_paused = False
+                                return "GOTO_MENU"
+                else:
+                            # Si el juego NO está en pausa, responde a las acciones del jugador
+                            self.player.punch_self_event(event)
+                return None
+
     def confirm_victory_option(self):
         """Ejecuta la acción seleccionada en el menú de Victoria"""
         pygame.mixer.music.fadeout(1000)
@@ -327,6 +345,7 @@ class Game:
             self.return_to_menu = True
 
     def update(self, dt):
+            
         # Manejo limpio del fundido de entrada (Fade-in) sin alterar la velocidad del juego
         if self.fading_in:
             elapsed_fade = pygame.time.get_ticks() - self.fade_in_timer
@@ -354,7 +373,11 @@ class Game:
 
         if self.state == "GAME_OVER" or self.state == "VICTORY":
             return
-        
+
+    def update(self, dt):
+        if self.is_paused:
+            return
+###
         walls = self.map.get_collision_rects() if self.map else []
 
         self.player.update(
@@ -366,17 +389,14 @@ class Game:
             self.hidden_zones_bottom,
         )
 
-        # Recoger ítems del piso
         if hasattr(self.player, 'collect_items'):
             self.player.collect_items(self.items_group)
 
-        # Transición de mapa
         self.check_map_transitions()
 
         for enemy in self.enemies_group:
             enemy.update(dt, walls, self.player, self.pathfinding_grid)
 
-        # Actualizamos la posición de la cámara centrada en Snake.
         self.camera.update(self.player)
 
     def draw(self, surface):
@@ -627,7 +647,7 @@ class Game:
             for zone in self.hidden_zones:
                 debug_screen_rect = zone.move(self.camera.camera_rect.topleft)
                 pygame.draw.rect(self.virtual_surface, (0, 255, 255), debug_screen_rect, 2)
-  
+
         # --- 3. EFECTO DE FADE-OUT SI ESTAMOS EN EL ESTADO "DYING" ---
         if self.state == "DYING" or self.fading_in:
             fade_surface = pygame.Surface((self.virtual_surface.get_width(), self.virtual_surface.get_height()))
@@ -641,4 +661,8 @@ class Game:
 
         # 4. HUD ( Va al final para dibujarse encima de todo. ).
         self.health_bar.draw(surface, self.player)
-              
+
+
+        # RENDERIZAR PAUSA
+        if self.is_paused:
+            self.pause_menu.draw(surface)

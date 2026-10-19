@@ -96,18 +96,14 @@ def main():
                     current_state = game_instance
 
         elif isinstance(current_state, Game):
-            # Se delegan los eventos al juego. Como la ACCIÓN DE GOLPEAR. ( E. )
-            current_state.handle_events(events)
-
-            if getattr(current_state, "return_to_menu", False):
+            # Procesa los eventos dentro de Game (pausa, jugador, teclado)
+            game_action = current_state.handle_events(events)
+            
+            # Si en el menú de pausa se selecciona "VOLVER AL MENÚ"
+            if game_action == "GOTO_MENU":
+                menu_manager.state = "MAIN_MENU"   # <- agregar
+                game_instance = None               # <- opcional, libera la partida
                 current_state = menu_manager
-                
-            # Si el jugador presiona ESC dentro del juego, se vuelve al menú principal:
-            for event in events:
-                if event.type == pygame.QUIT:
-                    running = False
-                elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                    current_state = menu_manager  # Volver al menú
 
             # Una única llamada limpia al update por frame
             if isinstance(current_state, Game): # Nos aseguramos de seguir en el juego por si presionó ESC
@@ -122,7 +118,7 @@ def main():
                 game_instance = Game(next_mission)
                 current_state = game_instance
 
-        # 2. RENDERIZADO.
+        # 2. RENDERIZADO.m
         screen.fill((0, 0, 0))
         current_state.draw(screen)
         pygame.display.flip()
