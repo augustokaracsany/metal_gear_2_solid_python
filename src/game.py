@@ -107,7 +107,7 @@ class Game:
             self.map_scale = 2 
             self.map_image = pygame.transform.scale(self.raw_map, (self.raw_map.get_width() * self.map_scale, self.raw_map.get_height() * self.map_scale))
 
-                # Actualizar zonas ocultas y barreras de forma segura
+        # Actualizar zonas ocultas y barreras de forma segura
         if self.map:
             self.hidden_zones = self.map.get_hidden_zones("zonas_oculto") or []
             self.hidden_zones_top = self.map.get_hidden_zones_top() or []
@@ -174,14 +174,13 @@ class Game:
                 self.camera = Camera(map_width, map_height, self.virtual_width, self.virtual_height)
                 break
 
-        
     def trigger_victory_sequence(self):
         if self.state == "PLAYING":
             self.state = "VICTORY"
             self.victory_timer = pygame.time.get_ticks()
             self.fade_alpha = 0
             try:
-                pygame.mixer.music.load("assets/audio/music/mission_complete.mp3") # O la pista que uses de victoria
+                pygame.mixer.music.load("assets/audio/music/mission_complete.mp3")
                 pygame.mixer.music.play()
             except Exception as e:
                 print(f"Aviso música de victoria: {e}")
@@ -206,7 +205,6 @@ class Game:
         if next_num not in self.levels_data:
             return False
         
-        # Verificamos si los archivos de la siguiente misión existen realmente en la PC
         data = self.levels_data[next_num]
         tmx_exists = os.path.exists(data.get("tmx", ""))
         png_exists = os.path.exists(data.get("png", ""))
@@ -251,6 +249,7 @@ class Game:
                     elif hasattr(self, "vic_exit_rect") and self.vic_exit_rect.collidepoint(mx, my):
                         self.victory_selected_option = (2 if has_next else 1)
                         self.confirm_victory_option()
+                continue
             
             if self.state == "GAME_OVER":
                 if event.type == pygame.KEYDOWN:
@@ -275,84 +274,73 @@ class Game:
                     elif hasattr(self, "exit_rect") and self.exit_rect.collidepoint(mx, my):
                         self.game_over_selected_option = 1
                         self.confirm_game_over_option()
+                continue
 
-            elif self.state == "PLAYING":
+            # Abrir/cerrar Pausa con la tecla M
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_m:
+                self.is_paused = not self.is_paused
+                continue
+
+            # Si el juego está en pausa, la navegación y selección las procesa la pausa
+            if self.is_paused:
+                action = self.pause_menu.handle_input(event)
+                if action == "CONTINUAR":
+                    self.is_paused = False
+                elif action == "PUNTO DE CONTROL":
+                    self.pause_menu.trigger_feedback("No se encontró ningún punto de guardado previo.")
+                elif action == "REINICIAR MISIÓN":
+                    current_key = self.mission_number
+                    self.load_level(current_key)
+                    spawn_x, spawn_y = self.map.get_spawn_point("player_spawn", (400, 350)) if self.map else (400, 350)
+                    self.player.x, self.player.y = spawn_x, spawn_y
+                    self.player.rect.x, self.player.rect.y = int(spawn_x), int(spawn_y)
+                    self.is_paused = False
+                elif action == "VOLVER AL MENÚ":
+                    self.is_paused = False
+                    return "GOTO_MENU"
+            else:
+                # Si el juego NO está en pausa, responde a las acciones del jugador
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_k:  # Tecla de prueba de muerte
                         self.trigger_death_sequence()
                     elif event.key == pygame.K_v:
                         self.trigger_victory_sequence()
-                self.player.punch_self_event(event)
-
-                # SOLO PARA PROBAR (borrar después): H = recibir daño, J = curarse.
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_h:
+                    elif event.key == pygame.K_h:
                         self.player.take_damage(10)
                     elif event.key == pygame.K_j:
                         self.player.heal(10)
-
-            # Abrir/cerrar Pausa con la tecla M
-                if event.type == pygame.KEYDOWN and event.key == pygame.K_m:
-                        self.is_paused = not self.is_paused
-                        continue
-            
-                        # Si el juego está en pausa, la navegación y selección las procesa la pausa
-                if self.is_paused:
-                            action = self.pause_menu.handle_input(event)
-                            if action == "CONTINUAR":
-                                self.is_paused = False
-                            elif action == "PUNTO DE CONTROL":
-                                self.pause_menu.trigger_feedback("No se encontró ningún punto de guardado previo.")
-                            elif action == "REINICIAR MISIÓN":
-                                # Reinicia el nivel y reubica a Snake en el spawn
-                                current_key = self.mission_number
-                                self.load_level(current_key)
-                                spawn_x, spawn_y = self.map.get_spawn_point("player_spawn", (400, 350)) if self.map else (400, 350)
-                                self.player.x, self.player.y = spawn_x, spawn_y
-                                self.player.rect.x, self.player.rect.y = int(spawn_x), int(spawn_y)
-                                self.is_paused = False
-                            elif action == "VOLVER AL MENÚ":
-                                self.is_paused = False
-                                return "GOTO_MENU"
-                else:
-                            # Si el juego NO está en pausa, responde a las acciones del jugador
-                            self.player.punch_self_event(event)
-                return None
+                self.player.punch_self_event(event)
+        return None
 
     def confirm_victory_option(self):
         """Ejecuta la acción seleccionada en el menú de Victoria"""
         pygame.mixer.music.fadeout(1000)
-        
         has_next = self.has_next_mission()
         
         if self.victory_selected_option == 0:
-            # Reintentar la misión actual
             self.__init__(self.mission_number)
         elif self.victory_selected_option == 1 and has_next:
-            # Siguiente misión
             self.__init__(self.mission_number + 1)
         else:
-            # Salir al menú principal (si es la opción Salir o si era el último nivel disponible)
             self.return_to_menu = True
 
     def confirm_game_over_option(self):
         pygame.mixer.music.fadeout(1000)
         if self.game_over_selected_option == 0:
-            # Reintentar la misión
             self.__init__(self.mission_number)
         else:
-            # Indicar que queremos volver al menú principal
             self.return_to_menu = True
 
     def update(self, dt):
-            
-        # Manejo limpio del fundido de entrada (Fade-in) sin alterar la velocidad del juego
+        # Manejo limpio del fundido de entrada (Fade-in)
         if self.fading_in:
             elapsed_fade = pygame.time.get_ticks() - self.fade_in_timer
             self.fade_alpha = max(0, 255 - int((elapsed_fade / 1000.0) * 255))
             if self.fade_alpha == 0:
                 self.fading_in = False
-            # Dejamos que el juego corra por debajo para que la cámara y el mundo actúen normal
+
+        if self.is_paused:
+            return
 
         if self.state == "DYING":
             elapsed_death = pygame.time.get_ticks() - self.death_timer
@@ -374,10 +362,6 @@ class Game:
         if self.state == "GAME_OVER" or self.state == "VICTORY":
             return
 
-    def update(self, dt):
-        if self.is_paused:
-            return
-###
         walls = self.map.get_collision_rects() if self.map else []
 
         self.player.update(
@@ -401,6 +385,7 @@ class Game:
 
     def draw(self, surface):
         self.virtual_surface.fill((0, 0, 0))
+        
         if self.state == "VICTORY":
             surface.fill((42, 20, 15)) 
             
@@ -409,7 +394,6 @@ class Game:
             
             bar_height = int(h * 0.22)  
             
-            # Efecto de bordes sutiles
             color_center = (42, 20, 15)
             color_edge = (15, 7, 5)     
             gradient_size = 25          
@@ -452,7 +436,6 @@ class Game:
             text_rect = text_surface.get_rect(center=(w // 2, h // 2))
             surface.blit(text_surface, text_rect)
 
-            # --- OPCIONES DINÁMICAS EN LA FRANJA INFERIOR ---
             prompt_delay = 1500
             if elapsed > prompt_delay:
                 has_next = self.has_next_mission()
@@ -464,7 +447,6 @@ class Game:
                 center_y = h - (bar_height // 2)
 
                 if has_next:
-                    # CASO 1: Hay 3 opciones (REINTENTAR, SIGUIENTE, SALIR)
                     c_retry = (255, 255, 0) if self.victory_selected_option == 0 else (120, 120, 120)
                     c_next  = (255, 255, 0) if self.victory_selected_option == 1 else (120, 120, 120)
                     c_exit  = (255, 255, 0) if self.victory_selected_option == 2 else (120, 120, 120)
@@ -485,7 +467,6 @@ class Game:
                     surface.blit(s_next, self.vic_next_rect)
                     surface.blit(s_exit, self.vic_exit_rect)
                 else:
-                    # CASO 2: No hay archivos de la siguiente misión. Solo 2 opciones (REINTENTAR, SALIR)
                     c_retry = (255, 255, 0) if self.victory_selected_option == 0 else (120, 120, 120)
                     c_exit  = (255, 255, 0) if self.victory_selected_option == 1 else (120, 120, 120)
                     
@@ -504,7 +485,6 @@ class Game:
                     surface.blit(s_retry, self.vic_retry_rect)
                     surface.blit(s_exit, self.vic_exit_rect)
 
-            # --- TRANSICIÓN TIPO FADE DE ENTRADA ---
             fade_duration = 1000  
             if elapsed < fade_duration:
                 fade_alpha = int(255 * (1 - (elapsed / fade_duration)))
@@ -512,7 +492,6 @@ class Game:
                 fade_surface.fill((0, 0, 0))
                 fade_surface.set_alpha(fade_alpha)
                 surface.blit(fade_surface, (0, 0))
-                
             return
 
         if self.state == "GAME_OVER":
@@ -521,13 +500,12 @@ class Game:
             w = surface.get_width()
             h = surface.get_height()
             
-            bar_height = int(h * 0.22)  # Ocupan el 22% de la altura cada una
+            bar_height = int(h * 0.22)  
             
             color_center = (42, 20, 15)
-            color_edge = (15, 7, 5)     # Tono oscuro para el resto de la barra
-            gradient_size = 75          # Altura en píxeles donde se aplica el desvanecimiento del borde
+            color_edge = (15, 7, 5)     
+            gradient_size = 75          
             
-            # 1. Barra superior (sólida y con degradado solo en su borde inferior)
             top_surface = pygame.Surface((w, bar_height))
             top_surface.fill(color_edge)
             for y in range(bar_height - gradient_size, bar_height):
@@ -538,15 +516,14 @@ class Game:
                     b = int(color_edge[2] * (1 - factor) + color_center[2] * factor)
                     pygame.draw.line(top_surface, (r, g, b), (0, y), (w, y))
             
-            # 2. Barra inferior (sólida y con degradado solo en su borde superior)
             bottom_surface = pygame.Surface((w, bar_height))
             bottom_surface.fill(color_edge)
             for y in range(gradient_size):
                 if y < bar_height:
                     factor = 1.0 - (y / gradient_size)
-                    r = int(color_edge[0] * (1 - factor) + color_center[0] * factor)
-                    g = int(color_edge[1] * (1 - factor) + color_center[1] * factor)
-                    b = int(color_edge[2] * (1 - factor) + color_center[2] * factor)
+                    r = int(color_edge[0] * (1 - factor) + color_edge[0] * factor)
+                    g = int(color_edge[1] * (1 - factor) + color_edge[1] * factor)
+                    b = int(color_edge[2] * (1 - factor) + color_edge[2] * factor)
                     pygame.draw.line(bottom_surface, (r, g, b), (0, y), (w, y))
             
             surface.blit(top_surface, (0, 0))
@@ -559,7 +536,7 @@ class Game:
             current_time = pygame.time.get_ticks()
             elapsed = current_time - self.game_over_timer
             
-            paradox_delay = 12500 # 12.5 segundos
+            paradox_delay = 12500 
             
             if elapsed < paradox_delay:
                 target_text = "S N A K E  I S  D E A D"
@@ -574,7 +551,6 @@ class Game:
             text_rect = text_surface.get_rect(center=(w // 2, h // 2))
             surface.blit(text_surface, text_rect)
 
-            # --- OPCIONES EN LA FRANJA INFERIOR ---
             prompt_delay = 2000
             if elapsed > prompt_delay:
                 color_retry = (255, 255, 0) if self.game_over_selected_option == 0 else (120, 120, 120)
@@ -594,7 +570,6 @@ class Game:
                 surface.blit(retry_surface, self.retry_rect)
                 surface.blit(exit_surface, self.exit_rect)
 
-            # --- TRANSICIÓN TIPO FADE DE ENTRADA ---
             fade_duration = 1000  
             if elapsed < fade_duration:
                 fade_alpha = int(255 * (1 - (elapsed / fade_duration)))
@@ -602,33 +577,24 @@ class Game:
                 fade_surface.fill((0, 0, 0))
                 fade_surface.set_alpha(fade_alpha)
                 surface.blit(fade_surface, (0, 0))
-                
             return
 
-        # --- 2. RENDERIZADO NORMAL DEL JUEGO (PLAYING / DYING) ---
-        self.virtual_surface.fill((0, 0, 0))
-        
-        # Obtenemos las paredes
-        walls = self.map.get_collision_rects() if self.map else []
-
+        # --- RENDERIZADO NORMAL DEL JUEGO (PLAYING / DYING) ---
         if self.map:
             self.map.render_below(self.virtual_surface, self.camera)
         else:
             self.virtual_surface.blit(self.map_image, self.camera.camera_rect.topleft) 
 
-        # Dibujar ítems del piso:
         for item in self.items_group:
             item_rect = self.camera.apply(item)
             self.virtual_surface.blit(item.image, item_rect)
         
-        # Dibujamos ordenados por profundidad ( Z-Index clásico de los Metal Gear de antes de solid.. )
         entities_to_draw = [self.player] + list(self.enemies_group)
         entities_to_draw.sort(key=lambda entity: entity.rect.bottom)
 
         for entity in entities_to_draw:
             entity.draw_with_camera(self.virtual_surface, self.camera)
 
-        # Dibujar conos de visión de los enemigos:
         for enemy in self.enemies_group:
             enemy.draw_vision(self.virtual_surface, self.camera)
         
@@ -639,30 +605,17 @@ class Game:
                 render_condition=self.player.is_hidden or self.player.is_near_hidden_zone(margin=15),
             )
 
-        scaled_surface = pygame.transform.scale(self.virtual_surface, (surface.get_width(), surface.get_height()))
-        surface.blit(scaled_surface, (0, 0))
-
-        # DEBUG VISUAL DE ZONAS OCULTAS ( NO FUNCIONA. ).
-        if hasattr(self, "hidden_zones") and self.hidden_zones:
-            for zone in self.hidden_zones:
-                debug_screen_rect = zone.move(self.camera.camera_rect.topleft)
-                pygame.draw.rect(self.virtual_surface, (0, 255, 255), debug_screen_rect, 2)
-
-        # --- 3. EFECTO DE FADE-OUT SI ESTAMOS EN EL ESTADO "DYING" ---
         if self.state == "DYING" or self.fading_in:
             fade_surface = pygame.Surface((self.virtual_surface.get_width(), self.virtual_surface.get_height()))
             fade_surface.fill((0, 0, 0))
             fade_surface.set_alpha(self.fade_alpha)
             self.virtual_surface.blit(fade_surface, (0, 0))
 
-        # Escalamos la superficie virtual a la pantalla principal
         scaled_surface = pygame.transform.scale(self.virtual_surface, (surface.get_width(), surface.get_height()))
         surface.blit(scaled_surface, (0, 0))
 
-        # 4. HUD ( Va al final para dibujarse encima de todo. ).
         self.health_bar.draw(surface, self.player)
 
-
-        # RENDERIZAR PAUSA
+        # RENDERIZAR PAUSA ENCIMA DE TODO SI ESTÁ ACTIVA
         if self.is_paused:
             self.pause_menu.draw(surface)
