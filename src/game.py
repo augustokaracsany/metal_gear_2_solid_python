@@ -6,12 +6,14 @@ from src.camera import Camera
 from src.tilemap import TiledMap  # Mapas TMX
 from src.settings import SCREEN_WIDTH, SCREEN_HEIGHT
 from src.items import Item  
+from src.hud import HealthBar
+from src.settings import ENEMY_CONTACT_DAMAGE
 
 class Game:
     def __init__(self, mission_number=1):
         self.mission_number = mission_number
         
-        # DICCIONARIO DE NIVELES
+        # 1. DICCIONARIO DE NIVELES: Mapea cada misión a sus respectivas rutas de archivos
         self.levels_data = {
             1: {
                 "tmx": "assets/sprites/maps/entry_point_brightness3-576x768.tmx",
@@ -172,7 +174,16 @@ class Game:
                 pygame.quit()
                 import sys
                 sys.exit()
+
             self.player.punch_self_event(event)
+
+                # SOLO PARA PROBAR (borrar después): H = recibir daño, J = curarse.
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_h:
+                    self.player.take_damage(10)
+                elif event.key == pygame.K_j:
+                    self.player.heal(10)
+
 
     def update(self, dt):
         walls = self.map.get_collision_rects() if self.map else []
@@ -225,6 +236,10 @@ class Game:
         # Dibujar conos de visión de los enemigos
         for enemy in self.enemies_group:
             enemy.draw_vision(self.virtual_surface, self.camera)
+
+        # 4. HUD (va al final para dibujarse encima de todo).
+            self.health_bar.draw(surface, self.player)
+        
         
         if self.map:
             self.map.render_roofs(

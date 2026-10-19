@@ -1,5 +1,6 @@
 import pygame
 from src.settings import PLAYER_SPEED
+from src.settings import PLAYER_SPEED, PLAYER_MAX_HEALTH, PLAYER_INVULNERABLE_TIME
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, x, y):
@@ -41,6 +42,13 @@ class Player(pygame.sprite.Sprite):
         self.active_hidden_top_zone = None
         self.active_hidden_bottom_marker = None
 
+        # Vida del jugador.
+        self.max_health = PLAYER_MAX_HEALTH
+        self.health = self.max_health
+        self.is_dead = False
+        self.last_hit_time = -PLAYER_INVULNERABLE_TIME  # Para que el primer golpe sí cuente.
+        
+
         # Control de animación y carga de sprites
         self.anim_timer = 0.0
         self.frame_index = 0
@@ -53,7 +61,7 @@ class Player(pygame.sprite.Sprite):
         # CARGAR SPRITES.
         self.load_sprites_data()
 
-        # Instancia el rect de colisión base
+        # Instancia el rect de colisión base ( Basado pero en STAND_DOWN. )
         stand_img = self.animations["IDLE"]["DOWN"]
         stand_w, stand_h = stand_img.get_size()
         col_width = int(stand_w * 0.6)
@@ -156,6 +164,7 @@ class Player(pygame.sprite.Sprite):
                 "LEFT": cs("assets/sprites/solid_python/stand_left.png"),
                 "RIGHT": cs("assets/sprites/solid_python/stand_right.png"),
             },
+            # Snake caminando, 4 dir. ( En bucle: quieto_dir -> caminar_dir1 -> quieto_dir -> caminar_dir2 )
             "WALK": {
                 "DOWN": [
                     cs("assets/sprites/solid_python/stand_down.png"), cs("assets/sprites/solid_python/walk_down1.png"),
@@ -174,12 +183,14 @@ class Player(pygame.sprite.Sprite):
                     cs("assets/sprites/solid_python/stand_right.png"), cs("assets/sprites/solid_python/walk_right2.png")
                 ]
             },
+            # Para la mecánica de agacharse hay solo dos sprites por dir.
             "CROUCH": {
                 "DOWN": [cs("assets/sprites/solid_python/crouch_down1.png"), cs("assets/sprites/solid_python/crouch_down2.png")],
                 "UP": [cs("assets/sprites/solid_python/crouch_up1.png"), cs("assets/sprites/solid_python/crouch_up2.png")],
                 "LEFT": [cs("assets/sprites/solid_python/crouch_left1.png"), cs("assets/sprites/solid_python/crouch_left2.png")],
                 "RIGHT": [cs("assets/sprites/solid_python/crouch_right1.png"), cs("assets/sprites/solid_python/crouch_right2.png")]
             },
+            # Misma lógica que en el bucle de caminar.
             "CRAWL": {
                 "DOWN": [
                     cs("assets/sprites/solid_python/crawl_down.png"), 
@@ -255,6 +266,7 @@ class Player(pygame.sprite.Sprite):
         dx = 0
         dy = 0
         
+        # Detecta teclas solo si no está golpeando
         if not self.is_punching:
             if keys[pygame.K_LEFT] or keys[pygame.K_a]:
                 dx = -1
@@ -269,7 +281,8 @@ class Player(pygame.sprite.Sprite):
             elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
                 dy = 1
                 self.facing = "DOWN"
-
+            
+        # Normalizar diagonal para velocidad constante
         if dx != 0 and dy != 0:
             dx *= 0.7071
             dy *= 0.7071
@@ -294,6 +307,7 @@ class Player(pygame.sprite.Sprite):
 
         current_time = pygame.time.get_ticks()
 
+        # Control del temporizador del golpe
         if self.is_punching:
             if current_time - self.init_time_punch >= self.punch_length:
                 self.is_punching = False
@@ -584,7 +598,7 @@ class Player(pygame.sprite.Sprite):
             return False
 
         test_rect = self.rect.copy()
-        look_ahead = 30
+        look_ahead = 30  # Píxeles de anticipación hacia adelante. Ajustar variable en testing.
 
         if self.facing == "UP":
             test_rect.y -= look_ahead
@@ -668,3 +682,34 @@ class Player(pygame.sprite.Sprite):
         
         surface.blit(current_image, (draw_x, draw_y))
         pygame.draw.rect(surface, (255, 0, 0), dest_rect, 2)
+
+        # Parpadeo mientras es invulnerable (se salta un frame de cada dos).
+        if self.is_invulnerable() and not self.is_dead and (pygame.time.get_ticks() // 100) % 2 == 0:
+            return
+        
+        surface.blit(current_image, (draw_x, draw_y))
+
+        # Para DEBUG: DIBUJA LA COLISIÓN EN TIEMPO REAL COMO UN CUADRADO ROJO.
+        # Debería mostrarse a los pies de Snake, estando de pie, agachado,
+        # y en el centro de su cuerpo ( Aprox. ) al estar cuerpo a tierra.
+        # Descomentar para que funcione: 
+        # pygame.draw.rect(surface, (255, 0, 0), dest_rect, 2)
+
+    def is_invulnerable(self):
+        return pygame.time.get_ticks() - self.last_hit_time < PLAYER_INVULNERABLE_TIME
+
+    def take_damage(self, amount):
+
+        #Resta vida. Ignora el golpe si todavía está en el tiempo de invulnerabilidad.
+        
+        if self.is_dead or self.is_invulnerable():
+            return
+        self.health = max(0, self.health - amount)
+        self.last_hit_time = pygame.time.get_ticks()
+        if self.health == 0:
+            self.is_dead = True
+
+    def heal(self, amount):
+        if self.is_dead:
+            return
+        self.health = min(self.max_health, self.health + amount)
