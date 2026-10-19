@@ -22,19 +22,19 @@ PLAYER_MAX_HEALTH = 100
 PLAYER_INVULNERABLE_TIME = 1000   # ms de invulnerabilidad después de recibir daño.
 ENEMY_CONTACT_DAMAGE = 10         # Daño provisional por tocar a un enemigo.
 
-HEALTH_BAR_WIDTH = 220            # Largo total (también el de la línea fina).
-HEALTH_BAR_HEIGHT = 8             # Grosor de la barra gruesa.
+HEALTH_BAR_WIDTH = 300            # Largo total (también el de la línea fina).
+HEALTH_BAR_HEIGHT = 20            # Grosor de la barra gruesa.
 HEALTH_BAR_MARGIN_BOTTOM = 30     # Distancia al borde inferior de la pantalla.
-HEALTH_LABEL_TEXT = "SNAKE"
-HEALTH_LABEL_SIZE = 16            # Tamaño del texto de arriba.
+HEALTH_LABEL_TEXT = "SOLID PYTHON"
+HEALTH_LABEL_SIZE = 30            # Tamaño del texto de arriba.
 HEALTH_NUMBER_SIZE = 40           # Tamaño del número de la derecha.
 HEALTH_NUMBER_GAP = 14            # Espacio entre la barra y el número.
 HEALTH_NUMBER_RESERVED = 55       # Ancho reservado para el número (entran 3 dígitos).
 HEALTH_TICKS = 10                 # Cantidad de marcas sobre la línea fina.
 
-# Posición: el conjunto (barra + número) queda centrado y abajo.
-HEALTH_BAR_X = (SCREEN_WIDTH - (HEALTH_BAR_WIDTH + HEALTH_NUMBER_GAP + HEALTH_NUMBER_RESERVED)) // 2
-HEALTH_BAR_Y = SCREEN_HEIGHT - HEALTH_BAR_MARGIN_BOTTOM - HEALTH_BAR_HEIGHT
+# Posición: el conjunto ( Barra + Número. ). 
+HEALTH_BAR_X = 20
+HEALTH_BAR_Y = 40
 
 # Colores.
 COLOR_HEALTH_FILL = (225, 225, 225)       # Barra gruesa.

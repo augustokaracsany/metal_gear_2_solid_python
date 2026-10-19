@@ -70,6 +70,8 @@ class Game:
         self.player = Player(spawn_x, spawn_y)
         self.all_sprites.add(self.player)
 
+        self.health_bar = HealthBar()
+
     def load_level(self, tmx_or_key):
         """Carga un nivel (puede recibir la ruta tmx o la clave del diccionario como 'truck')"""
         if tmx_or_key in self.levels_data:
@@ -221,25 +223,21 @@ class Game:
         else:
             self.virtual_surface.blit(self.map_image, self.camera.camera_rect.topleft) 
 
-        # Dibujar ítems del piso
+        # Dibujar ítems del piso:
         for item in self.items_group:
             item_rect = self.camera.apply(item)
             self.virtual_surface.blit(item.image, item_rect)
         
-        # Dibujamos ordenados por profundidad (Z-index clásico de Metal Gear)
+        # Dibujamos ordenados por profundidad ( Z-Index clásico de los Metal Gear de antes de solid.. )
         entities_to_draw = [self.player] + list(self.enemies_group)
         entities_to_draw.sort(key=lambda entity: entity.rect.bottom)
 
         for entity in entities_to_draw:
             entity.draw_with_camera(self.virtual_surface, self.camera)
 
-        # Dibujar conos de visión de los enemigos
+        # Dibujar conos de visión de los enemigos:
         for enemy in self.enemies_group:
             enemy.draw_vision(self.virtual_surface, self.camera)
-
-        # 4. HUD (va al final para dibujarse encima de todo).
-            self.health_bar.draw(surface, self.player)
-        
         
         if self.map:
             self.map.render_roofs(
@@ -251,8 +249,12 @@ class Game:
         scaled_surface = pygame.transform.scale(self.virtual_surface, (surface.get_width(), surface.get_height()))
         surface.blit(scaled_surface, (0, 0))
 
-        # --- DEBUG VISUAL DE ZONAS OCULTAS ---
+        # DEBUG VISUAL DE ZONAS OCULTAS ( NO FUNCIONA. ).
         if hasattr(self, "hidden_zones") and self.hidden_zones:
             for zone in self.hidden_zones:
                 debug_screen_rect = zone.move(self.camera.camera_rect.topleft)
                 pygame.draw.rect(self.virtual_surface, (0, 255, 255), debug_screen_rect, 2)
+
+        # 4. HUD ( Va al final para dibujarse encima de todo. ).
+            self.health_bar.draw(surface, self.player)
+                
