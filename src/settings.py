@@ -33,8 +33,8 @@ HEALTH_NUMBER_RESERVED = 55       # Ancho reservado para el número (entran 3 d�
 HEALTH_TICKS = 10                 # Cantidad de marcas sobre la línea fina.
 
 # Posición: el conjunto ( Barra + Número. ). 
-HEALTH_BAR_X = 30
-HEALTH_BAR_Y = 50
+HEALTH_BAR_X = 20
+HEALTH_BAR_Y = 40
 
 # Colores.
 COLOR_HEALTH_FILL = (225, 225, 225)       # Barra gruesa.

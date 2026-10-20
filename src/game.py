@@ -113,6 +113,10 @@ class Game:
             self.hidden_zones_top = self.map.get_hidden_zones_top() or []
             self.hidden_zones_bottom = self.map.get_hidden_zones_bottom() or []
             self.top_barriers = self.map.get_top_barriers("limites_top") or []
+            patrol_routes = self.map.get_patrol_path("enemy_patrols")
+            if self.enemies_group:
+                actor_size = self.enemies_group.sprites()[0].rect.size
+                self.pathfinding_grid = self.map.create_pathfinding_grid(16, actor_size)
         else:
             self.hidden_zones = []
             self.hidden_zones_top = []
@@ -329,6 +333,11 @@ class Game:
                     self.pause_menu.trigger_feedback("No se encontró ningún punto de guardado previo.")
                 elif action == "REINICIAR MISIÓN":
                     self.restart_mission()
+                    current_key = self.mission_number
+                    self.load_level(current_key)
+                    spawn_x, spawn_y = self.map.get_spawn_point("player_spawn", (400, 350)) if self.map else (400, 350)
+                    self.player.x, self.player.y = spawn_x, spawn_y
+                    self.player.rect.x, self.player.rect.y = int(spawn_x), int(spawn_y)
                     self.is_paused = False
                 elif action == "VOLVER AL MENÚ":
                     self.is_paused = False
@@ -348,23 +357,21 @@ class Game:
         return None
 
     def confirm_victory_option(self):
-        """Ejecuta la acción seleccionada en el menú de Victoria"""
         pygame.mixer.music.fadeout(1000)
         has_next = self.has_next_mission()
-        
         if self.victory_selected_option == 0:
             self.__init__(self.mission_number)
         elif self.victory_selected_option == 1 and has_next:
             self.__init__(self.mission_number + 1)
         else:
-            self.return_to_menu = True
+            self.return_to_menu = True  # Activamos la bandera
 
     def confirm_game_over_option(self):
         pygame.mixer.music.fadeout(1000)
         if self.game_over_selected_option == 0:
             self.__init__(self.mission_number)
         else:
-            self.return_to_menu = True
+            self.return_to_menu = True  # Activamos la bandera
 
     def update(self, dt):
         # Manejo limpio del fundido de entrada (Fade-in)
@@ -448,9 +455,9 @@ class Game:
             for y in range(gradient_size):
                 if y < bar_height:
                     factor = 1.0 - (y / gradient_size)
-                    r = int(color_edge[0] * (1 - factor) + color_edge[0] * factor)
-                    g = int(color_edge[1] * (1 - factor) + color_edge[1] * factor)
-                    b = int(color_edge[2] * (1 - factor) + color_edge[2] * factor)
+                    r = int(color_edge[0] * (1 - factor) + color_center[0] * factor)
+                    g = int(color_edge[1] * (1 - factor) + color_center[1] * factor)
+                    b = int(color_edge[2] * (1 - factor) + color_center[2] * factor)
                     pygame.draw.line(bottom_surface, (r, g, b), (0, y), (w, y))
             
             surface.blit(top_surface, (0, 0))
