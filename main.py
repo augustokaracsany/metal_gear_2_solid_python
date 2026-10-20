@@ -4,7 +4,7 @@ from src.settings import SCREEN_WIDTH, SCREEN_HEIGHT, FPS
 from src.menu import MenuManager
 from src.prologue import PrologueState
 from src.intro_state import IntroState
-from src.game import Game  # Clase principal de juego ( El game.py. )
+from src.game import Game 
 
 
 def main():
