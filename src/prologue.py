@@ -208,6 +208,7 @@ class PrologueState:
 
         # 3. Dibujar el texto centrado en la pantalla
         font = pygame.font.Font("assets/fonts/PixelOperator8.ttf", 16)
+        fontBold = pygame.font.Font("assets/fonts/PixelOperator8-Bold.ttf", 16)
         
         lines = self.displayed_text.split('\n')
         line_height = 30
@@ -223,7 +224,7 @@ class PrologueState:
         # --- 4. SÍMBOLO DE FLECHA PARPADEANTE CUANDO TERMINA EL TEXTO ---
         if self.text_finished:
             if (pygame.time.get_ticks() // 300) % 2 == 0:
-                arrow_surface = font.render("ENTER", True, (255, 255, 0))
+                arrow_surface = fontBold.render("ENTER", True, (255, 255, 0))
                 arrow_rect = arrow_surface.get_rect(midtop=(w // 2, start_y + total_text_height + 20))
                 surface.blit(arrow_surface, arrow_rect)
 

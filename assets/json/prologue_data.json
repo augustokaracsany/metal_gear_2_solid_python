@@ -3,28 +3,78 @@
     "background_music": "assets/audio/music/midnight_shadow.mp3",
     "panels": [
         {
-            "text": "Cuando creiamos que no podía empeorar, \nunidades tácticas de espionaje dieron con una ubicación \nen Africa Central de creación de armas \naltamente destructivas.",
+            "text": "Nuestras unidades tácticas de espionaje han \ndetectado una planta de fabricación de \narmas altamente destructivas.",
             "image": "assets/prologue/frame1.jpg",
             "advance_mode": "keypress"
         },
         {
-            "text": "En ese lugar, esta en desarrollo un nuevo tanque \nllamado 'Metal Gear: Destroyer of Worlds', con el poder \nsuficiente para dominar un continente entero.",
+            "text": "La ubicación de esta planta es \nen el laboratorio MSX, ubicado en \nAfrica central.",
             "image": "assets/prologue/frame1.jpg",
             "advance_mode": "keypress"
         },
         {
-            "text": "El laboratorio MSX ha pasado desapercibido por mucho tiempo. \nHoy, ya hemos detectado que estan planeando y cual \nes su futuro gran proyecto.",
+            "text": "Sospechamos que el arma, mas \npoderosa que el Metal Gear REX, \nconocida como Metal Gear: Destroyer of \nWorlds, esta siendo desarrollada ahi.",
             "image": "assets/prologue/frame1.jpg",
             "advance_mode": "keypress"
         },
         {
-            "text": "Snake, tu objetivo es entrar a la base y \ndestruir al Metal Gear: Destroyer of Worlds.",
+            "text": "Este tanque contaría ademas con el \nagregado de armas nucleares dentro de \nsu brazo robótico, aunque esto último \naún esta en desarrollo.",
+            "image": "assets/prologue/frame1.jpg",
+            "advance_mode": "keypress"
+        },
+        {
+            "text": "Eso quiere decir que, aún estamos \na tiempo de detener el avance \nde este proyecto.",
+            "image": "assets/prologue/frame1.jpg",
+            "advance_mode": "keypress"
+        },
+        {
+            "text": "Hay que destruir planos, la fábrica \ny el protótipo de la maquina, localizado \nen algún punto del laboratorio MSX.",
+            "image": "assets/prologue/frame1.jpg",
+            "advance_mode": "keypress"
+        },
+        {
+            "text": "De lo contrario, las consecuencias del \ndesarrollo de esta letal arma está \na la vista.",
             "image": "assets/prologue/frame2.jpg",
             "advance_mode": "keypress"
         },
         {
-            "text": "Sera necesario contar con algo de agilidad, si la maquina \nes terminada y activada, la misión se acaba.",
+            "text": "Se rumorea planes de conquistar el \ncentro de África en un principio, \ne ira escalando a todo el \ncontinente...",
             "image": "assets/prologue/frame2.jpg",
+            "advance_mode": "keypress"
+        },
+        {
+            "text": "Y, si este plan es éxitoso, \nvan a tratar de conquistar el \nmundo.",
+            "image": "assets/prologue/frame2.jpg",
+            "advance_mode": "keypress"
+        },
+        {
+            "text": "Será necesario una misión de infiltración \nen el laboratorio para ejecutar nuestro \nplan de contingencia contra el Metal \nGear: Destroyer of Worlds.",
+            "image": "assets/prologue/frame3.jpg",
+            "advance_mode": "keypress"
+        },
+        {
+            "text": "El nombre de la maquina suena \nalgo exagerado, y chistoso, pero las \nconsecuencias podrían ser fatales si no \nlo detenemos...",
+            "image": "assets/prologue/frame3.jpg",
+            "advance_mode": "keypress"
+        },
+        {
+            "text": "Debido a la sensibilidad de esta \nmisión, enviar refuerzos no va a \nser posible, por lo que iras solo.",
+            "image": "assets/prologue/frame3.jpg",
+            "advance_mode": "keypress"
+        },
+        {
+            "text": "Snake, confiamos en que vas a \npoder infiltrarte en el laboratorio MSX \nsin dejar rastros para ejecutar nuestro \nplan de contingencia.",
+            "image": "assets/prologue/frame3.jpg",
+            "advance_mode": "keypress"
+        },
+        {
+            "text": "Te enviaremos información del primer objetivo \npor radio. Recibiras un llamado cuando \npongas un pie en la base.",
+            "image": "assets/prologue/frame3.jpg",
+            "advance_mode": "keypress"
+        },
+        {
+            "text": "Mucha suerte, Snake...",
+            "image": "assets/prologue/frame3.jpg",
             "advance_mode": "keypress"
         }
     ]
