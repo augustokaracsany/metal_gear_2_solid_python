@@ -1,6 +1,5 @@
 import pygame
 import json
-from src.settings import SCREEN_WIDTH, SCREEN_HEIGHT, COLOR_BG, COLOR_TEXT
 
 class PrologueState:
     def __init__(self, json_path="assets/json/prologue_data.json"):
@@ -29,7 +28,7 @@ class PrologueState:
         
         # Variable para el retardo inicial antes de escribir el texto en cada panel
         self.panel_start_time = 0
-        self.text_delay_duration = 1250
+        self.text_delay_duration = 500
 
         # Variables para imágenes y fade condicional
         self.current_image = None
@@ -37,6 +36,15 @@ class PrologueState:
         self.fade_alpha = 0
         self.is_fading = False
         self.fade_timer = 0
+        self.final_delay_duration = 2000
+        self.is_exiting = False
+        self.exit_timer = 0
+        self.skipped = False
+
+        # --- NUEVAS VARIABLES PARA EL AVISO DE ESC ---
+        self.show_skip_warning = False
+        self.warning_timer = 0
+        self.warning_duration = 5000  # 5 segundos en milisegundos
 
         # Cargar el primer panel al arrancar
         self.load_panel()
@@ -56,6 +64,8 @@ class PrologueState:
 
             # Verificamos si la imagen cambió respecto al panel anterior
             if new_image_path != self.previous_image_path:
+                self.text_delay_duration = 2000  # 2 segundos de pausa inicial
+                
                 if new_image_path:
                     try:
                         raw_image = pygame.image.load(new_image_path).convert_alpha()
@@ -76,6 +86,8 @@ class PrologueState:
                 self.is_fading = True
                 self.fade_alpha = 255
                 self.fade_timer = pygame.time.get_ticks()
+            else:
+                self.text_delay_duration = 500
             
             self.previous_image_path = new_image_path
 
@@ -87,32 +99,58 @@ class PrologueState:
                 sys.exit()
 
             if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    if not self.is_exiting:
+                        # Si el aviso NO está activo, lo mostramos por primera vez
+                        if not self.show_skip_warning:
+                            self.show_skip_warning = True
+                            self.warning_timer = pygame.time.get_ticks()
+                        else:
+                            # Si EL AVISO YA ESTABA ACTIVO y se presiona ESC de nuevo -> SALTEAMOS
+                            self.is_exiting = True
+                            self.skipped = True
+                            self.exit_timer = pygame.time.get_ticks()
+                            self.is_fading = True
+                            self.fade_alpha = 0
+                            self.fade_timer = pygame.time.get_ticks()
+                            pygame.mixer.music.fadeout(300)
+
                 if event.key in (pygame.K_RETURN, pygame.K_SPACE):
-                    # Si aún está en la pausa inicial de la imagen o escribiendo el texto, salta directo al texto completo
-                    elapsed_panel = pygame.time.get_ticks() - self.panel_start_time
-                    if elapsed_panel < self.text_delay_duration:
-                        self.panel_start_time = 0
-                    elif not self.text_finished:
-                        self.displayed_text = self.full_text
-                        self.text_finished = True
-                    else:
-                        # Si el texto ya terminó, pasa al siguiente panel
+                    if self.text_finished:
                         self.current_panel_index += 1
                         if self.current_panel_index >= len(self.panels):
-                            self.finished = True
-                            pygame.mixer.music.fadeout(1000)
+                            if not self.is_exiting:
+                                self.is_exiting = True
+                                self.exit_timer = pygame.time.get_ticks()
+                                pygame.mixer.music.fadeout(1000)
+                                self.is_fading = True
+                                self.fade_alpha = 0
+                                self.fade_timer = pygame.time.get_ticks()
                         else:
                             self.load_panel()
 
     def update(self, dt):
         current_time = pygame.time.get_ticks()
+
+        # --- GESTIÓN DEL TIEMPO DEL MENSAJE DE ADVERTENCIA (5 SEGUNDOS) ---
+        if self.show_skip_warning:
+            if current_time - self.warning_timer >= self.warning_duration:
+                self.show_skip_warning = False  # El mensaje desaparece tras 5 segundos
+        
+        # Verificamos si el usuario está manteniendo presionado Enter o Space
+        keys = pygame.key.get_pressed()
+        is_speeding_up = keys[pygame.K_RETURN] or keys[pygame.K_SPACE]
+
+        # Definimos la velocidad actual basada en si mantiene presionado el botón
+        current_text_speed = 40 if is_speeding_up else 20  # 20 normal, 40 acelerado
         
         # Verificamos si ya pasó el tiempo de espera inicial de la imagen
         elapsed_panel = current_time - self.panel_start_time
+
         if elapsed_panel >= self.text_delay_duration:
-            # 1. Lógica de la máquina de escribir
+            # 1. Lógica de la máquina de escribir con velocidad dinámica
             if not self.text_finished:
-                self.text_index += self.text_speed * dt
+                self.text_index += current_text_speed * dt
                 chars_to_show = int(self.text_index)
                 if chars_to_show >= len(self.full_text):
                     self.displayed_text = self.full_text
@@ -123,12 +161,33 @@ class PrologueState:
         # 2. Lógica del fade condicional cuando cambia la imagen
         if self.is_fading:
             elapsed_fade = current_time - self.fade_timer
-            fade_duration = 600  # Duración del fundido en milisegundos (0.6s)
+            fade_duration = 600  
             if elapsed_fade < fade_duration:
                 self.fade_alpha = int(255 * (1 - (elapsed_fade / fade_duration)))
             else:
                 self.fade_alpha = 0
                 self.is_fading = False
+
+        # Si estamos en la secuencia de salida al terminar el prólogo
+        if self.is_exiting:
+            elapsed_exit = current_time - self.exit_timer
+
+            if self.skipped:
+                if elapsed_exit < 500:
+                    self.fade_alpha = int(255 * (elapsed_exit / 500))
+                    self.is_fading = True
+                else:
+                    self.fade_alpha = 255
+                    self.finished = True  
+                return  
+            else:
+                if elapsed_exit < self.final_delay_duration:
+                    self.fade_alpha = int(255 * (elapsed_exit / self.final_delay_duration))
+                    self.is_fading = True
+                else:
+                    self.fade_alpha = 255
+                    self.finished = True  
+                return  
 
     def draw(self, surface):
         surface.fill((10, 5, 5))  # Fondo base oscuro
@@ -144,7 +203,7 @@ class PrologueState:
         # 2. Capa negra semitransparente para opacar la imagen de fondo
         overlay = pygame.Surface((w, h))
         overlay.fill((0, 0, 0))
-        overlay.set_alpha(140)  # Nivel de opacidad (0 a 255; ajusta si lo quieres más claro u oscuro)
+        overlay.set_alpha(140)  # Nivel de opacidad (0 a 255)
         surface.blit(overlay, (0, 0))
 
         # 3. Dibujar el texto centrado en la pantalla
@@ -154,7 +213,6 @@ class PrologueState:
         line_height = 30
         total_text_height = len(lines) * line_height
         
-        # Calculamos el punto de inicio vertical para que el bloque de texto quede perfectamente centrado
         start_y = (h - total_text_height) // 2
         
         for i, line in enumerate(lines):
@@ -165,12 +223,17 @@ class PrologueState:
         # --- 4. SÍMBOLO DE FLECHA PARPADEANTE CUANDO TERMINA EL TEXTO ---
         if self.text_finished:
             if (pygame.time.get_ticks() // 300) % 2 == 0:
-                arrow_surface = font.render(">", True, (255, 255, 0))
-                # Se coloca un poco más abajo del bloque de texto centrado
+                arrow_surface = font.render("ENTER", True, (255, 255, 0))
                 arrow_rect = arrow_surface.get_rect(midtop=(w // 2, start_y + total_text_height + 20))
                 surface.blit(arrow_surface, arrow_rect)
 
-        # 5. Aplicar la superficie de fundido (fade) de cambio de imagen si está activa
+        # --- 5. DIBUJAR EL MENSAJE DE ADVERTENCIA ARRIBA A LA IZQUIERDA ---
+        if self.show_skip_warning:
+            warning_surface = font.render("Presiona ESC nuevamente para saltear", True, (255, 255, 255))
+            # Margen de 20 píxeles desde la esquina superior izquierda
+            surface.blit(warning_surface, (20, 20))
+
+        # 6. Aplicar la superficie de fundido (fade) de cambio de imagen si está activa
         if self.is_fading and self.fade_alpha > 0:
             fade_surf = pygame.Surface((w, h))
             fade_surf.fill((0, 0, 0))
