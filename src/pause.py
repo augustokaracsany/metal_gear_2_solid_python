@@ -31,6 +31,9 @@ FONT_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "assets", "fonts", "PressStart2P-Regular.ttf"
 )
 
+SFX_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "audio", "sfx")
+SFX_MAX_MS = 2000  # cada sonido del menú suena como máximo 2 segundos
+
 
 def _load_font(size):
     """Usa la fuente pixelada del juego; si no está, cae a Courier."""
@@ -115,6 +118,7 @@ class PauseMenu:
         self._desc_time = 0
 
         self._build_static_layers()
+        self._sounds = self._load_sounds()
 
     # ------------------------------------------------------------------ setup
     def _build_static_layers(self):
@@ -152,6 +156,27 @@ class PauseMenu:
         self.feedback_message = text
         self.feedback_timer = 120  # ~2 segundos
 
+    # ------------------------------------------------------------------ sonido
+    def _load_sounds(self):
+        sounds = {}
+        for name in ("select", "cancel"):
+            path = os.path.join(SFX_DIR, name + ".wav")
+            try:
+                sounds[name] = pygame.mixer.Sound(path)
+            except (FileNotFoundError, OSError, pygame.error) as e:
+                print(f"Aviso sonido de pausa '{name}': {e}")
+        return sounds
+
+    def _play(self, name):
+        snd = self._sounds.get(name)
+        if snd is None:
+            return
+        try:
+            snd.set_volume(self.sfx_volume)
+            snd.play(maxtime=SFX_MAX_MS)
+        except pygame.error:
+            pass
+
     def handle_input(self, event):
         if event.type == pygame.MOUSEMOTION:
             self._on_mouse_move(event)
@@ -185,6 +210,7 @@ class PauseMenu:
 
     # ------------------------------------------------------------------ input
     def _move(self, delta):
+        self._play("select")
         if self.in_sub_options:
             self.selected_sub_index = (self.selected_sub_index + delta) % len(self.options_menu)
         else:
@@ -200,6 +226,7 @@ class PauseMenu:
                 pass
 
     def _activate(self, i):
+        self._play("select")
         title = self.main_options[i]["title"]
         if title == "OPCIONES":
             self.in_sub_options = True
@@ -214,6 +241,7 @@ class PauseMenu:
         return title
 
     def _close_sub_options(self):
+        self._play("cancel")
         self.in_sub_options = False
         self._hl_y = None
 
@@ -221,10 +249,13 @@ class PauseMenu:
         # --- Diálogo de confirmación (tiene prioridad) ---
         if self.confirm:
             if key in KEYS_LEFT or key in KEYS_RIGHT or key in KEYS_UP or key in KEYS_DOWN:
+                self._play("select")
                 self.confirm["index"] = 1 - self.confirm["index"]
             elif key in KEYS_BACK:
+                self._play("cancel")
                 self.confirm = None
             elif key in KEYS_OK:
+                self._play("select" if self.confirm["index"] == 0 else "cancel")
                 action = self.confirm["action"] if self.confirm["index"] == 0 else None
                 self.confirm = None
                 return action
@@ -256,6 +287,7 @@ class PauseMenu:
         elif key in KEYS_OK:
             return self._activate(self.selected_index)
         elif key == pygame.K_ESCAPE:
+            self._play("cancel")
             return "CONTINUAR"
         return None
 
@@ -264,12 +296,17 @@ class PauseMenu:
         if self.confirm:
             for i, r in enumerate(self._confirm_buttons()):
                 if r.collidepoint(pos):
+                    if self.confirm["index"] != i:
+                        self._play("select")
                     self.confirm["index"] = i
             return
 
         count = len(self.options_menu) if self.in_sub_options else len(self.main_options)
         for i in range(count):
             if self._row_rect(i).collidepoint(pos):
+                current = self.selected_sub_index if self.in_sub_options else self.selected_index
+                if current != i:
+                    self._play("select")
                 if self.in_sub_options:
                     self.selected_sub_index = i
                 else:
@@ -290,6 +327,7 @@ class PauseMenu:
         if self.confirm:
             for i, r in enumerate(self._confirm_buttons()):
                 if r.collidepoint(pos):
+                    self._play("select" if i == 0 else "cancel")
                     action = self.confirm["action"] if i == 0 else None
                     self.confirm = None
                     return action

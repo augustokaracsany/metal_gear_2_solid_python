@@ -211,6 +211,45 @@ class Game:
         
         return tmx_exists or png_exists
         
+    def restart_mission(self):
+        """Reinicia la misión completa: mapa, enemigos, ítems y estado de Snake."""
+        # 1) Estado del jugador (ANTES de cargar el nivel: la caja solo reaparece
+        #    si Snake no la tiene en el inventario).
+        p = self.player
+        p.inventory = []
+        p.is_disguised = False
+        p.is_punching = False
+        p.is_transitioning = False
+        p.target_stance = None
+        p.forced_crouch = False
+        p.crouch_hold_timer = 0.0
+        p.is_hidden = False
+        p.is_moving = False
+        p.active_hidden_top_zone = None
+        p.active_hidden_bottom_marker = None
+        p.stance = "STAND"
+        p.facing = "DOWN"
+        p.frame_index = 0
+        p.anim_timer = 0.0
+        p.update_offsets_for_stance()
+
+        # 2) Mapa de la misión desde cero (enemigos + ítems como la caja del camión).
+        #    Si Snake estaba dentro del camión, esto también lo devuelve al mapa principal.
+        self.load_level(self.mission_number)
+
+        # 3) Cámara con las medidas del mapa recargado.
+        if self.map:
+            map_width, map_height = self.map.width, self.map.height
+        else:
+            map_width, map_height = self.map_image.get_width(), self.map_image.get_height()
+        self.camera = Camera(map_width, map_height, self.virtual_width, self.virtual_height)
+
+        # 4) Snake de vuelta al spawn.
+        spawn_x, spawn_y = self.map.get_spawn_point("player_spawn", (400, 350)) if self.map else (400, 350)
+        p.x, p.y = float(spawn_x), float(spawn_y)
+        p.rect.x, p.rect.y = int(spawn_x), int(spawn_y)
+        self.camera.update(p)
+
     def handle_events(self, events):
         for event in events:
             if event.type == pygame.QUIT:
@@ -276,9 +315,9 @@ class Game:
                         self.confirm_game_over_option()
                 continue
 
-            # Abrir/cerrar Pausa con la tecla M
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_m:
-                self.is_paused = not self.is_paused
+             # Abrir Pausa con la tecla ESC (cerrar / volver lo maneja el propio menú de pausa)
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE and not self.is_paused:
+                self.is_paused = True
                 continue
 
             # Si el juego está en pausa, la navegación y selección las procesa la pausa
@@ -289,11 +328,7 @@ class Game:
                 elif action == "PUNTO DE CONTROL":
                     self.pause_menu.trigger_feedback("No se encontró ningún punto de guardado previo.")
                 elif action == "REINICIAR MISIÓN":
-                    current_key = self.mission_number
-                    self.load_level(current_key)
-                    spawn_x, spawn_y = self.map.get_spawn_point("player_spawn", (400, 350)) if self.map else (400, 350)
-                    self.player.x, self.player.y = spawn_x, spawn_y
-                    self.player.rect.x, self.player.rect.y = int(spawn_x), int(spawn_y)
+                    self.restart_mission()
                     self.is_paused = False
                 elif action == "VOLVER AL MENÚ":
                     self.is_paused = False

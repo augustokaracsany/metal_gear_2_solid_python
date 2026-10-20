@@ -4,7 +4,7 @@ from src.settings import SCREEN_WIDTH, SCREEN_HEIGHT, FPS
 from src.menu import MenuManager
 from src.prologue import PrologueState
 from src.intro_state import IntroState
-from src.game import Game  # Clase principal de juego ( El game.py. )
+from src.game import Game 
 
 
 def main():
@@ -38,7 +38,7 @@ def main():
     # Definir el guion de secuencias modular:
     # - Secuencia 1: Del 1 al 60, con el tramo del 8 al 60 repetido 3 veces.
     # - Secuencia 2: De corrido desde el frame 1 al 70 (sin bucles adicionales).
-    intro_script = [d
+    intro_script = [
         {
             "frames": intro_frames_1,
             "scale": 2,
