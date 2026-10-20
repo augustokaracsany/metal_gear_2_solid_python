@@ -121,7 +121,7 @@ def main():
                 game_instance = Game(next_mission)
                 current_state = game_instance
 
-        # 2. RENDERIZADO.
+        # 2. RENDERIZADO.m
         screen.fill((0, 0, 0))
         current_state.draw(screen)
         pygame.display.flip()

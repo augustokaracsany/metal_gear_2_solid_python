@@ -17,3 +17,28 @@ COLOR_DISABLED = (80, 80, 80)
 ENEMY_SPEED = 40
 
 
+# Vida del jugador y barra de vida (HUD).
+PLAYER_MAX_HEALTH = 100
+PLAYER_INVULNERABLE_TIME = 1000   # ms de invulnerabilidad después de recibir daño.
+ENEMY_CONTACT_DAMAGE = 10         # Daño provisional por tocar a un enemigo.
+
+HEALTH_BAR_WIDTH = 300            # Largo total (también el de la línea fina).
+HEALTH_BAR_HEIGHT = 20            # Grosor de la barra gruesa.
+HEALTH_BAR_MARGIN_BOTTOM = 30     # Distancia al borde inferior de la pantalla.
+HEALTH_LABEL_TEXT = "SOLID PYTHON"
+HEALTH_LABEL_SIZE = 30            # Tamaño del texto de arriba.
+HEALTH_NUMBER_SIZE = 40           # Tamaño del número de la derecha.
+HEALTH_NUMBER_GAP = 14            # Espacio entre la barra y el número.
+HEALTH_NUMBER_RESERVED = 55       # Ancho reservado para el número (entran 3 dígitos).
+HEALTH_TICKS = 10                 # Cantidad de marcas sobre la línea fina.
+
+# Posición: el conjunto ( Barra + Número. ). 
+HEALTH_BAR_X = 20
+HEALTH_BAR_Y = 40
+
+# Colores.
+COLOR_HEALTH_FILL = (225, 225, 225)       # Barra gruesa.
+COLOR_HEALTH_HIGHLIGHT = (255, 255, 255)  # Brillo en la parte de arriba de la barra.
+COLOR_HEALTH_LOW = (220, 40, 40)          # Barra cuando la vida es 30% o menos.
+COLOR_HEALTH_LINE = (190, 190, 190)       # Línea fina y marcas.
+COLOR_HEALTH_SHADOW = (0, 0, 0)           # Sombra para que se lea sobre cualquier mapa.
