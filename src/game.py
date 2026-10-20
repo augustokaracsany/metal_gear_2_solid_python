@@ -563,9 +563,9 @@ class Game:
             for y in range(gradient_size):
                 if y < bar_height:
                     factor = 1.0 - (y / gradient_size)
-                    r = int(color_edge[0] * (1 - factor) + color_edge[0] * factor)
-                    g = int(color_edge[1] * (1 - factor) + color_edge[1] * factor)
-                    b = int(color_edge[2] * (1 - factor) + color_edge[2] * factor)
+                    r = int(color_edge[0] * (1 - factor) + color_center[0] * factor)
+                    g = int(color_edge[1] * (1 - factor) + color_center[1] * factor)
+                    b = int(color_edge[2] * (1 - factor) + color_center[2] * factor)
                     pygame.draw.line(bottom_surface, (r, g, b), (0, y), (w, y))
             
             surface.blit(top_surface, (0, 0))
