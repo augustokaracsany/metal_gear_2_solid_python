@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="6" height="9" tilewidth="16" tileheight="16" infinite="0" nextlayerid="7" nextobjectid="7">
+ <imagelayer id="2" name="truck_interior-6">
+  <image source="truck_interior.png" width="96" height="144"/>
+ </imagelayer>
+ <objectgroup color="#ffff00" id="3" name="triggers">
+  <object id="3" name="exit_trigger" x="10" y="136" width="76" height="8">
+   <properties>
+    <property name="spawn_x" value="540"/>
+    <property name="spawn_y" value="815"/>
+    <property name="target_map" value="assets/sprites/maps/swamp_desert-960x1728.tmx"/>
+   </properties>
+  </object>
+ </objectgroup>
+ <objectgroup color="#aa55ff" id="4" name="player_spawn">
+  <object id="2" name="player_spawn" x="48" y="120">
+   <point/>
+  </object>
+ </objectgroup>
+ <objectgroup color="#ff0000" id="5" name="colisiones_objs">
+  <object id="4" x="0" y="0" width="10" height="144"/>
+  <object id="5" x="86" y="0" width="10" height="144"/>
+  <object id="6" x="10" y="0" width="76" height="29"/>
+ </objectgroup>
+ <objectgroup id="6" name="caja">
+  <object id="1" name="cardboard_box" x="24" y="36" width="50" height="26"/>
+ </objectgroup>
+</map>
