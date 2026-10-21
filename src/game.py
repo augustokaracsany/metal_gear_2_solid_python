@@ -113,6 +113,10 @@ class Game:
             self.hidden_zones_top = self.map.get_hidden_zones_top() or []
             self.hidden_zones_bottom = self.map.get_hidden_zones_bottom() or []
             self.top_barriers = self.map.get_top_barriers("limites_top") or []
+            patrol_routes = self.map.get_patrol_path("enemy_patrols")
+            if self.enemies_group:
+                actor_size = self.enemies_group.sprites()[0].rect.size
+                self.pathfinding_grid = self.map.create_pathfinding_grid(16, actor_size)
         else:
             self.hidden_zones = []
             self.hidden_zones_top = []
@@ -211,6 +215,45 @@ class Game:
         
         return tmx_exists or png_exists
         
+    def restart_mission(self):
+        """Reinicia la misión completa: mapa, enemigos, ítems y estado de Snake."""
+        # 1) Estado del jugador (ANTES de cargar el nivel: la caja solo reaparece
+        #    si Snake no la tiene en el inventario).
+        p = self.player
+        p.inventory = []
+        p.is_disguised = False
+        p.is_punching = False
+        p.is_transitioning = False
+        p.target_stance = None
+        p.forced_crouch = False
+        p.crouch_hold_timer = 0.0
+        p.is_hidden = False
+        p.is_moving = False
+        p.active_hidden_top_zone = None
+        p.active_hidden_bottom_marker = None
+        p.stance = "STAND"
+        p.facing = "DOWN"
+        p.frame_index = 0
+        p.anim_timer = 0.0
+        p.update_offsets_for_stance()
+
+        # 2) Mapa de la misión desde cero (enemigos + ítems como la caja del camión).
+        #    Si Snake estaba dentro del camión, esto también lo devuelve al mapa principal.
+        self.load_level(self.mission_number)
+
+        # 3) Cámara con las medidas del mapa recargado.
+        if self.map:
+            map_width, map_height = self.map.width, self.map.height
+        else:
+            map_width, map_height = self.map_image.get_width(), self.map_image.get_height()
+        self.camera = Camera(map_width, map_height, self.virtual_width, self.virtual_height)
+
+        # 4) Snake de vuelta al spawn.
+        spawn_x, spawn_y = self.map.get_spawn_point("player_spawn", (400, 350)) if self.map else (400, 350)
+        p.x, p.y = float(spawn_x), float(spawn_y)
+        p.rect.x, p.rect.y = int(spawn_x), int(spawn_y)
+        self.camera.update(p)
+
     def handle_events(self, events):
         for event in events:
             if event.type == pygame.QUIT:
@@ -276,9 +319,9 @@ class Game:
                         self.confirm_game_over_option()
                 continue
 
-            # Abrir/cerrar Pausa con la tecla M
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_m:
-                self.is_paused = not self.is_paused
+             # Abrir Pausa con la tecla ESC (cerrar / volver lo maneja el propio menú de pausa)
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE and not self.is_paused:
+                self.is_paused = True
                 continue
 
             # Si el juego está en pausa, la navegación y selección las procesa la pausa
@@ -289,6 +332,7 @@ class Game:
                 elif action == "PUNTO DE CONTROL":
                     self.pause_menu.trigger_feedback("No se encontró ningún punto de guardado previo.")
                 elif action == "REINICIAR MISIÓN":
+                    self.restart_mission()
                     current_key = self.mission_number
                     self.load_level(current_key)
                     spawn_x, spawn_y = self.map.get_spawn_point("player_spawn", (400, 350)) if self.map else (400, 350)
@@ -313,23 +357,21 @@ class Game:
         return None
 
     def confirm_victory_option(self):
-        """Ejecuta la acción seleccionada en el menú de Victoria"""
         pygame.mixer.music.fadeout(1000)
         has_next = self.has_next_mission()
-        
         if self.victory_selected_option == 0:
             self.__init__(self.mission_number)
         elif self.victory_selected_option == 1 and has_next:
             self.__init__(self.mission_number + 1)
         else:
-            self.return_to_menu = True
+            self.return_to_menu = True  # Activamos la bandera
 
     def confirm_game_over_option(self):
         pygame.mixer.music.fadeout(1000)
         if self.game_over_selected_option == 0:
             self.__init__(self.mission_number)
         else:
-            self.return_to_menu = True
+            self.return_to_menu = True  # Activamos la bandera
 
     def update(self, dt):
         # Manejo limpio del fundido de entrada (Fade-in)
@@ -413,9 +455,9 @@ class Game:
             for y in range(gradient_size):
                 if y < bar_height:
                     factor = 1.0 - (y / gradient_size)
-                    r = int(color_edge[0] * (1 - factor) + color_edge[0] * factor)
-                    g = int(color_edge[1] * (1 - factor) + color_edge[1] * factor)
-                    b = int(color_edge[2] * (1 - factor) + color_edge[2] * factor)
+                    r = int(color_edge[0] * (1 - factor) + color_center[0] * factor)
+                    g = int(color_edge[1] * (1 - factor) + color_center[1] * factor)
+                    b = int(color_edge[2] * (1 - factor) + color_center[2] * factor)
                     pygame.draw.line(bottom_surface, (r, g, b), (0, y), (w, y))
             
             surface.blit(top_surface, (0, 0))
@@ -521,9 +563,9 @@ class Game:
             for y in range(gradient_size):
                 if y < bar_height:
                     factor = 1.0 - (y / gradient_size)
-                    r = int(color_edge[0] * (1 - factor) + color_edge[0] * factor)
-                    g = int(color_edge[1] * (1 - factor) + color_edge[1] * factor)
-                    b = int(color_edge[2] * (1 - factor) + color_edge[2] * factor)
+                    r = int(color_edge[0] * (1 - factor) + color_center[0] * factor)
+                    g = int(color_edge[1] * (1 - factor) + color_center[1] * factor)
+                    b = int(color_edge[2] * (1 - factor) + color_center[2] * factor)
                     pygame.draw.line(bottom_surface, (r, g, b), (0, y), (w, y))
             
             surface.blit(top_surface, (0, 0))
