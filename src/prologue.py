@@ -110,16 +110,16 @@ class PrologueState:
                 sys.exit()
 
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    if self.text_sound and self.text_sound_playing:
-                        self.text_sound.stop()
-                        self.text_sound_playing = False
+                if event.key not in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_ESCAPE):
                     if not self.is_exiting:
                         # Si el aviso NO está activo, lo mostramos por primera vez
                         if not self.show_skip_warning:
                             self.show_skip_warning = True
                             self.warning_timer = pygame.time.get_ticks()
-                        else:
+
+                elif event.key == pygame.K_ESCAPE:
+                    if not self.is_exiting:
+                        if self.show_skip_warning:
                             self.is_exiting = True
                             self.skipped = True
                             self.exit_timer = pygame.time.get_ticks()
@@ -127,6 +127,9 @@ class PrologueState:
                             self.fade_alpha = 0
                             self.fade_timer = pygame.time.get_ticks()
                             pygame.mixer.music.fadeout(300)
+                        else:
+                            self.show_skip_warning = True
+                            self.warning_timer = pygame.time.get_ticks()
 
                 if event.key in (pygame.K_RETURN, pygame.K_SPACE):
                     if self.text_finished:

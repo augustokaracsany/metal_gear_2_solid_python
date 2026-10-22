@@ -4,6 +4,7 @@ from src.settings import SCREEN_WIDTH, SCREEN_HEIGHT, FPS
 from src.menu import MenuManager
 from src.prologue import PrologueState
 from src.intro_state import IntroState
+from src.cinematic_intro import CinematicIntroState
 from src.game import Game  # Clase principal de juego ( El game.py. )
 
 
@@ -36,8 +37,6 @@ def main():
             print(f"Aviso: No se pudo cargar el archivo {path}: {e}")
 
     # Definir el guion de secuencias modular:
-    # - Secuencia 1: Del 1 al 60, con el tramo del 8 al 60 repetido 3 veces.
-    # - Secuencia 2: De corrido desde el frame 1 al 70 (sin bucles adicionales).
     intro_script = [
         {
             "frames": intro_frames_1,
@@ -51,7 +50,7 @@ def main():
             "frames": intro_frames_2,
             "scale": 2,
             "fps": 0.15,
-            "play_once": range(0, len(intro_frames_2)), # Reproducción lineal de corrido
+            "play_once": range(0, len(intro_frames_2)),
         }
     ]
 
@@ -68,7 +67,7 @@ def main():
         dt = clock.tick(FPS) / 1000.0  # Delta Time en segundos.
         events = pygame.event.get()
 
-        # 1. GESTIÓN DE EVENTOS SEGÚN ESTADO ACTUAL.
+        # 1. GESTIÓN DE EVENTOS Y ACTUALIZACIÓN SEGÚN ESTADO ACTUAL.
         if isinstance(current_state, IntroState):
             current_state.handle_events(events)
             current_state.update(dt)
@@ -85,43 +84,46 @@ def main():
             elif action and action.startswith("START_MISSION_"):
                 mission_num = int(action.split("_")[-1])
                 if mission_num == 1:
-                    # Asignamos el prólogo como estado actual y guardamos la misión pendiente
+                    # Asignamos el prólogo como estado inicial al elegir la misión 1
                     prologue_instance = PrologueState()
-                    prologue_instance.target_mission = mission_num  # Para saber a qué misión ir al terminar
+                    prologue_instance.target_mission = mission_num 
                     current_state = prologue_instance
                 else:
                     # Si es otra misión sin prólogo, entra directo
-                    game_instance = Game(mission_num)
-                    current_state = game_instance
+                    current_state = Game(mission_num)
 
         elif isinstance(current_state, Game):
-            # Se delegan los eventos al juego. Como la ACCIÓN DE GOLPEAR. ( E. )
             current_state.handle_events(events)
 
             if getattr(current_state, "return_to_menu", False):
                 current_state = menu_manager
                 
-            # Si el jugador presiona ESC dentro del juego, se vuelve al menú principal:
             for event in events:
                 if event.type == pygame.QUIT:
                     running = False
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                     current_state = menu_manager  # Volver al menú
 
-            # Una única llamada limpia al update por frame
-            if isinstance(current_state, Game): # Nos aseguramos de seguir en el juego por si presionó ESC
+            if isinstance(current_state, Game): 
                 current_state.update(dt)
 
         elif isinstance(current_state, PrologueState):
             current_state.handle_events(events)
             current_state.update(dt)
             if current_state.finished:
-                # Al terminar el prólogo, saltamos a la misión guardada
-                next_mission = getattr(current_state, "target_mission", 1)
-                game_instance = Game(next_mission)
-                current_state = game_instance
+                # AL TERMINAR EL PRÓLOGO: Pasamos a la cinemática de escalada
+                current_state = CinematicIntroState()
 
-        # 2. RENDERIZADO.m
+        elif isinstance(current_state, CinematicIntroState):
+            # AL ESTAR EN LA CINEMÁTICA DE ESCALADA:
+            if hasattr(current_state, "handle_events"):
+                current_state.handle_events(events)
+            current_state.update(dt)
+            if getattr(current_state, "finished", False):
+                # AL TERMINAR LA CINEMÁTICA: Pasamos al juego de la misión 1
+                current_state = Game(1)
+
+        # 2. RENDERIZADO GLOBAL.
         screen.fill((0, 0, 0))
         current_state.draw(screen)
         pygame.display.flip()
