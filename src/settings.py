@@ -1,6 +1,6 @@
 # Configuración de la pantalla/ventana. 
-SCREEN_WIDTH = 768
-SCREEN_HEIGHT = 672
+SCREEN_WIDTH = 1360
+SCREEN_HEIGHT = 768
 FPS = 60
 
 # Velocidad de movimiento ( En píxeles por segundo, independiente de los FPS. )
@@ -16,24 +16,25 @@ COLOR_DISABLED = (80, 80, 80)
 
 ENEMY_SPEED = 40
 
+
 # Vida del jugador y barra de vida (HUD).
 PLAYER_MAX_HEALTH = 100
 PLAYER_INVULNERABLE_TIME = 1000   # ms de invulnerabilidad después de recibir daño.
 ENEMY_CONTACT_DAMAGE = 10         # Daño provisional por tocar a un enemigo.
 
-HEALTH_BAR_WIDTH = 220            # Largo total (también el de la línea fina).
-HEALTH_BAR_HEIGHT = 8             # Grosor de la barra gruesa.
+HEALTH_BAR_WIDTH = 300            # Largo total (también el de la línea fina).
+HEALTH_BAR_HEIGHT = 20            # Grosor de la barra gruesa.
 HEALTH_BAR_MARGIN_BOTTOM = 30     # Distancia al borde inferior de la pantalla.
-HEALTH_LABEL_TEXT = "SNAKE"
-HEALTH_LABEL_SIZE = 16            # Tamaño del texto de arriba.
+HEALTH_LABEL_TEXT = "SOLID PYTHON"
+HEALTH_LABEL_SIZE = 30            # Tamaño del texto de arriba.
 HEALTH_NUMBER_SIZE = 40           # Tamaño del número de la derecha.
 HEALTH_NUMBER_GAP = 14            # Espacio entre la barra y el número.
 HEALTH_NUMBER_RESERVED = 55       # Ancho reservado para el número (entran 3 dígitos).
 HEALTH_TICKS = 10                 # Cantidad de marcas sobre la línea fina.
 
-# Posición: el conjunto (barra + número) queda centrado y abajo.
-HEALTH_BAR_X = (SCREEN_WIDTH - (HEALTH_BAR_WIDTH + HEALTH_NUMBER_GAP + HEALTH_NUMBER_RESERVED)) // 2
-HEALTH_BAR_Y = SCREEN_HEIGHT - HEALTH_BAR_MARGIN_BOTTOM - HEALTH_BAR_HEIGHT
+# Posición: el conjunto ( Barra + Número. ). 
+HEALTH_BAR_X = 20
+HEALTH_BAR_Y = 40
 
 # Colores.
 COLOR_HEALTH_FILL = (225, 225, 225)       # Barra gruesa.
@@ -41,3 +42,21 @@ COLOR_HEALTH_HIGHLIGHT = (255, 255, 255)  # Brillo en la parte de arriba de la b
 COLOR_HEALTH_LOW = (220, 40, 40)          # Barra cuando la vida es 30% o menos.
 COLOR_HEALTH_LINE = (190, 190, 190)       # Línea fina y marcas.
 COLOR_HEALTH_SHADOW = (0, 0, 0)           # Sombra para que se lea sobre cualquier mapa.
+
+# Disparo.
+PLAYER_SHOOT_COOLDOWN = 400       # ms mínimos entre un disparo y otro.
+BULLET_SPEED = 600                # px/seg.
+BULLET_STEP = 4                   # La bala avanza de a 4 px para no atravesar paredes finas.
+BULLET_LENGTH = 8                 # Largo de la bala.
+BULLET_THICKNESS = 3              # Grosor de la bala.
+BULLET_DAMAGE = 25
+BULLET_COLOR = (255, 230, 120)
+BULLET_HIT_PADDING = 12           # Agranda la hitbox del enemigo para que sea menos difícil pegarle.
+BULLET_DRAW_OFFSET_Y = 34         # Solo visual: dibuja la bala más arriba, a la altura del arma.
+
+# Enemigos.
+ENEMY_MAX_HEALTH = 100            # Con daño 25 mueren a los 4 disparos.
+
+# Sprites de Snake con arma.
+PLAYER_GUN_SPRITES_PATH = "assets/sprites/solid_python/"
+PLAYER_GUN_SHOW_TIME = 600   # ms que se ve la pose con arma después de disparar.
