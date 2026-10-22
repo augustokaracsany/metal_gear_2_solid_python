@@ -60,3 +60,7 @@ ENEMY_MAX_HEALTH = 100            # Con daño 25 mueren a los 4 disparos.
 # Sprites de Snake con arma.
 PLAYER_GUN_SPRITES_PATH = "assets/sprites/solid_python/"
 PLAYER_GUN_SHOW_TIME = 600   # ms que se ve la pose con arma después de disparar.
+
+# Sonido del disparo.
+SHOOT_SOUND_PATH = "assets/audio/sfx/gunshot.wav"   # CAMBIAR por el nombre y extensión reales de tu archivo.
+SHOOT_SOUND_VOLUME = 0.1                             # De 0.0 (mudo) a 1.0 (volumen máximo).

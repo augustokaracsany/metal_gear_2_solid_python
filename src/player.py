@@ -1,6 +1,7 @@
 import pygame
 from src.settings import PLAYER_SPEED, PLAYER_MAX_HEALTH, PLAYER_INVULNERABLE_TIME, PLAYER_SHOOT_COOLDOWN, PLAYER_GUN_SPRITES_PATH, PLAYER_GUN_SHOW_TIME
 from src.bullet import Bullet
+from src.settings import SHOOT_SOUND_PATH, SHOOT_SOUND_VOLUME
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, x, y):
@@ -58,6 +59,14 @@ class Player(pygame.sprite.Sprite):
         # Disparo.
         self.last_shot_time = -PLAYER_SHOOT_COOLDOWN
         self.gun_until = 0   # Hasta qué momento (ms) se muestra la pose con arma.
+
+        # Sonido del disparo (si no se encuentra el archivo, el juego sigue sin sonido).
+        self.shoot_sound = None
+        try:
+            self.shoot_sound = pygame.mixer.Sound(SHOOT_SOUND_PATH)
+            self.shoot_sound.set_volume(SHOOT_SOUND_VOLUME)
+        except Exception as e:
+            print(f"AVISO: no se pudo cargar el sonido del disparo ({e}).")
         
 
         # Control de animación y carga de sprites
@@ -778,6 +787,8 @@ class Player(pygame.sprite.Sprite):
             return None
         self.last_shot_time = pygame.time.get_ticks()
         self.gun_until = self.last_shot_time + PLAYER_GUN_SHOW_TIME   # NUEVO
+        if self.shoot_sound:
+            self.shoot_sound.play()
         return Bullet(self.rect, self.facing)
 
     def is_invulnerable(self):
