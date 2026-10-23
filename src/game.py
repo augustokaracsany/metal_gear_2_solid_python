@@ -10,6 +10,7 @@ from src.items import Item
 from src.hud import HealthBar
 from src.settings import ENEMY_CONTACT_DAMAGE
 from src.pause import PauseMenu
+from src.settings import PUNCH_DAMAGE, PUNCH_HIT_PADDING, PUNCH_STUN_TIME
 
 class Game:
     def __init__(self, mission_number=1):
@@ -393,6 +394,15 @@ class Game:
 
         for enemy in self.enemies_group:
             enemy.update(dt, walls, self.player, self.pathfinding_grid)
+
+        # Golpe: mientras dura, daña al primer enemigo que tenga delante (una vez por golpe).
+        if self.player.is_punching and not self.player.punch_hit_done:
+            punch_rect = self.player.get_punch_rect()
+            for enemy in self.enemies_group:
+                if punch_rect.colliderect(enemy.rect.inflate(PUNCH_HIT_PADDING, PUNCH_HIT_PADDING)):
+                    enemy.take_damage(PUNCH_DAMAGE, PUNCH_STUN_TIME, self.player.rect.center)
+                    self.player.punch_hit_done = True
+                    break
 
         # Balas: se mueven y chocan contra paredes, enemigos o el borde del mapa.
         if self.map:

@@ -2,6 +2,7 @@ import pygame
 from src.settings import PLAYER_SPEED, PLAYER_MAX_HEALTH, PLAYER_INVULNERABLE_TIME, PLAYER_SHOOT_COOLDOWN, PLAYER_GUN_SPRITES_PATH, PLAYER_GUN_SHOW_TIME
 from src.bullet import Bullet
 from src.settings import SHOOT_SOUND_PATH, SHOOT_SOUND_VOLUME
+from src.settings import PUNCH_RANGE
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, x, y):
@@ -24,6 +25,7 @@ class Player(pygame.sprite.Sprite):
         self.punch_length = 500
         self.last_punch = 0
         self.cooldown_punch = 600
+        self.punch_hit_done = False   # True cuando el golpe actual ya le pegó a un enemigo.
         
         # Estados de postura: "STAND", "CROUCH", "CRAWL"
         self.stance = "STAND"
@@ -127,6 +129,7 @@ class Player(pygame.sprite.Sprite):
                         self.is_punching = True
                         self.init_time_punch = current_time
                         self.last_punch = current_time
+                        self.punch_hit_done = False   # NUEVO: cada golpe nuevo puede pegar una vez.
             
             elif event.key == pygame.K_c:
                 # 'C' solo sirve para agacharse (la caja se equipa con 'B'). Con la caja puesta no se agacha.
@@ -769,6 +772,18 @@ class Player(pygame.sprite.Sprite):
 
     def is_aiming(self):
         return pygame.time.get_ticks() < self.gun_until
+
+    def get_punch_rect(self):
+        #Zona delante de Snake que alcanza el puño (en el mismo plano que los pies).
+        r = self.rect
+        if self.facing == "UP":
+            return pygame.Rect(r.x, r.top - PUNCH_RANGE, r.width, PUNCH_RANGE)
+        elif self.facing == "DOWN":
+            return pygame.Rect(r.x, r.bottom, r.width, PUNCH_RANGE)
+        elif self.facing == "LEFT":
+            return pygame.Rect(r.left - PUNCH_RANGE, r.y, PUNCH_RANGE, r.height)
+        else:
+            return pygame.Rect(r.right, r.y, PUNCH_RANGE, r.height)
 
     def can_shoot(self):
         if self.is_dying or self.is_dead:

@@ -64,3 +64,9 @@ PLAYER_GUN_SHOW_TIME = 600   # ms que se ve la pose con arma después de dispara
 # Sonido del disparo.
 SHOOT_SOUND_PATH = "assets/audio/sfx/gunshot.wav"   # CAMBIAR por el nombre y extensión reales de tu archivo.
 SHOOT_SOUND_VOLUME = 0.1                             # De 0.0 (mudo) a 1.0 (volumen máximo).
+
+# Golpe.
+PUNCH_RANGE = 24                              # Alcance del puño delante de Snake (px).
+PUNCH_HIT_PADDING = 12                        # Agranda la hitbox del enemigo para que sea menos difícil pegarle.
+PUNCH_DAMAGE = (ENEMY_MAX_HEALTH + 2) // 3    # Un tercio de la vida del enemigo, redondeado para arriba: 3 golpes lo matan.
+PUNCH_STUN_TIME = 1.5   # Segundos que el enemigo queda quieto después de recibir un golpe.

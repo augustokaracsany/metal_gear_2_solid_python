@@ -43,6 +43,7 @@ class Enemy(pygame.sprite.Sprite):
     RETURN_TIMEOUT = 15.0   # S máx. volviendo a la patrulla
     REPATH_INTERVAL = 0.4          # Cada cuánto PUEDE recalcular A* ( En segundos. )
     CATCH_DISTANCE = 20            # A esta distancia de Snake se frena ( Acá iría el disparo/golpe. )
+    HIT_SEARCH_EXTRA = 48          # Cuánto pasa de largo el punto del golpe al buscar (px).
 
     # Icono de alerta.
     ALERT_ICON_PATH = "assets/sprites/alerts/alert.png"
@@ -73,6 +74,8 @@ class Enemy(pygame.sprite.Sprite):
         # Vida.
         self.max_health = ENEMY_MAX_HEALTH
         self.health = self.max_health
+        self.stun_timer = 0.0   # Segundos que le quedan quieto por un golpe.
+        self.hit_from = None    # Posición de quien lo golpeó (para girarse hacia ahí al terminar el aturdimiento).
 
         # Animación.
         self.anim_timer = 0.0
@@ -160,7 +163,18 @@ class Enemy(pygame.sprite.Sprite):
             enemy.update(dt, walls, self.player, self.pathfinding_grid)
         """
         self.current_walls = walls
+        
+        # Aturdido por un golpe: se queda quieto hasta que se le acabe el tiempo.
+        if self.stun_timer > 0:
+            self.stun_timer -= dt
+            self.is_moving = False
+            if self.stun_timer <= 0 and self.hit_from is not None:
+                self._react_to_hit()
+                self.hit_from = None
+            return
+
         moving = False
+        
 
         # 1) Percepción: Decide si cambia de estado por haber visto / perdido a Snake.
         self._update_perception(dt, player, walls)
@@ -363,11 +377,35 @@ class Enemy(pygame.sprite.Sprite):
             self._set_state("WALKING")
         return moved
 
-    def take_damage(self, amount):
-        print(f"Enemigo herido: vida {self.health} -> {max(0, self.health - amount)}")
+    def take_damage(self, amount, stun_time=0.0, source_pos=None):
         self.health = max(0, self.health - amount)
         if self.health == 0:
             self.kill()  # Lo saca de enemies_group (y de cualquier otro grupo).
+        else:
+            self.stun_timer = max(self.stun_timer, stun_time)
+            if stun_time > 0 and source_pos is not None:
+                self.hit_from = source_pos
+
+    def _react_to_hit(self):
+        #Termina el aturdimiento: se gira hacia donde lo golpearon y va a buscar por ese lado.
+        hx, hy = self.hit_from
+        self._face_towards(hx, hy)
+
+        # Si ya estaba en alerta o persiguiendo a Snake, sigue con eso.
+        if self.state in ("ALERT", "CHASE"):
+            return
+
+        # El punto de búsqueda queda un poco más allá de donde estaba Snake,
+        # para que siga buscando hacia ese lado y no se frene justo ahí.
+        fx, fy = self._fcenter()
+        dx, dy = hx - fx, hy - fy
+        dist = math.hypot(dx, dy)
+        if dist > 0:
+            hx += dx / dist * self.HIT_SEARCH_EXTRA
+            hy += dy / dist * self.HIT_SEARCH_EXTRA
+
+        self.last_known_pos = (hx, hy)
+        self._set_state("SEARCH")
 
     def on_reach_player(self, player):
         """
