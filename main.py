@@ -7,6 +7,7 @@ from src.intro_state import IntroState
 from src.game import Game 
 from src.main_menu_view import MainMenuView
 
+
 def main():
     pygame.init()
     pygame.mixer.init()

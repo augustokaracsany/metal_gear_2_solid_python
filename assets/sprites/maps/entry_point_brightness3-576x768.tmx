@@ -85,7 +85,7 @@
   <object id="136" x="448" y="96" width="16" height="56"/>
   <object id="137" x="416" y="88" width="16" height="72"/>
  </objectgroup>
- <layer id="9" name="techos" width="36" height="48" visible="0">
+ <layer id="9" name="techos" width="36" height="48">
   <data encoding="csv">
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
