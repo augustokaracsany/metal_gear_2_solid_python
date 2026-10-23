@@ -57,7 +57,7 @@ def main():
     # Ruta de la música global para la intro
     music_file = r"assets\audio\music\Theme_of_Solid_Snake.mp3"
 
-    # Estados iniciales.
+    # Estados iniciales.s
     current_state = IntroState(intro_script, music_path=music_file)
     menu_manager = MenuManager()
     game_instance = None

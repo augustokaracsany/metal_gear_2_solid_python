@@ -16,6 +16,8 @@ class Player(pygame.sprite.Sprite):
         self.death_frame_index = 0
         self.death_timer = 0.0
         self.death_animation_speed = 0.6
+        self.death_finished = False
+        self.death_anim_timer = 0.0
         
         # Variables para golpear
         self.is_punching = False
@@ -307,6 +309,25 @@ class Player(pygame.sprite.Sprite):
         self.hidden_zones_bottom = hidden_zones_bottom if hidden_zones_bottom is not None else []
 
         self.is_hidden = self.stance == "CRAWL" and self._is_inside_hidden_zone(self.rect)
+
+        if self.health <= 0:
+            self.is_moving = False
+            if not self.is_dead:
+                self.is_dead = True
+                self.frame_index = 0
+                self.anim_timer = 0.0
+
+            # Reproducimos la animación de muerte
+            if not self.death_finished:
+                self.anim_timer += dt
+                if self.anim_timer >= self.animation_speed:
+                    self.anim_timer = 0.0
+                    self.frame_index += 1
+                    
+                    if self.frame_index >= len(self.animations["DIE"]):
+                        self.frame_index = len(self.animations["DIE"]) - 1
+                        self.death_finished = True
+            return
 
         if self.is_transitioning:
             self.transition_timer += dt
