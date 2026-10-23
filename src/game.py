@@ -11,6 +11,7 @@ from src.hud import HealthBar
 from src.settings import ENEMY_CONTACT_DAMAGE
 from src.pause import PauseMenu
 from src.settings import PUNCH_DAMAGE, PUNCH_HIT_PADDING, PUNCH_STUN_TIME
+from src.inventory import InventoryMenu
 
 class Game:
     def __init__(self, mission_number=1):
@@ -32,6 +33,10 @@ class Game:
         # --- SISTEMA DE PAUSA ---
         self.is_paused = False
         self.pause_menu = PauseMenu(SCREEN_WIDTH, SCREEN_HEIGHT)
+
+        # --- INVENTARIO ---
+        self.inventory_open = False
+        self.inventory_menu = InventoryMenu(SCREEN_WIDTH, SCREEN_HEIGHT)
         
         # 1. DICCIONARIO DE NIVELES: Mapea cada misión a sus respectivas rutas de archivos
         self.levels_data = {
@@ -280,6 +285,17 @@ class Game:
                         self.confirm_game_over_option()
                 continue
 
+            # Inventario: se abre con la tecla I y mientras está abierto el juego queda pausado.
+            if self.inventory_open:
+                if self.inventory_menu.handle_input(event, self.player) == "CLOSE":
+                    self.inventory_open = False
+                continue
+            if (event.type == pygame.KEYDOWN and event.key == pygame.K_i
+                    and not self.is_paused and self.state == "PLAYING"):
+                self.inventory_menu.open(self.player)
+                self.inventory_open = True
+                continue
+
             # Abrir/cerrar Pausa con la tecla M
             if event.type == pygame.KEYDOWN and event.key == pygame.K_m:
                 self.is_paused = not self.is_paused
@@ -353,7 +369,7 @@ class Game:
             if self.fade_alpha == 0:
                 self.fading_in = False
 
-        if self.is_paused:
+        if self.is_paused or self.inventory_open:
             return
 
         if self.state == "DYING":
@@ -648,6 +664,10 @@ class Game:
         surface.blit(scaled_surface, (0, 0))
 
         self.health_bar.draw(surface, self.player)
+
+        # INVENTARIO ENCIMA DE TODO SI ESTÁ ABIERTO
+        if self.inventory_open:
+            self.inventory_menu.draw(surface, self.player, self.health_bar)
 
         # RENDERIZAR PAUSA ENCIMA DE TODO SI ESTÁ ACTIVA
         if self.is_paused:
