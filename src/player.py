@@ -3,6 +3,7 @@ from src.settings import PLAYER_SPEED, PLAYER_MAX_HEALTH, PLAYER_INVULNERABLE_TI
 from src.bullet import Bullet
 from src.settings import SHOOT_SOUND_PATH, SHOOT_SOUND_VOLUME
 from src.settings import PUNCH_RANGE
+from src.settings import PUNCH_SOUND_PATH, PUNCH_SOUND_VOLUME
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, x, y):
@@ -69,6 +70,14 @@ class Player(pygame.sprite.Sprite):
             self.shoot_sound.set_volume(SHOOT_SOUND_VOLUME)
         except Exception as e:
             print(f"AVISO: no se pudo cargar el sonido del disparo ({e}).")
+
+        # Sonido del golpe (si no se encuentra el archivo, el juego sigue sin sonido).
+        self.punch_sound = None
+        try:
+            self.punch_sound = pygame.mixer.Sound(PUNCH_SOUND_PATH)
+            self.punch_sound.set_volume(PUNCH_SOUND_VOLUME)
+        except Exception as e:
+            print(f"AVISO: no se pudo cargar el sonido del golpe ({e}).")
         
 
         # Control de animación y carga de sprites
@@ -130,6 +139,8 @@ class Player(pygame.sprite.Sprite):
                         self.init_time_punch = current_time
                         self.last_punch = current_time
                         self.punch_hit_done = False   # NUEVO: cada golpe nuevo puede pegar una vez.
+                        if self.punch_sound:
+                            self.punch_sound.play()   # NUEVO
             
             elif event.key == pygame.K_c:
                 # 'C' solo sirve para agacharse (la caja se equipa con 'B'). Con la caja puesta no se agacha.

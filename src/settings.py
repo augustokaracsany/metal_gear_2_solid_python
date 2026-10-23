@@ -70,3 +70,7 @@ PUNCH_RANGE = 24                              # Alcance del puño delante de Sna
 PUNCH_HIT_PADDING = 12                        # Agranda la hitbox del enemigo para que sea menos difícil pegarle.
 PUNCH_DAMAGE = (ENEMY_MAX_HEALTH + 2) // 3    # Un tercio de la vida del enemigo, redondeado para arriba: 3 golpes lo matan.
 PUNCH_STUN_TIME = 1.5   # Segundos que el enemigo queda quieto después de recibir un golpe.
+
+# Sonido del golpe.
+PUNCH_SOUND_PATH = "assets/audio/sfx/punch.wav"   # CAMBIAR si el archivo tiene otro nombre o extensión.
+PUNCH_SOUND_VOLUME = 0.5                          # De 0.0 (mudo) a 1.0 (volumen máximo).
