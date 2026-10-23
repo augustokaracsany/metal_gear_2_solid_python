@@ -1,6 +1,25 @@
 import pygame
+import os     
 from src.settings import SCREEN_WIDTH, SCREEN_HEIGHT, COLOR_BG, COLOR_TEXT, COLOR_ACCENT, COLOR_HOVER, COLOR_DISABLED
 
+# ---- Sonidos del menú (nuevo) ----
+_SFX_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "assets", "audio", "sfx")
+_sounds = {}
+
+def play_sound(name):
+    """Reproduce assets/audio/sfx/<name>.wav ('select' o 'cancel'). Si falla, queda en silencio."""
+    try:
+        snd = _sounds.get(name)
+        if snd is None:  # se carga la primera vez, cuando el mixer ya está inicializado
+            snd = pygame.mixer.Sound(os.path.join(_SFX_DIR, f"{name}.wav"))
+            _sounds[name] = snd
+        snd.play()
+    except Exception:
+        pass
+
+
+from src.main_menu_view import MainMenuView
 
 class Button:
     def __init__(self, text, x, y, width, height, font):
@@ -100,6 +119,8 @@ class MenuManager:
             Button("VER CRÉDITOS", SCREEN_WIDTH // 2 - 140, 280, 280, 32, self.font_btn),
             Button("SALIR DEL JUEGO", SCREEN_WIDTH // 2 - 140, 330, 280, 32, self.font_btn),
         ]
+        # Vista del menú principal (imagen de Snake + logo con brillo + opciones)
+        self.main_view = MainMenuView([b.text for b in self.main_buttons])
 
         # Botones de navegación interna
         self.back_button = Button("VOLVER", 40, SCREEN_HEIGHT - 50, 100, 28, self.font_btn)
@@ -113,14 +134,23 @@ class MenuManager:
             if event.type == pygame.QUIT:
                 return "EXIT"
 
+            # ESC: volver al menú principal desde Misiones, Controles o Créditos   <- nuevo
+            if (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE
+                    and self.state in ("MISSIONS", "CONTROLS", "CREDITS")):
+                play_sound("cancel")
+                self.state = "MAIN_MENU"
+                continue
+
             if self.state == "MAIN_MENU":
-                if self.main_buttons[0].is_clicked(event):
+                chosen = self.main_view.handle_event(event)
+                if chosen == 0:
                     self.state = "MISSIONS"
-                elif self.main_buttons[1].is_clicked(event):
+                elif chosen == 1:
                     self.state = "CONTROLS"
-                elif self.main_buttons[2].is_clicked(event):
+                elif chosen == 2:
                     self.state = "CREDITS"
-                elif self.main_buttons[3].is_clicked(event):
+                elif chosen == 3:
+                    play_sound("cancel")        # <- nuevo (salir del juego)
                     return "EXIT"
 
             elif self.state == "MISSIONS":
@@ -141,12 +171,14 @@ class MenuManager:
                         # Esto matchea perfectamente con tu main.py: action.startswith("START_MISSION_")
                         return f"START_MISSION_{self.selected_mission_id}"
                     
-                # Botón Volver al menú principal
+                # Botón Volver al menú principal   (estado MISSIONS)
                 if self.back_button.is_clicked(event):
+                    play_sound("cancel")        # <- nuevo
                     self.state = "MAIN_MENU"
 
             elif self.state in ["CONTROLS", "CREDITS"]:
                 if self.back_button.is_clicked(event):
+                    play_sound("cancel")        # <- nuevo
                     self.state = "MAIN_MENU"
 
         return action
@@ -159,16 +191,7 @@ class MenuManager:
         mouse_pos = pygame.mouse.get_pos()
 
         if self.state == "MAIN_MENU":
-            # Dibujar la imagen del Título (si no existe, usa texto como fallback)
-            if self.title_img:
-                rect = self.title_img.get_rect(center=(SCREEN_WIDTH // 2, 110))
-                surface.blit(self.title_img, rect)
-            else:
-                title = self.font_title.render("METAL GEAR 2: SOLID PYTHON", True, COLOR_ACCENT)
-                surface.blit(title, title.get_rect(center=(SCREEN_WIDTH // 2, 100)))
-                
-            for btn in self.main_buttons:
-                btn.draw(surface, mouse_pos)
+            self.main_view.draw(surface)
 
         elif self.state == "MISSIONS":
             # --- CABECERA SUPERIOR (Estilo iDroid MGSV / Peace Walker) ---
