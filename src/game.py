@@ -63,7 +63,7 @@ class Game:
         self.enemies_group = pygame.sprite.Group()
         self.items_group = pygame.sprite.Group()
         self.enemy_bullets = pygame.sprite.Group()
-        
+
         # Instanciación inicial del mapa y entidades
         self.load_level(current_level["tmx"])
 
@@ -136,13 +136,9 @@ class Game:
                         except Exception as e:
                             print(f"Error cargando sprite de la caja: {e}")
 
-            spawn_x, spawn_y = self.map.get_spawn_point("player_spawn")
-            self.player = Player(spawn_x, spawn_y)
-
             # Grilla: DESPUÉS de crear los enemigos, con el hitbox real del guardia
             if self.enemies_group:
-                if self.player:
-                    actor_size = self.player.rect.size
+                actor_size = self.enemies_group.sprites()[0].rect.size
                 self.pathfinding_grid = self.map.create_pathfinding_grid(
                     cell_px=8, actor_size=actor_size)
             else:
@@ -403,7 +399,6 @@ class Game:
         if self.state == "PLAYING":
             # Si el jugador se queda sin vida
             if getattr(self.player, "is_dead", False):
-                self.player.update(dt, walls)
                 if getattr(self.player, "death_finished", False):
                     self.state = "GAME_OVER"
                 return

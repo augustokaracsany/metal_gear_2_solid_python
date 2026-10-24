@@ -6,6 +6,7 @@ from src.prologue import PrologueState
 from src.intro_state import IntroState
 from src.cinematic_intro import CinematicIntroState
 from src.game import Game  # Clase principal de juego ( El game.py. )
+from src.codec import CodecManager
 
 
 def main():
@@ -116,11 +117,18 @@ def main():
 
         elif isinstance(current_state, CinematicIntroState):
             # AL ESTAR EN LA CINEMÁTICA DE ESCALADA:
-            if hasattr(current_state, "handle_events"):
-                current_state.handle_events(events)
+            current_state.handle_events(events)
             current_state.update(dt)
             if getattr(current_state, "finished", False):
-                # AL TERMINAR LA CINEMÁTICA: Pasamos al juego de la misión 1
+                codec_state = CodecManager()
+                codec_state.start_call("intro_first_mission")
+                current_state = codec_state
+
+        elif isinstance(current_state, CodecManager):
+            current_state.handle_input(events)
+            current_state.update(dt)
+            
+            if getattr(current_state, "finished", False):
                 current_state = Game(1)
 
         # 2. RENDERIZADO GLOBAL.

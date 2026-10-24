@@ -1,0 +1,176 @@
+{
+    "calls": {
+        "intro_first_mission": {
+            "frecuencia": "140.83",
+            "nombre_contacto": "Roy Campbell",
+            "codec_background": "assets/codec/codec1.png",
+            "dialogo": [
+                {
+                    "habla": "Snake",
+                    "texto": "Coronel, ya estoy en el área de la misión."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "Lo hice esperar, ¿huh?",
+                    "audio": "assets/audio/sfx/kept.mp3"
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Snake, ¿qué te hizo tardar tanto?"
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "Había mucho transito en el fondo del oceano."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Seguro. Snake, quiero que recuerdes por qué estas acá."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Hay un arma muy peligrosa en desarrollo \nen ese laboratorio."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Confiamos en que vos sos el único capaz \nde detenerlo sin pasar desapercibido."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "Entendido, ¿cuál es el plan?"
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Bien, dejame ver."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Destruir la maquina, los planos y toda la documentación \nno va a ser una tarea directa."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Vas a necesitar cumplir con una serie de objetivos \nantes del plan maestro."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Tu primer objetivo va a ser 'extraer' al Ingeniero Modnar."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "¿Ingeniero Modnar?"
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Veras... El es la mente maestra detras del desarrollo \ndel Metal Gear Destroyer of Worlds"
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Si logramos sacarlo de ahi, el proyecto no podrá \nseguir avanzando."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Aunque, la misión no acabaría ahi... No tardarian \nmucho buscando un reemplazo."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Sería cuestión de dos o tres semanas para que el \ndesarrollo del Metal Gear siga en pie."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "¿Podrías darme una descripción física del doctor Modnar?"
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Esta medio pelado, tiene canas, ojos marrones, \naspecto avejentado..."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "podría ser tranquilamente el papá del jugador."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Ademas, a pesar de que no es médico, siempre usa una \nbata blanca. Gustos son gustos, supongo..."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "¿Por qué aspecto avejentado? ¿Cuántos años tiene?"
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Tiene apróximadamente 25 años."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "¿Qué le pasó para que luzca asi siendo tan joven?"
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Vapear y tomar 2 litros de bebida energetica todos los días, \ndiciendo que 'era saludable' y no le iba a pasar nada."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Ni siquiera hablemos del color de su orina..."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "Suficientes detalles... Puedo encargarme."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Excelente Snake, por eso sos el mejor."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Por cierto, su orina es de color fuxia. \nDigo... por si querias saber."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "No quería saberlo, pero lo tendré en cuenta."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Por cierto, antes de que te vayas, \nunos últimos consejos para tu misión."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Lo principal: \nNo puedes ser detectado durante la misión."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Para lograr esto, te recomiendo buscar espacios \nde escondite."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Podrias esconderte debajo de un vehiculo, \nen las alcantarillas o... lo que sea que encuentres."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "La base esta llena de enemigos, asi que \nmanejate con cuidado y no corras como tonto."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Podes noquear a los enemigos usando CQC, \no bien matarlos con un arma. La decisión es tuya."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Si necesitas mas información, podes llamar \nal Cuartel General mediante tu Codec."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "La frecuencia de radio es 140.83. Recuerdalo."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Muy bien Snake, ¡Es hora de aventura!"
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "¿Te acordas de esa caricatura? Obviamente no, \nen 2002 no existía aún."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Ahora si, despues de 30 horas de cinemática \n(Kojima reference), ¡hora de jugar!"
+                }
+            ]
+        }
+    }
+}
