@@ -64,7 +64,8 @@ class Player(pygame.sprite.Sprite):
         # --- SISTEMA DE INVENTARIO Y DISFRAZ (CAJA DE CARTÓN) ---
         self.inventory = []          # Guardará ítems como "cardboard_box"
         self.is_disguised = False    # True cuando Snake tiene puesta la caja
-        
+        self.input_locked = False   # True durante intro/derrota del jefe
+
         # CARGAR SPRITES.
         self.load_sprites_data()
 
@@ -100,6 +101,8 @@ class Player(pygame.sprite.Sprite):
             print("Disfraz:", "Caja equipada" if self.is_disguised else "Sin caja")
 
     def punch_self_event(self, event):
+        if self.input_locked:
+            return
         current_time = pygame.time.get_ticks()
         if event.type == pygame.KEYDOWN:
             # === AGREGADO: TECLA 'B' PARA EQUIPAR/DESEQUIPAR LA CAJA ===
@@ -274,6 +277,8 @@ class Player(pygame.sprite.Sprite):
             self.update_offsets_for_stance()
 
     def handle_input(self):
+        if self.input_locked:
+            return 0, 0
         keys = pygame.key.get_pressed()
         dx = 0
         dy = 0
@@ -710,9 +715,6 @@ class Player(pygame.sprite.Sprite):
         draw_x = dest_rect.x - self.offset_x
         draw_y = dest_rect.y - self.offset_y
         
-        surface.blit(current_image, (draw_x, draw_y))
-        pygame.draw.rect(surface, (255, 0, 0), dest_rect, 2)
-
         # Parpadeo mientras es invulnerable (se salta un frame de cada dos).
         if self.is_invulnerable() and not self.is_dead and (pygame.time.get_ticks() // 100) % 2 == 0:
             return

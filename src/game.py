@@ -1,6 +1,7 @@
 import os
 import pygame
 import sys
+import pytmx
 from src.enemy import Enemy
 from src.player import Player
 from src.camera import Camera
@@ -10,9 +11,25 @@ from src.items import Item
 from src.hud import HealthBar
 from src.settings import ENEMY_CONTACT_DAMAGE
 from src.pause import PauseMenu
+import src.hind as hind_mod
+from src.hind import (
+    HindD, BossHealthBar, HIT_DAMAGE,
+    CINE_START_DELAY, CINE_PAN_IN_TIME, CINE_PAN_OUT_TIME, CINE_CAM_OFFSET,
+    MUSIC, MUSIC_MASTER, MUSIC_FADE_MS, AUDIO_DIR,
+)
+
+# Misión (clave de levels_data) donde pelea el jefe HIND-D.
+BOSS_MISSION = 3
+
+
+class _CamTarget:
+    """Objeto con rect para que Camera.update() lo siga durante la cinemática."""
+    def __init__(self):
+        self.rect = pygame.Rect(0, 0, 1, 1)
+
 
 class Game:
-    def __init__(self, mission_number=1):
+    def __init__(self, mission_number=1, skip_boss_intro=False):
         self.mission_number = mission_number
         # "PLAYING" -> Jugador con vida
         # "DYING"   -> Animación de muerte
@@ -27,6 +44,9 @@ class Game:
         self.fade_in_timer = pygame.time.get_ticks()
         self.game_over_selected_option = 0
         self.return_to_menu = False
+
+        # Música de la misión del jefe ("level" | "cutscene" | "boss"); None = todavía ninguna.
+        self._music_key = None
 
         # --- SISTEMA DE PAUSA ---
         self.is_paused = False
@@ -43,8 +63,8 @@ class Game:
                 "png": "assets/sprites/maps/building1_floor1-960x960.png"
             },
             3: {
-                "tmx": "assets/sprites/maps/mission3_map.tmx",
-                "png": "assets/sprites/maps/mission3_map.png"
+                "tmx": "assets/sprites/maps/hind-d_boss_fight-576x1344.tmx",
+                "png": "assets/sprites/maps/hind-d_boss_fight-576x1344.png"
             },
             4: {
                 "tmx": "assets/sprites/maps/mission4_map.tmx",
@@ -79,11 +99,25 @@ class Game:
 
         self.camera = Camera(map_width, map_height, self.virtual_width, self.virtual_height)
         
-        spawn_x, spawn_y = self.map.get_spawn_point("player_spawn", (400, 350)) if self.map else (400, 350)
+        spawn_x, spawn_y = self.get_player_spawn()
         self.player = Player(spawn_x, spawn_y)
         self.all_sprites.add(self.player)
 
         self.health_bar = HealthBar()
+
+        # --- JEFE (HIND-D) ---
+        self.skip_boss_intro = skip_boss_intro
+        self.boss = None
+        self.boss_mode = None      # None | "WAITING" | "CUTSCENE" | "FIGHT" | "DEFEATED"
+        self.boss_bar = BossHealthBar()
+        self.boss_trigger = None
+        self.cine_phase = None     # "DELAY" | "PAN_IN" | "TAKEOFF" | "PAN_OUT"
+        self.cine_timer = 0.0
+        self.cine_from = (0, 0)
+        self.cine_focus = (0, 0)
+        self._cam_target = _CamTarget()
+        if self.mission_number == BOSS_MISSION:
+            self.setup_boss()
 
     def load_level(self, tmx_or_key):
         """Carga un nivel"""
@@ -150,6 +184,205 @@ class Game:
             else:
                 self.pathfinding_grid = None
 
+    # ===================== MAPA: objetos de Tiled =====================
+    def find_objects(self, name):
+        """Objetos de Tiled cuyo NOMBRE, CLASE o CAPA coincida con `name`."""
+        found = []
+        if not self.map:
+            return found
+        for layer in self.map.tmx_data.layers:
+            if not isinstance(layer, pytmx.TiledObjectGroup):
+                continue
+            for obj in layer:
+                if (layer.name == name
+                        or getattr(obj, "name", None) == name
+                        or getattr(obj, "type", None) == name
+                        or getattr(obj, "class_", None) == name):
+                    found.append(obj)
+        return found
+
+    def find_rect(self, name):
+        objs = self.find_objects(name)
+        if not objs:
+            return None
+        o, s = objs[0], self.map.scale
+        return pygame.Rect(int(o.x * s), int(o.y * s), int(o.width * s), int(o.height * s))
+
+    def find_point(self, name, center=False):
+        objs = self.find_objects(name)
+        if not objs:
+            return None
+        o, s = objs[0], self.map.scale
+        if center and getattr(o, "width", 0):
+            return ((o.x + o.width / 2) * s, (o.y + o.height / 2) * s)
+        return (o.x * s, o.y * s)
+
+    def get_player_spawn(self, default=(400, 350)):
+        """player_spawn por capa, nombre o clase; si no aparece, cae al método viejo del TiledMap."""
+        pt = self.find_point("player_spawn")
+        if pt is not None:
+            return pt
+        if self.map:
+            return self.map.get_spawn_point("player_spawn", default)
+        return default
+
+    # ===================== AUDIO / MÚSICA / PAUSA =====================
+    def play_music(self, key):
+        """Música de la misión del jefe: key = "level" | "cutscene" | "boss" (ver MUSIC en hind.py).
+        Solo actúa en BOSS_MISSION y no reinicia la pista si ya es la que suena."""
+        if self.mission_number != BOSS_MISSION or key == self._music_key:
+            return
+        self._music_key = key
+        cfg = MUSIC.get(key)
+        if not cfg or not cfg.get("file"):
+            return                                  # Sin archivo: no toca lo que ya suena.
+        path = os.path.join(AUDIO_DIR, cfg["file"])
+        if not os.path.exists(path):
+            print(f"Aviso: música '{key}' no encontrada: {path}")
+            return
+        try:
+            pygame.mixer.music.load(path)
+            pygame.mixer.music.set_volume(max(0.0, min(1.0, cfg.get("volume", 1.0) * MUSIC_MASTER)))
+            pygame.mixer.music.play(loops=-1 if cfg.get("loop", True) else 0, fade_ms=MUSIC_FADE_MS)
+        except Exception as e:
+            print(f"Aviso música '{key}': {e}")
+
+    def stop_boss_audio(self):
+        if self.boss:
+            self.boss.stop_audio()
+
+    def stop_all_audio(self):
+        """Corta TODO el sonido del nivel (música + efectos + loops del jefe).
+        Se usa al salir al menú, para que la música no se traslade."""
+        self.stop_boss_audio()
+        try:
+            pygame.mixer.music.stop()
+            pygame.mixer.stop()
+        except pygame.error:
+            pass
+        self._music_key = None
+
+    def set_paused(self, value):
+        """Pausa/reanuda el juego y también los sonidos y la música."""
+        self.is_paused = value
+        try:
+            if value:
+                pygame.mixer.pause()
+                pygame.mixer.music.pause()
+            else:
+                pygame.mixer.unpause()
+                pygame.mixer.music.unpause()
+        except pygame.error:
+            pass
+
+    # ===================== JEFE (HIND-D) =====================
+    def setup_boss(self):
+        """Crea el jefe según los objetos del mapa:
+             boss_spawn        (punto, centro de la pista)  -> habilita la cinemática de despegue
+             trigger_cutscene  (rectángulo, opcional)       -> la cinemática arranca al pisarlo
+        Sin boss_spawn: el Hind entra desde lejos, sin cinemática.
+        Con skip_boss_intro: directo a la pelea."""
+        if self.map:
+            w, h = self.map.width, self.map.height
+        else:
+            w, h = self.map_image.get_width(), self.map_image.get_height()
+
+        pad = self.find_point("boss_spawn", center=True)
+        self.boss_trigger = self.find_rect("trigger_cutscene")
+
+        if self.skip_boss_intro or pad is None:
+            self.boss = HindD(w, h, attacks_enabled=True)
+            if self.skip_boss_intro:
+                self.boss.skip_to_orbit()
+            self.boss_mode = "FIGHT"
+            self.play_music("boss")
+            return
+
+        self.boss = HindD(w, h, attacks_enabled=False, pad_pos=pad)
+        if self.boss_trigger is None:
+            self.begin_cutscene()
+        else:
+            self.boss_mode = "WAITING"      # El Hind espera en la pista hasta que Snake pise el trigger.
+            self.play_music("level")        # Música del nivel, antes de la cinemática.
+
+    def debug_start_boss(self):
+        """F1: crea el jefe (si no existe) o dispara la cinemática ignorando el trigger."""
+        if self.boss_mode == "WAITING":
+            self.begin_cutscene()
+        elif not self.boss:
+            self.setup_boss()
+
+    def begin_cutscene(self):
+        self.boss_mode = "CUTSCENE"
+        self.cine_phase = "DELAY"           # DELAY -> PAN_IN -> TAKEOFF -> PAN_OUT
+        self.cine_timer = 0.0
+        self.cine_from = self.player.rect.center
+        self.cine_focus = (self.boss.x + CINE_CAM_OFFSET[0], self.boss.y + CINE_CAM_OFFSET[1])
+        self.player.input_locked = True
+        self.play_music("cutscene")
+
+    def camera_target(self):
+        """Durante la cinemática la cámara sigue un punto que va a la pista, se queda ahí
+        mientras el Hind despega (así se ve cómo sale volando por arriba) y vuelve a Snake."""
+        if self.boss_mode != "CUTSCENE" or self.cine_phase == "DELAY":
+            return self.player
+        fx, fy = self.cine_focus
+        if self.cine_phase == "PAN_IN":
+            t = min(1.0, self.cine_timer / max(0.01, CINE_PAN_IN_TIME))
+            ax, ay = self.cine_from
+            bx, by = fx, fy
+        elif self.cine_phase == "TAKEOFF":
+            t, ax, ay, bx, by = 1.0, fx, fy, fx, fy
+        else:  # PAN_OUT
+            t = min(1.0, self.cine_timer / max(0.01, CINE_PAN_OUT_TIME))
+            ax, ay = fx, fy
+            bx, by = self.player.rect.center
+        s = t * t * (3 - 2 * t)
+        self._cam_target.rect.center = (int(ax + (bx - ax) * s), int(ay + (by - ay) * s))
+        return self._cam_target
+
+    def update_boss(self, dt):
+        if not self.boss:
+            return
+        self.boss.update(dt, self.player, self.hidden_zones)
+        self.boss_bar.update(dt, self.boss.health / self.boss.max_health)
+
+        if self.boss_mode == "WAITING":
+            if self.boss_trigger and self.player.rect.colliderect(self.boss_trigger):
+                self.begin_cutscene()
+
+        elif self.boss_mode == "CUTSCENE":
+            self.cine_timer += dt
+            if self.cine_phase == "DELAY":
+                if self.cine_timer >= CINE_START_DELAY:
+                    self.cine_phase, self.cine_timer = "PAN_IN", 0.0
+                    self.cine_from = self.player.rect.center
+            elif self.cine_phase == "PAN_IN":
+                if self.cine_timer >= CINE_PAN_IN_TIME:
+                    self.cine_phase, self.cine_timer = "TAKEOFF", 0.0
+                    self.boss.cutscene_go = True
+            elif self.cine_phase == "TAKEOFF":
+                if self.boss.takeoff_done:
+                    self.cine_phase, self.cine_timer = "PAN_OUT", 0.0
+            elif self.cine_phase == "PAN_OUT":
+                if self.cine_timer >= CINE_PAN_OUT_TIME:
+                    self.boss_mode = "FIGHT"
+                    self.boss.attacks_enabled = True
+                    self.player.input_locked = False
+                    self.play_music("boss")
+
+        elif self.boss_mode == "FIGHT":
+            self.boss.consume_phase_change()   # acá va la ración del paso 3
+            if self.boss.is_defeated:
+                self.boss_mode = "DEFEATED"
+                self.player.input_locked = True
+
+        elif self.boss_mode == "DEFEATED":
+            if self.boss.dead_done:
+                self.player.input_locked = False
+                self.boss_mode = None
+                self.trigger_victory_sequence()   # mismo camino que ya tenés
+
     def check_map_transitions(self):
         if not self.map:
             return
@@ -176,6 +409,7 @@ class Game:
 
     def trigger_victory_sequence(self):
         if self.state == "PLAYING":
+            self.stop_boss_audio()
             self.state = "VICTORY"
             self.victory_timer = pygame.time.get_ticks()
             self.fade_alpha = 0
@@ -187,6 +421,7 @@ class Game:
 
     def trigger_death_sequence(self):
         if self.state == "PLAYING":
+            self.stop_boss_audio()
             self.state = "DYING"
             self.death_timer = pygame.time.get_ticks()
             self.fade_alpha = 0
@@ -211,6 +446,71 @@ class Game:
         
         return tmx_exists or png_exists
         
+    def restart_mission(self):
+        """Reinicia la misión completa: mapa, enemigos, ítems, jefe (CON su cinemática de inicio),
+        música y estado de Snake."""
+        # 0) Cortar los sonidos y la música del intento anterior.
+        self.stop_boss_audio()
+        try:
+            pygame.mixer.music.stop()
+            pygame.mixer.stop()
+        except pygame.error:
+            pass
+
+        # 1) Estado del jugador (ANTES de cargar el nivel: la caja solo reaparece
+        #    si Snake no la tiene en el inventario).
+        p = self.player
+        p.inventory = []
+        p.is_disguised = False
+        p.is_punching = False
+        p.is_transitioning = False
+        p.target_stance = None
+        p.forced_crouch = False
+        p.crouch_hold_timer = 0.0
+        p.is_hidden = False
+        p.is_moving = False
+        p.active_hidden_top_zone = None
+        p.active_hidden_bottom_marker = None
+        p.stance = "STAND"
+        p.facing = "DOWN"
+        p.frame_index = 0
+        p.anim_timer = 0.0
+        p.input_locked = False
+        p.health = p.max_health
+        p.is_dead = False
+        p.update_offsets_for_stance()
+        
+        # 2) Mapa de la misión desde cero (enemigos + ítems como la caja del camión).
+        #    Si Snake estaba dentro del camión, esto también lo devuelve al mapa principal.
+        self.load_level(self.mission_number)
+
+        # 3) Cámara con las medidas del mapa recargado.
+        if self.map:
+            map_width, map_height = self.map.width, self.map.height
+        else:
+            map_width, map_height = self.map_image.get_width(), self.map_image.get_height()
+        self.camera = Camera(map_width, map_height, self.virtual_width, self.virtual_height)
+
+        # 4) Snake de vuelta al spawn.
+        spawn_x, spawn_y = self.get_player_spawn()
+        p.x, p.y = float(spawn_x), float(spawn_y)
+        p.rect.x, p.rect.y = int(spawn_x), int(spawn_y)
+        self.camera.update(p)
+
+        # 5) Jefe de cero: vuelve a empezar TODO, cinemática incluida.
+        self.boss = None
+        self.boss_mode = None
+        self.boss_trigger = None
+        self.cine_phase = None
+        self.cine_timer = 0.0
+        self.cine_from = (0, 0)
+        self.cine_focus = (0, 0)
+        self.boss_bar = BossHealthBar()
+        self._music_key = None              # Para que la música vuelva a arrancar.
+        if self.mission_number == BOSS_MISSION:
+            self.skip_boss_intro = False    # Cinemática de inicio otra vez.
+            self.setup_boss()
+
     def handle_events(self, events):
         for event in events:
             if event.type == pygame.QUIT:
@@ -276,27 +576,24 @@ class Game:
                         self.confirm_game_over_option()
                 continue
 
-            # Abrir/cerrar Pausa con la tecla M
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_m:
-                self.is_paused = not self.is_paused
+            # Abrir Pausa con la tecla ESC (cerrar / volver lo maneja el propio menú de pausa)
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE and not self.is_paused:
+                self.set_paused(True)
                 continue
 
             # Si el juego está en pausa, la navegación y selección las procesa la pausa
             if self.is_paused:
                 action = self.pause_menu.handle_input(event)
                 if action == "CONTINUAR":
-                    self.is_paused = False
+                    self.set_paused(False)
                 elif action == "PUNTO DE CONTROL":
                     self.pause_menu.trigger_feedback("No se encontró ningún punto de guardado previo.")
                 elif action == "REINICIAR MISIÓN":
-                    current_key = self.mission_number
-                    self.load_level(current_key)
-                    spawn_x, spawn_y = self.map.get_spawn_point("player_spawn", (400, 350)) if self.map else (400, 350)
-                    self.player.x, self.player.y = spawn_x, spawn_y
-                    self.player.rect.x, self.player.rect.y = int(spawn_x), int(spawn_y)
-                    self.is_paused = False
+                    self.restart_mission()
+                    self.set_paused(False)
                 elif action == "VOLVER AL MENÚ":
-                    self.is_paused = False
+                    self.stop_all_audio()          # Música + efectos fuera: no se trasladan al menú.
+                    self.set_paused(False)
                     return "GOTO_MENU"
             else:
                 # Si el juego NO está en pausa, responde a las acciones del jugador
@@ -309,27 +606,54 @@ class Game:
                         self.player.take_damage(10)
                     elif event.key == pygame.K_j:
                         self.player.heal(10)
+                    elif event.key == pygame.K_F1:
+                        self.debug_start_boss()
+                    elif event.key == pygame.K_F2 and self.boss:
+                        self.boss.take_hit(HIT_DAMAGE)          # respeta "un impacto por ventana"
+                    # --- Debug del jefe (flags en hind.DEBUG) ---
+                    elif event.key == pygame.K_F3:
+                        hind_mod.DEBUG["strip_box"] = not hind_mod.DEBUG["strip_box"]
+                    elif event.key == pygame.K_F4:
+                        hind_mod.DEBUG["impact_hitbox"] = not hind_mod.DEBUG["impact_hitbox"]
+                    elif event.key == pygame.K_F5:
+                        hind_mod.DEBUG["hind_hitbox"] = not hind_mod.DEBUG["hind_hitbox"]
+                    elif event.key == pygame.K_F6:
+                        hind_mod.HIND_DEBUG = not hind_mod.HIND_DEBUG
+                    elif event.key == pygame.K_F7:
+                        on = not hind_mod.DEBUG["sprite_rect"]
+                        hind_mod.DEBUG["sprite_rect"] = on
+                        hind_mod.DEBUG["player_hitbox"] = on
+                    elif event.key in (pygame.K_RETURN, pygame.K_SPACE) and self.boss_mode == "CUTSCENE":
+                        self.boss.skip_takeoff()                # saltear cinemática
+                        if self.cine_phase in ("DELAY", "PAN_IN"):
+                            self.cine_phase = "TAKEOFF"
                 self.player.punch_self_event(event)
         return None
 
     def confirm_victory_option(self):
         """Ejecuta la acción seleccionada en el menú de Victoria"""
         pygame.mixer.music.fadeout(1000)
+        self.stop_boss_audio()
         has_next = self.has_next_mission()
         
         if self.victory_selected_option == 0:
-            self.__init__(self.mission_number)
+            # Reintentar: la misión arranca de cero, con su cinemática de inicio.
+            self.__init__(self.mission_number, skip_boss_intro=False)
         elif self.victory_selected_option == 1 and has_next:
             self.__init__(self.mission_number + 1)
         else:
-            self.return_to_menu = True
+            self.stop_all_audio()       # Salir: nada de música colgada en el menú.
+            self.return_to_menu = True  # Activamos la bandera
 
     def confirm_game_over_option(self):
         pygame.mixer.music.fadeout(1000)
+        self.stop_boss_audio()
         if self.game_over_selected_option == 0:
-            self.__init__(self.mission_number)
+            # Reintentar: la misión arranca de cero, con su cinemática de inicio.
+            self.__init__(self.mission_number, skip_boss_intro=False)
         else:
-            self.return_to_menu = True
+            self.stop_all_audio()       # Salir: nada de música colgada en el menú.
+            self.return_to_menu = True  # Activamos la bandera
 
     def update(self, dt):
         # Manejo limpio del fundido de entrada (Fade-in)
@@ -381,7 +705,12 @@ class Game:
         for enemy in self.enemies_group:
             enemy.update(dt, walls, self.player, self.pathfinding_grid)
 
-        self.camera.update(self.player)
+        self.update_boss(dt)
+        if self.player.is_dead:
+            self.trigger_death_sequence()
+
+        # La cámara sigue a Snake, o al punto de la cinemática cuando está activa.
+        self.camera.update(self.camera_target())
 
     def draw(self, surface):
         self.virtual_surface.fill((0, 0, 0))
@@ -588,6 +917,10 @@ class Game:
         for item in self.items_group:
             item_rect = self.camera.apply(item)
             self.virtual_surface.blit(item.image, item_rect)
+
+        # Jefe, capa de suelo: franja de aviso, impactos y sombra del Hind (debajo de las entidades).
+        if self.boss:
+            self.boss.draw_ground(self.virtual_surface, self.camera)
         
         entities_to_draw = [self.player] + list(self.enemies_group)
         entities_to_draw.sort(key=lambda entity: entity.rect.bottom)
@@ -605,6 +938,10 @@ class Game:
                 render_condition=self.player.is_hidden or self.player.is_near_hidden_zone(margin=15),
             )
 
+        # Jefe, capa aérea: helicóptero elevándose, explosiones y debug (sobre los techos).
+        if self.boss:
+            self.boss.draw_air(self.virtual_surface, self.camera)
+
         if self.state == "DYING" or self.fading_in:
             fade_surface = pygame.Surface((self.virtual_surface.get_width(), self.virtual_surface.get_height()))
             fade_surface.fill((0, 0, 0))
@@ -615,6 +952,10 @@ class Game:
         surface.blit(scaled_surface, (0, 0))
 
         self.health_bar.draw(surface, self.player)
+
+        # Barra del jefe: después del escalado, sobre la pantalla real.
+        if self.boss and self.boss_mode in ("FIGHT", "DEFEATED"):
+            self.boss_bar.draw(surface, self.boss)
 
         # RENDERIZAR PAUSA ENCIMA DE TODO SI ESTÁ ACTIVA
         if self.is_paused:
