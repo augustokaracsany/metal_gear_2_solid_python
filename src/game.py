@@ -27,6 +27,8 @@ class _CamTarget:
     def __init__(self):
         self.rect = pygame.Rect(0, 0, 1, 1)
 
+from src.settings import PUNCH_DAMAGE, PUNCH_HIT_PADDING, PUNCH_STUN_TIME
+from src.inventory import InventoryMenu
 
 class Game:
     def __init__(self, mission_number=1, skip_boss_intro=False):
@@ -51,6 +53,10 @@ class Game:
         # --- SISTEMA DE PAUSA ---
         self.is_paused = False
         self.pause_menu = PauseMenu(SCREEN_WIDTH, SCREEN_HEIGHT)
+        
+        # --- INVENTARIO ---
+        self.inventory_open = False
+        self.inventory_menu = InventoryMenu(SCREEN_WIDTH, SCREEN_HEIGHT)
         
         # 1. DICCIONARIO DE NIVELES: Mapea cada misión a sus respectivas rutas de archivos
         self.levels_data = {
@@ -82,6 +88,7 @@ class Game:
         self.all_sprites = pygame.sprite.Group()
         self.enemies_group = pygame.sprite.Group()
         self.items_group = pygame.sprite.Group()
+        self.bullets_group = pygame.sprite.Group()
         
         # Instanciación inicial del mapa y entidades
         self.load_level(current_level["tmx"])
@@ -156,6 +163,7 @@ class Game:
 
         self.enemies_group.empty()
         self.items_group.empty()
+        self.bullets_group.empty()
 
         if self.map:
             patrol_routes = self.map.get_patrol_path("enemy_patrols")
@@ -528,6 +536,7 @@ class Game:
                         self.victory_selected_option = (self.victory_selected_option + 1) % max_options
                     elif event.key in (pygame.K_RETURN,):
                         self.confirm_victory_option()
+                   
 
                 elif event.type == pygame.MOUSEMOTION:
                     mx, my = event.pos
@@ -579,6 +588,15 @@ class Game:
             # Abrir Pausa con la tecla ESC (cerrar / volver lo maneja el propio menú de pausa)
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE and not self.is_paused:
                 self.set_paused(True)
+            # Inventario: se abre con la tecla I y mientras está abierto el juego queda pausado.
+            if self.inventory_open:
+                if self.inventory_menu.handle_input(event, self.player) == "CLOSE":
+                    self.inventory_open = False
+                continue
+            if (event.type == pygame.KEYDOWN and event.key == pygame.K_i
+                    and not self.is_paused and self.state == "PLAYING"):
+                self.inventory_menu.open(self.player)
+                self.inventory_open = True
                 continue
 
             # Si el juego está en pausa, la navegación y selección las procesa la pausa
@@ -606,6 +624,9 @@ class Game:
                         self.player.take_damage(10)
                     elif event.key == pygame.K_j:
                         self.player.heal(10)
+                    elif event.key == pygame.K_SPACE:
+                        self.player_shoot()
+                        self.player.punch_self_event(event)
                     elif event.key == pygame.K_F1:
                         self.debug_start_boss()
                     elif event.key == pygame.K_F2 and self.boss:
@@ -654,6 +675,15 @@ class Game:
         else:
             self.stop_all_audio()       # Salir: nada de música colgada en el menú.
             self.return_to_menu = True  # Activamos la bandera
+                    
+
+    def player_shoot(self):
+        if self.state != "PLAYING":
+            return
+        bullet = self.player.shoot()
+        print("DISPARO:", "OK" if bullet else "bloqueado", "| postura:", self.player.stance)
+        if bullet:
+            self.bullets_group.add(bullet)
 
     def update(self, dt):
         # Manejo limpio del fundido de entrada (Fade-in)
@@ -663,7 +693,7 @@ class Game:
             if self.fade_alpha == 0:
                 self.fading_in = False
 
-        if self.is_paused:
+        if self.is_paused or self.inventory_open:
             return
 
         if self.state == "DYING":
@@ -711,6 +741,23 @@ class Game:
 
         # La cámara sigue a Snake, o al punto de la cinemática cuando está activa.
         self.camera.update(self.camera_target())
+        # Golpe: mientras dura, daña al primer enemigo que tenga delante (una vez por golpe).
+        if self.player.is_punching and not self.player.punch_hit_done:
+            punch_rect = self.player.get_punch_rect()
+            for enemy in self.enemies_group:
+                if punch_rect.colliderect(enemy.rect.inflate(PUNCH_HIT_PADDING, PUNCH_HIT_PADDING)):
+                    enemy.take_damage(PUNCH_DAMAGE, PUNCH_STUN_TIME, self.player.rect.center)
+                    self.player.punch_hit_done = True
+                    break
+
+        # Balas: se mueven y chocan contra paredes, enemigos o el borde del mapa.
+        if self.map:
+            bounds = pygame.Rect(0, 0, self.map.width, self.map.height)
+        else:
+            bounds = self.map_image.get_rect()
+        self.bullets_group.update(dt, walls, self.enemies_group, bounds)
+
+        self.camera.update(self.player)
 
     def draw(self, surface):
         self.virtual_surface.fill((0, 0, 0))
@@ -928,6 +975,9 @@ class Game:
         for entity in entities_to_draw:
             entity.draw_with_camera(self.virtual_surface, self.camera)
 
+        for bullet in self.bullets_group:
+            bullet.draw_with_camera(self.virtual_surface, self.camera)
+
         for enemy in self.enemies_group:
             enemy.draw_vision(self.virtual_surface, self.camera)
         
@@ -956,6 +1006,9 @@ class Game:
         # Barra del jefe: después del escalado, sobre la pantalla real.
         if self.boss and self.boss_mode in ("FIGHT", "DEFEATED"):
             self.boss_bar.draw(surface, self.boss)
+        # INVENTARIO ENCIMA DE TODO SI ESTÁ ABIERTO
+        if self.inventory_open:
+            self.inventory_menu.draw(surface, self.player, self.health_bar)
 
         # RENDERIZAR PAUSA ENCIMA DE TODO SI ESTÁ ACTIVA
         if self.is_paused:

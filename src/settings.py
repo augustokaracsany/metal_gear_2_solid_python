@@ -42,3 +42,35 @@ COLOR_HEALTH_HIGHLIGHT = (255, 255, 255)  # Brillo en la parte de arriba de la b
 COLOR_HEALTH_LOW = (220, 40, 40)          # Barra cuando la vida es 30% o menos.
 COLOR_HEALTH_LINE = (190, 190, 190)       # Línea fina y marcas.
 COLOR_HEALTH_SHADOW = (0, 0, 0)           # Sombra para que se lea sobre cualquier mapa.
+
+# Disparo.
+PLAYER_SHOOT_COOLDOWN = 400       # ms mínimos entre un disparo y otro.
+BULLET_SPEED = 600                # px/seg.
+BULLET_STEP = 4                   # La bala avanza de a 4 px para no atravesar paredes finas.
+BULLET_LENGTH = 8                 # Largo de la bala.
+BULLET_THICKNESS = 3              # Grosor de la bala.
+BULLET_DAMAGE = 100
+BULLET_COLOR = (255, 230, 120)
+BULLET_HIT_PADDING = 12           # Agranda la hitbox del enemigo para que sea menos difícil pegarle.
+BULLET_DRAW_OFFSET_Y = 34         # Solo visual: dibuja la bala más arriba, a la altura del arma.
+
+# Enemigos.
+ENEMY_MAX_HEALTH = 100            # Con daño 25 mueren a los 4 disparos.
+
+# Sprites de Snake con arma.
+PLAYER_GUN_SPRITES_PATH = "assets/sprites/solid_python/"
+PLAYER_GUN_SHOW_TIME = 600   # ms que se ve la pose con arma después de disparar.
+
+# Sonido del disparo.
+SHOOT_SOUND_PATH = "assets/audio/sfx/gunshot.wav"   # CAMBIAR por el nombre y extensión reales de tu archivo.
+SHOOT_SOUND_VOLUME = 0.1                             # De 0.0 (mudo) a 1.0 (volumen máximo).
+
+# Golpe.
+PUNCH_RANGE = 24                              # Alcance del puño delante de Snake (px).
+PUNCH_HIT_PADDING = 12                        # Agranda la hitbox del enemigo para que sea menos difícil pegarle.
+PUNCH_DAMAGE = (ENEMY_MAX_HEALTH + 2) // 3    # Un tercio de la vida del enemigo, redondeado para arriba: 3 golpes lo matan.
+PUNCH_STUN_TIME = 1.5   # Segundos que el enemigo queda quieto después de recibir un golpe.
+
+# Sonido del golpe.
+PUNCH_SOUND_PATH = "assets/audio/sfx/punch.wav"   # CAMBIAR si el archivo tiene otro nombre o extensión.
+PUNCH_SOUND_VOLUME = 0.5                          # De 0.0 (mudo) a 1.0 (volumen máximo).
