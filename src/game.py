@@ -10,6 +10,7 @@ from src.items import Item
 from src.hud import HealthBar
 from src.settings import ENEMY_CONTACT_DAMAGE
 from src.pause import PauseMenu
+from src.item_message import ItemMessage
 
 class Game:
     def __init__(self, mission_number=1):
@@ -88,6 +89,7 @@ class Game:
         self.all_sprites.add(self.player)
 
         self.health_bar = HealthBar()
+        self.item_message = ItemMessage()
 
     def start_level_music(self):
         """Música de fondo en bucle del mapa Entry Point (misión 1).
@@ -463,8 +465,12 @@ class Game:
             self.hidden_zones_bottom,
         )
 
+        inventario_previo = list(self.player.inventory)
         if hasattr(self.player, 'collect_items'):
             self.player.collect_items(self.items_group)
+        for nombre_item in self.player.inventory:
+            if nombre_item not in inventario_previo:
+                self.item_message.show(nombre_item, self.pause_menu.sfx_volume)
 
         self.check_map_transitions()
 
@@ -727,6 +733,7 @@ class Game:
         surface.blit(scaled_surface, (0, 0))
 
         self.health_bar.draw(surface, self.player)
+        self.item_message.draw(surface)
 
         # RENDERIZAR PAUSA ENCIMA DE TODO SI ESTÁ ACTIVA
         if self.is_paused:
