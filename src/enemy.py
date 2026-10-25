@@ -119,6 +119,7 @@ class Enemy(pygame.sprite.Sprite):
         self.start_delay = float(start_delay) # Guardamos el retraso inicial
         self.path_fail_count = 0
         self.search_target = None
+        self.global_alert = False
 
     # CARGAR SPRITES.
     def load_sprites(self):
@@ -211,12 +212,9 @@ class Enemy(pygame.sprite.Sprite):
             self.search_target = None
             self.lost_timer = 0.0
             if self.state not in ("ALERT", "CHASE"):
-                self._set_state("ALERT")
+                # En alerta general no hay pausa con el "!": persigue directo.
+                self._set_state("CHASE" if self.global_alert else "ALERT")
                 self._face_towards(*player.rect.center)
-        elif self.state == "CHASE":
-            self.lost_timer += dt
-            if self.lost_timer >= self.LOSE_SIGHT_TIME:
-                self._set_state("SEARCH")
 
     def _eye_pos(self):
         return self.rect.centerx, self.rect.top - self.offset_y // 2

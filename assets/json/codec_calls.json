@@ -116,14 +116,6 @@
                 },
                 {
                     "habla": "Snake",
-                    "texto": "¿A cuántas águilas calvas equivaldria dicha estatura?"
-                },
-                {
-                    "habla": "Campbell",
-                    "texto": "Entre 2,5 a 1,75 águilas calvas..."
-                },
-                {
-                    "habla": "Snake",
                     "texto": "Recibido. Esto me será de gran importancia. \n¿Qué sigue despues de esto?"
                 },
                 {
@@ -144,7 +136,7 @@
                 },
                 {
                     "habla": "Snake",
-                    "texto": "Detallitos. Creo que sera hora de moverme, \nno hay tiempo que perder."
+                    "texto": "Detalles... Creo que sera hora de moverme, \nno hay tiempo que perder."
                 },
                 {
                     "habla": "Campbell",
