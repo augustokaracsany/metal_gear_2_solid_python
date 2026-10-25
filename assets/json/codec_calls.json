@@ -1,0 +1,188 @@
+{
+    "calls": {
+        "intro_first_mission": {
+            "frecuencia": "140.83",
+            "nombre_contacto": "Roy Campbell",
+            "codec_background": "assets/codec/codec1.png",
+            "dialogo": [
+                {
+                    "habla": "Snake",
+                    "texto": "Coronel, ya llegué al laboratorio MSX."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "Lo hice esperar, ¿huh?",
+                    "audio": "assets/audio/sfx/kept.mp3"
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Recibido Snake, ¿Podes oirme?"
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "Alto y claro, Coronel."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "¡Muy bien! Necesito que recuerdes por qué estas acá."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "Un tanque esta siendo desarrollado acá \nque amenaza con tomar el control de todo un continente..."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "y podría expandirse al resto del mundo. Lo usual."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Por eso necesitamos que te infiltres en el \nlaboratorio y sabotees el avance de este proyecto."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Quien esta detras de todo este plan y su proposito \nno es información del cual tengamos conocimiento."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Puede ser por venganza, por ego, por recursos, territorio... \nen fin, muchas posibilidades."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Lo que si ideamos es un plan a llevar a cabo \npara cumplir nuestro objetivo."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "¿De qué trata el plan?"
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "El plan consiste en una serie de pasos, debido a \nque no será posible cumplir con la misión..."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "de forma directa. Por lo que será necesario \nir por partes."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Tu primer objetivo va a ser relativamente sencillo. \nVeras, hay un gran ingeniero detras de toda esta... \nbueno... obra de la ingeniería."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Estamos hablando del Ingeniero Modnar. Modnar es un \ningeniero electrónico con 35 años de experiencia."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Solía dedicarse a realizar encargos a empresas \nimportantes, no fue hasta 5 años atras que se especializo \nen maquinaria."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Dicha maquinaria contempla no solamente maquinas de \nautomatización industrial, sino también armas vendidas \nal ejercito."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Sin embargo, el ejercito dejó de comprar su maquinaria \ndebido a que frecuentemente encontraban problemas de \nseguridad en sus dispositivos."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Esto hizo que su reputación cayese, y no iba a \nvolver a realizar encargos a empresas. Sería un \nreves para su situación económica."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Parece que un ejercito privado cuyo nombre \nclave es CAPM, notó la situación de Modnar, \ny lo reclutaron para este proyecto."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Nada de esto esta totalmente clarificado, va a \nser tu misión conseguir información extra al respecto."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Dicha información podrían estar en documentos, o \nalgún guardia podría saber al respecto. \nPodrías interrogarlos si tenes tiempo."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Volviendo a la misión, extraer al Ingeniero Modnar \nes fundamental para frenar temporalmente el \ndesarrollo del Metal Gear."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "Entendido. Voy a necesitar una descripción \nfísica del Ingeniero Modnar."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Tiene 55 años, pelo y barba blanca, calvicie \ntotal en la parte superior de su cabeza..."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Ojos marrones, piel trigueña, mide 5 pies y 9 pulgadas."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "¿A cuántas águilas calvas equivaldria dicha estatura?"
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Entre 2,5 a 1,75 águilas calvas..."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "Recibido. Esto me será de gran importancia. \n¿Qué sigue despues de esto?"
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "Es decir... extraigo a Modnar de forma exitosa, \n¿Cuál sería el siguiente objetivo?"
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Creo que es mejor no adelantarnos. Enfocate en \ntu primer objetivo. Apenas termines, te diremos \ncual es el siguiente."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "No lo tienen definido, ¿verdad?"
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "No."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "Detallitos. Creo que sera hora de moverme, \nno hay tiempo que perder."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Espera, una cosa mas. Si necesitas información adicional, \npuedes llamar en cualquier momento al cuartel general..."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "es decir, a nosotros, para recibir información o consejos \npara tu misión."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "La frecuencia es 140.83. No te lo olvides."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Aparte de recordarte que es una misión de infiltración. \nEsto quiere decir que no podes ser visto bajo \nninguna circunstacia."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Utiliza lo que encuentres para esconderte o pasar \ndesapercibido."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Vas a encontrar varios enemigos patrullando en \nesa zona, puedes noquearlos o matarlos con \nun arma de fuego."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Es tu elección. Recuerda que dichos \nsoldados tienen familia y estan ahi por obligación."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Para mas información sobre los controles, puedes \npresionar el botón de menú (ESC) y consultarlos."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Suerte, Snake. El éxito de la misión depende de vos."
+                }
+            ]
+        }
+    }
+}

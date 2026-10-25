@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="36" height="21" tilewidth="16" tileheight="16" infinite="0" nextlayerid="4" nextobjectid="4">
+ <imagelayer id="2" name="background">
+  <image source="intro_entry_point.png" width="576" height="336"/>
+ </imagelayer>
+ <objectgroup id="3" name="points">
+  <object id="1" name="start_point" x="372.455" y="184.364">
+   <point/>
+  </object>
+  <object id="2" name="end_point" x="296.273" y="184.364">
+   <point/>
+  </object>
+  <object id="3" name="middle_point" x="328.5" y="184.364">
+   <point/>
+  </object>
+ </objectgroup>
+</map>

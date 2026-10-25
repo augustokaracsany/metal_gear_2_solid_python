@@ -62,7 +62,8 @@ class Game:
         self.all_sprites = pygame.sprite.Group()
         self.enemies_group = pygame.sprite.Group()
         self.items_group = pygame.sprite.Group()
-        
+        self.enemy_bullets = pygame.sprite.Group()
+
         # Instanciación inicial del mapa y entidades
         self.load_level(current_level["tmx"])
 
@@ -107,34 +108,22 @@ class Game:
             self.map_scale = 2 
             self.map_image = pygame.transform.scale(self.raw_map, (self.raw_map.get_width() * self.map_scale, self.raw_map.get_height() * self.map_scale))
 
+        self.enemies_group.empty()
+        self.items_group.empty()
+        self.enemy_bullets.empty()
+
         # Actualizar zonas ocultas y barreras de forma segura
         if self.map:
             self.hidden_zones = self.map.get_hidden_zones("zonas_oculto") or []
             self.hidden_zones_top = self.map.get_hidden_zones_top() or []
             self.hidden_zones_bottom = self.map.get_hidden_zones_bottom() or []
             self.top_barriers = self.map.get_top_barriers("limites_top") or []
-            patrol_routes = self.map.get_patrol_path("enemy_patrols")
-            if self.enemies_group:
-                actor_size = self.enemies_group.sprites()[0].rect.size
-                self.pathfinding_grid = self.map.create_pathfinding_grid(16, actor_size)
-        else:
-            self.hidden_zones = []
-            self.hidden_zones_top = []
-            self.hidden_zones_bottom = []
-            self.top_barriers = []
-            self.pathfinding_grid = None
+            self.walls = self.map.get_collision_rects()   # cacheadas una sola vez
 
-        self.enemies_group.empty()
-        self.items_group.empty()
-
-        if self.map:
             patrol_routes = self.map.get_patrol_path("enemy_patrols")
-            if patrol_routes:
-                for ruta in patrol_routes:
-                    pos_inicial_x = ruta[0][0]
-                    pos_inicial_y = ruta[0][1]
-                    guardia = Enemy(pos_inicial_x, pos_inicial_y, ruta)
-                    self.enemies_group.add(guardia)
+            for i, ruta in enumerate(patrol_routes):
+                guardia = Enemy(ruta[0][0], ruta[0][1], ruta, start_delay=i * 1.0)
+                self.enemies_group.add(guardia)
 
             if hasattr(self.map.tmx_data, 'objects'):
                 for obj in self.map.tmx_data.objects:
@@ -147,12 +136,20 @@ class Game:
                         except Exception as e:
                             print(f"Error cargando sprite de la caja: {e}")
 
-            # C. GRILLA DE PATHFINDING (después de crear los enemigos: usa el tamaño de su hitbox)
+            # Grilla: DESPUÉS de crear los enemigos, con el hitbox real del guardia
             if self.enemies_group:
                 actor_size = self.enemies_group.sprites()[0].rect.size
-                self.pathfinding_grid = self.map.create_pathfinding_grid(16, actor_size)
+                self.pathfinding_grid = self.map.create_pathfinding_grid(
+                    cell_px=8, actor_size=actor_size)
             else:
                 self.pathfinding_grid = None
+        else:
+            self.hidden_zones = []
+            self.hidden_zones_top = []
+            self.hidden_zones_bottom = []
+            self.top_barriers = []
+            self.walls = []
+            self.pathfinding_grid = None
 
     def check_map_transitions(self):
         if not self.map:
@@ -190,6 +187,11 @@ class Game:
                 print(f"Aviso música de victoria: {e}")
 
     def trigger_death_sequence(self):
+
+        self.player.is_dead = True
+        self.player.frame_index = 0
+        self.player.anim_timer = 0.0
+
         if self.state == "PLAYING":
             self.state = "DYING"
             self.death_timer = pygame.time.get_ticks()
@@ -375,6 +377,7 @@ class Game:
 
     def update(self, dt):
         # Manejo limpio del fundido de entrada (Fade-in)
+
         if self.fading_in:
             elapsed_fade = pygame.time.get_ticks() - self.fade_in_timer
             self.fade_alpha = max(0, 255 - int((elapsed_fade / 1000.0) * 255))
@@ -404,7 +407,7 @@ class Game:
         if self.state == "GAME_OVER" or self.state == "VICTORY":
             return
 
-        walls = self.map.get_collision_rects() if self.map else []
+        walls = self.walls
 
         self.player.update(
             dt,
@@ -421,9 +424,28 @@ class Game:
         self.check_map_transitions()
 
         for enemy in self.enemies_group:
-            enemy.update(dt, walls, self.player, self.pathfinding_grid)
+            enemy.update(dt, walls, self.player, self.pathfinding_grid, self.enemy_bullets)
 
+        self.enemy_bullets.update(dt)
+
+        hits = pygame.sprite.spritecollide(self.player, self.enemy_bullets, True)
+        for hit in hits:
+            self.player.health -= 20
+            if self.player.health <= 0 and not getattr(self.player, "is_dead", False):
+                self.trigger_death_sequence()
+                
         self.camera.update(self.player)
+
+        if self.state == "PLAYING":
+            # Si el jugador se queda sin vida
+            if getattr(self.player, "is_dead", False):
+                if getattr(self.player, "death_finished", False):
+                    self.state = "GAME_OVER"
+                return
+            
+        if self.player.health <= 0:
+            self.trigger_death_sequence()
+            return
 
     def draw(self, surface):
         self.virtual_surface.fill((0, 0, 0))
@@ -630,6 +652,9 @@ class Game:
         for item in self.items_group:
             item_rect = self.camera.apply(item)
             self.virtual_surface.blit(item.image, item_rect)
+
+        for bullet in self.enemy_bullets:
+            bullet.draw_with_camera(self.virtual_surface, self.camera)
         
         entities_to_draw = [self.player] + list(self.enemies_group)
         entities_to_draw.sort(key=lambda entity: entity.rect.bottom)
@@ -661,3 +686,8 @@ class Game:
         # RENDERIZAR PAUSA ENCIMA DE TODO SI ESTÁ ACTIVA
         if self.is_paused:
             self.pause_menu.draw(surface)
+
+        if self.pathfinding_grid:
+            for enemy in self.enemies_group:
+                enemy.draw_regions_debug(self.virtual_surface, self.camera, self.pathfinding_grid)
+                break

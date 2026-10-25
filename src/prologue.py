@@ -19,6 +19,13 @@ class PrologueState:
             except Exception as e:
                 print(f"Aviso: No se pudo cargar la música del prólogo: {e}")
 
+        try:
+            self.text_sound = pygame.mixer.Sound("assets/audio/sfx/text_scroll.wav")
+            self.text_sound_playing = False
+        except Exception as e:
+            print(f"Aviso: No se pudo cargar el sonido text_scroll.wav: {e}")
+            self.text_sound = None
+
         # Variables para el texto y la máquina de escribir
         self.full_text = ""
         self.displayed_text = ""
@@ -50,6 +57,10 @@ class PrologueState:
         self.load_panel()
 
     def load_panel(self):
+        if self.text_sound and self.text_sound_playing:
+            self.text_sound.stop()
+            self.text_sound_playing = False
+
         if self.current_panel_index < len(self.panels):
             panel = self.panels[self.current_panel_index]
             self.full_text = panel["text"]
@@ -99,14 +110,16 @@ class PrologueState:
                 sys.exit()
 
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
+                if event.key not in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_ESCAPE):
                     if not self.is_exiting:
                         # Si el aviso NO está activo, lo mostramos por primera vez
                         if not self.show_skip_warning:
                             self.show_skip_warning = True
                             self.warning_timer = pygame.time.get_ticks()
-                        else:
-                            # Si EL AVISO YA ESTABA ACTIVO y se presiona ESC de nuevo -> SALTEAMOS
+
+                elif event.key == pygame.K_ESCAPE:
+                    if not self.is_exiting:
+                        if self.show_skip_warning:
                             self.is_exiting = True
                             self.skipped = True
                             self.exit_timer = pygame.time.get_ticks()
@@ -114,6 +127,9 @@ class PrologueState:
                             self.fade_alpha = 0
                             self.fade_timer = pygame.time.get_ticks()
                             pygame.mixer.music.fadeout(300)
+                        else:
+                            self.show_skip_warning = True
+                            self.warning_timer = pygame.time.get_ticks()
 
                 if event.key in (pygame.K_RETURN, pygame.K_SPACE):
                     if self.text_finished:
@@ -149,14 +165,40 @@ class PrologueState:
 
         if elapsed_panel >= self.text_delay_duration:
             # 1. Lógica de la máquina de escribir con velocidad dinámica
-            if not self.text_finished:
-                self.text_index += current_text_speed * dt
+            if not self.text_finished and not self.is_exiting:
+                # Reproducir sonido en bucle si no está sonando
+                if self.text_sound and not self.text_sound_playing:
+                    self.text_sound.play(-1)
+                    self.text_sound_playing = True
+
+                # NOTA: Si tu main.py pasa dt en segundos (ej: 0.016), usa solo '* dt'.
+                # Si pasa milisegundos crudos (ej: 16), usa '* (dt / 1000.0)'.
+                # Asumiremos formato estándar en segundos de Pygame:
+                self.text_index += current_text_speed * dt  
+                
                 chars_to_show = int(self.text_index)
+
                 if chars_to_show >= len(self.full_text):
                     self.displayed_text = self.full_text
                     self.text_finished = True
+                    
+                    # Detener sonido cuando se completa la frase de forma natural
+                    if self.text_sound and self.text_sound_playing:
+                        self.text_sound.stop()
+                        self.text_sound_playing = False
                 else:
+                    # ESTE ELSE AHORA SÍ PERTENECE AL CHECK DE LONGITUD DE TEXTO
                     self.displayed_text = self.full_text[:chars_to_show]
+            else:
+                # Asegurar que esté apagado si ya terminó
+                if self.text_sound and self.text_sound_playing:
+                    self.text_sound.stop()
+                    self.text_sound_playing = False
+        else:
+            # Si está en la pausa inicial de la imagen
+            if self.text_sound and self.text_sound_playing:
+                self.text_sound.stop()
+                self.text_sound_playing = False
 
         # 2. Lógica del fade condicional cuando cambia la imagen
         if self.is_fading:
@@ -187,7 +229,7 @@ class PrologueState:
                 else:
                     self.fade_alpha = 255
                     self.finished = True  
-                return  
+                return
 
     def draw(self, surface):
         surface.fill((10, 5, 5))  # Fondo base oscuro
