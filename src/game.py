@@ -148,11 +148,37 @@ class Game:
                     if obj.name == "cardboard_box" and hasattr(self, 'player') and "cardboard_box" not in self.player.inventory:
                         scale = self.map.scale
                         try:
-                            box_item = Item("cardboard_box", 0, 0, "assets/sprites/solid_python/cardboard_box.png", scale=2)
+                            box_item = Item("cardboard_box", 0, 0, "assets/sprites/solid_python/box2.png", scale=2)
                             box_item.rect.center = (int((obj.x + obj.width / 2) * scale), int((obj.y + obj.height / 2) * scale))
                             self.items_group.add(box_item)
                         except Exception as e:
                             print(f"Error cargando sprite de la caja: {e}")
+
+            # Ración de comida (camión de truck_interior_2). Se agrega aparte, igual que la caja.
+            if hasattr(self.map.tmx_data, 'objects'):
+                for obj in self.map.tmx_data.objects:
+                    if obj.name == "food_ration" and hasattr(self, 'player') and "food_ration" not in self.player.inventory:
+                        scale = self.map.scale
+                        try:
+                            ration_item = Item("food_ration", 0, 0, "assets/sprites/items/racion_roja.png", scale=1.7)
+                            ration_item.rect.center = (int((obj.x + obj.width / 2) * scale), int((obj.y + obj.height / 2) * scale))
+                            self.items_group.add(ration_item)
+                        except Exception as e:
+                            print(f"Error cargando sprite de la ración: {e}")
+
+            # Pistola (Entry Point). Se agrega aparte, igual que la caja y la ración.
+            # OJO: acá NO se exige que ya exista self.player, porque este mapa se carga
+            # en __init__ antes de crear a Snake.
+            if hasattr(self.map.tmx_data, 'objects'):
+                for obj in self.map.tmx_data.objects:
+                    if obj.name == "pistola" and (not hasattr(self, 'player') or "pistola" not in self.player.inventory):
+                        scale = self.map.scale
+                        try:
+                            pistol_item = Item("pistola", 0, 0, "assets/sprites/weapons/pistola.png", scale=1.2)
+                            pistol_item.rect.center = (int((obj.x + obj.width / 2) * scale), int((obj.y + obj.height / 2) * scale))
+                            self.items_group.add(pistol_item)
+                        except Exception as e:
+                            print(f"Error cargando sprite de la pistola: {e}")
 
             # Grilla: DESPUÉS de crear los enemigos, con el hitbox real del guardia
             if self.enemies_group:

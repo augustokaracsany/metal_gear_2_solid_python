@@ -3,6 +3,10 @@ from src.settings import PLAYER_SPEED
 from src.settings import PLAYER_SPEED, PLAYER_MAX_HEALTH, PLAYER_INVULNERABLE_TIME
 
 class Player(pygame.sprite.Sprite):
+    # Con la caja puesta Snake camina más lento: 0.5 = mitad de velocidad (igual que agachado).
+    # Subilo (ej. 0.7) para que sea menos lento, o bajalo (ej. 0.3) para que sea más lento.
+    BOX_SPEED_MULTIPLIER = 0.6
+
     def __init__(self, x, y):
         super().__init__()
         
@@ -157,7 +161,7 @@ class Player(pygame.sprite.Sprite):
 
     # Cargar sprite de la Caja de Cartón
         try:
-            raw_box = pygame.image.load("assets/sprites/solid_python/cardboard_box.png").convert_alpha()
+            raw_box = pygame.image.load("assets/sprites/solid_python/box1.png").convert_alpha()
             w = int(raw_box.get_width() * SCALE_FACTOR)
             h = int(raw_box.get_height() * SCALE_FACTOR)
             self.box_sprite = pygame.transform.scale(raw_box, (w, h))
@@ -334,6 +338,10 @@ class Player(pygame.sprite.Sprite):
             current_speed = PLAYER_SPEED * 0.10 
         elif self.stance == "CRAWL":
             current_speed = PLAYER_SPEED * 0.08  
+
+        # Dentro de la caja Snake se mueve más lento.
+        if self.is_disguised:
+            current_speed *= self.BOX_SPEED_MULTIPLIER
 
         if self.stance == "CRAWL" and dy < 0 and self.active_hidden_top_zone is None:
             proposed_rect = self.rect.copy()

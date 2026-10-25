@@ -271,7 +271,7 @@ class MenuManager:
 
         # Botones del Menú Principal
         self.main_buttons = [
-            Button("SELECCIÓN DE MISIÓN", SCREEN_WIDTH // 2 - 140, 180, 280, 32, self.font_btn),
+            Button("EMPEZAR PARTIDA", SCREEN_WIDTH // 2 - 140, 180, 280, 32, self.font_btn),
             Button("VER CONTROLES", SCREEN_WIDTH // 2 - 140, 230, 280, 32, self.font_btn),
             Button("VER CRÉDITOS", SCREEN_WIDTH // 2 - 140, 280, 280, 32, self.font_btn),
             Button("SALIR DEL JUEGO", SCREEN_WIDTH // 2 - 140, 330, 280, 32, self.font_btn),
