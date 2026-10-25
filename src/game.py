@@ -31,6 +31,9 @@ class Game:
         # --- SISTEMA DE PAUSA ---
         self.is_paused = False
         self.pause_menu = PauseMenu(SCREEN_WIDTH, SCREEN_HEIGHT)
+
+        # --- MÚSICA DE FONDO (solo misión 1: Entry Point) ---
+        self.start_level_music()
         
         # 1. DICCIONARIO DE NIVELES: Mapea cada misión a sus respectivas rutas de archivos
         self.levels_data = {
@@ -85,6 +88,21 @@ class Game:
         self.all_sprites.add(self.player)
 
         self.health_bar = HealthBar()
+
+    def start_level_music(self):
+        """Música de fondo en bucle del mapa Entry Point (misión 1).
+
+        Usa el volumen actual del slider de OPCIONES de la pausa, así lo que se ve
+        en pantalla coincide con lo que suena. Si el archivo no está, el juego sigue
+        sin música (solo avisa por consola)."""
+        if self.mission_number != 1:
+            return
+        try:
+            pygame.mixer.music.load("assets/audio/music/musica_entry_point.mp3")
+            pygame.mixer.music.set_volume(self.pause_menu.music_volume)
+            pygame.mixer.music.play(-1)  # -1 = bucle infinito
+        except Exception as e:
+            print(f"Aviso música de Entry Point: {e}")
 
     def load_level(self, tmx_or_key):
         """Carga un nivel"""
@@ -321,7 +339,7 @@ class Game:
                         self.confirm_game_over_option()
                 continue
 
-             # Abrir Pausa con la tecla ESC (cerrar / volver lo maneja el propio menú de pausa)
+             # Abrir Pausa con la tecla P (cerrar / volver lo maneja el propio menú de pausa)
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE and not self.is_paused:
                 self.is_paused = True
                 continue
@@ -343,6 +361,7 @@ class Game:
                     self.is_paused = False
                 elif action == "VOLVER AL MENÚ":
                     self.is_paused = False
+                    pygame.mixer.music.stop()  # corta la música de la misión al volver al menú principal
                     return "GOTO_MENU"
             else:
                 # Si el juego NO está en pausa, responde a las acciones del jugador

@@ -104,7 +104,6 @@ def main():
                 menu_manager.state = "MAIN_MENU"   # <- agregar
                 game_instance = None               # <- opcional, libera la partida
                 current_state = menu_manager
-            current_state.handle_events(events)
 
             if getattr(current_state, "return_to_menu", False):
                 current_state = menu_manager
@@ -112,8 +111,6 @@ def main():
             for event in events:
                 if event.type == pygame.QUIT:
                     running = False
-                elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                    current_state = menu_manager  # Volver al menú
 
             if isinstance(current_state, Game): 
                 current_state.update(dt)

@@ -2,6 +2,7 @@ import math
 import os
 
 import pygame
+from src.controls_view import ControlsView
 
 # ---------------------------------------------------------------------------
 # PAUSA — Metal Gear 2: Solid Python
@@ -87,6 +88,7 @@ class PauseMenu:
             {"title": "PUNTO DE CONTROL", "desc": "Cargar el último punto de control guardado."},
             {"title": "REINICIAR MISIÓN", "desc": "Reiniciar la misión actual desde el inicio."},
             {"title": "OPCIONES", "desc": "Ajustar volumen de sonido y configuración."},
+            {"title": "CONTROLES", "desc": "Ver los controles del juego."},
             {"title": "VOLVER AL MENÚ", "desc": "Salir del juego actual y regresar al menú principal."},
         ]
 
@@ -98,6 +100,8 @@ class PauseMenu:
 
         self.in_sub_options = False
         self.selected_index = 0
+        self.in_controls = False   # True mientras se muestra la pantalla de CONTROLES
+        self.controls_view = None  # se crea la primera vez que se abre (ver _activate)
         self.selected_sub_index = 0
         self.confirm = None  # {"action", "title", "text", "index"} cuando hay diálogo abierto
 
@@ -200,6 +204,9 @@ class PauseMenu:
         box.center = (self.screen_width // 2, self.screen_height // 2)
         return box
 
+    def _controls_back_rect(self):
+        return pygame.Rect(int(self.screen_width * 0.05), self.screen_height - 64, 190, 42)
+
     def _confirm_buttons(self):
         box = self._confirm_box()
         y = box.bottom - 80
@@ -228,6 +235,11 @@ class PauseMenu:
     def _activate(self, i):
         self._play("select")
         title = self.main_options[i]["title"]
+        if title == "CONTROLES":
+            if self.controls_view is None:
+                self.controls_view = ControlsView()
+            self.in_controls = True
+            return None
         if title == "OPCIONES":
             self.in_sub_options = True
             self.selected_sub_index = 0
@@ -245,6 +257,10 @@ class PauseMenu:
         self.in_sub_options = False
         self._hl_y = None
 
+    def _close_controls(self):
+        self._play("cancel")
+        self.in_controls = False
+
     def _on_key(self, key):
         # --- Diálogo de confirmación (tiene prioridad) ---
         if self.confirm:
@@ -259,6 +275,12 @@ class PauseMenu:
                 action = self.confirm["action"] if self.confirm["index"] == 0 else None
                 self.confirm = None
                 return action
+            return None
+
+        # --- Pantalla de controles ---
+        if self.in_controls:
+            if key in KEYS_BACK or key in KEYS_OK:
+                self._close_controls()
             return None
 
         # --- Submenú de audio ---
@@ -301,6 +323,9 @@ class PauseMenu:
                     self.confirm["index"] = i
             return
 
+        if self.in_controls:
+            return
+
         count = len(self.options_menu) if self.in_sub_options else len(self.main_options)
         for i in range(count):
             if self._row_rect(i).collidepoint(pos):
@@ -333,6 +358,11 @@ class PauseMenu:
                     return action
             return None
 
+        if self.in_controls:
+            if self._controls_back_rect().collidepoint(pos):
+                self._close_controls()
+            return None
+
         if self.in_sub_options:
             for i in range(len(self.options_menu)):
                 if not self._row_rect(i).collidepoint(pos):
@@ -361,6 +391,7 @@ class PauseMenu:
         self.confirm = None
         self._hl_y = None
         self._desc_key = None
+        self.in_controls = False
 
     def draw(self, surface):
         now = pygame.time.get_ticks()
@@ -373,6 +404,10 @@ class PauseMenu:
 
         if self.feedback_timer > 0:
             self.feedback_timer -= 1
+
+        if self.in_controls:
+            self._draw_controls(surface)
+            return
 
         self.overlay.set_alpha(int(212 * fade))
         surface.blit(self.overlay, (0, 0))
@@ -389,6 +424,42 @@ class PauseMenu:
 
         if self.confirm:
             self._draw_confirm(surface)
+
+    def _draw_controls(self, surface):
+        """Pantalla de CONTROLES (reutiliza ControlsView) + botón VOLVER."""
+        self.controls_view.draw(surface)
+
+        r = self._controls_back_rect()
+        hover = r.collidepoint(pygame.mouse.get_pos())
+        if hover:
+            cut = max(6, r.h // 4)
+            pts = [(r.x, r.y), (r.right, r.y), (r.right, r.bottom - cut),
+                   (r.right - cut, r.bottom), (r.x, r.bottom)]
+            glow = pygame.Surface((r.w + 24, r.h + 24), pygame.SRCALPHA)
+            pygame.draw.rect(glow, (0, 255, 128, 40), glow.get_rect(), border_radius=10)
+            surface.blit(glow, (r.x - 12, r.y - 12))
+            pygame.draw.polygon(surface, ACCENT_SOFT, pts)
+            pygame.draw.rect(surface, (190, 255, 220), (r.x, r.y, 5, r.h))
+            fg = DARK
+        else:
+            fill = pygame.Surface(r.size, pygame.SRCALPHA)
+            fill.fill((4, 14, 9, 215))
+            surface.blit(fill, r.topleft)
+            pygame.draw.rect(surface, (0, 120, 65), r, 2)
+            pygame.draw.rect(surface, ACCENT, (r.x, r.y, 4, r.h))
+            fg = TEXT
+
+        # flechita "volver" + texto + indicador de tecla
+        x, cy, s = r.x + 18, r.centery, max(5, r.h // 7)
+        pygame.draw.polygon(surface, fg, [(x, cy), (x + s * 3 // 2, cy - s), (x + s * 3 // 2, cy + s)])
+        txt = self.font_small.render("VOLVER", True, fg)
+        surface.blit(txt, (x + s * 3 // 2 + 12, cy - txt.get_height() // 2))
+
+        key = self.font_tiny.render("ESC", True, fg)
+        kw, kh = key.get_width() + 12, key.get_height() + 10
+        key_r = pygame.Rect(r.right - 14 - kw, cy - kh // 2, kw, kh)
+        pygame.draw.rect(surface, fg, key_r, 1, border_radius=3)
+        surface.blit(key, key.get_rect(center=key_r.center))
 
     def _item_progress(self, elapsed, i):
         return _ease_out((elapsed - 60 - i * 45) / 260.0)
@@ -497,9 +568,9 @@ class PauseMenu:
 
     def _hint_text(self):
         if self.confirm:
-            return "A/D ELEGIR  |  ENTER CONFIRMAR  |  ESC CANCELAR"
+            return "A/D ELEGIR  |  ENTER CONFIRMAR  |  P CANCELAR"
         if self.in_sub_options:
-            return "W/S MOVER  |  A/D AJUSTAR  |  ESC VOLVER"
+            return "W/S MOVER  |  A/D AJUSTAR  |  P VOLVER"
         return "W/S MOVER  |  ENTER SELECCIONAR"
 
     def _draw_footer(self, surface, now):
