@@ -212,13 +212,10 @@ class TiledMap:
                         })
         return triggers
 
-    def create_pathfinding_grid(self, tile_size=16, actor_size=(16, 16)):
-        """
-        Una celda es caminable solo si un cuerpo de tamaño actor_size, centrado en ella,
-        no toca ninguna pared. Así 'celda libre' significa 'el guardia entra entero'.
-        """
-        cols = self.width // tile_size
-        rows = self.height // tile_size
+    def create_pathfinding_grid(self, cell_px=16, actor_size=(16, 16)):
+        """cell_px: tamaño de celda en píxeles REALES (ya escalados)."""
+        cols = self.width // cell_px
+        rows = self.height // cell_px
         walls = self.get_collision_rects()
         aw, ah = actor_size
 
@@ -227,8 +224,30 @@ class TiledMap:
             line = []
             for col in range(cols):
                 body = pygame.Rect(0, 0, aw, ah)
-                body.center = (col * tile_size + tile_size // 2, row * tile_size + tile_size // 2)
+                body.center = (col * cell_px + cell_px // 2, row * cell_px + cell_px // 2)
                 line.append(0 if body.collidelist(walls) != -1 else 1)
             matrix.append(line)
 
-        return Grid(matrix=matrix)
+        grid = Grid(matrix=matrix)
+        grid.cell_px = cell_px          # <- el enemigo lo lee de acá
+        grid.region = self._label_regions(matrix)
+        return grid
+
+    def _label_regions(self, matrix):
+        rows, cols = len(matrix), len(matrix[0])
+        region = [[-1] * cols for _ in range(rows)]
+        rid = 0
+        for r in range(rows):
+            for c in range(cols):
+                if matrix[r][c] and region[r][c] == -1:
+                    stack = [(c, r)]
+                    region[r][c] = rid
+                    while stack:
+                        x, y = stack.pop()
+                        for nx, ny in ((x+1, y), (x-1, y), (x, y+1), (x, y-1)):
+                            if 0 <= nx < cols and 0 <= ny < rows \
+                                    and matrix[ny][nx] and region[ny][nx] == -1:
+                                region[ny][nx] = rid
+                                stack.append((nx, ny))
+                    rid += 1
+        return region

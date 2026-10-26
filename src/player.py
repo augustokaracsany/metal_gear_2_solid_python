@@ -6,6 +6,10 @@ from src.settings import PUNCH_RANGE
 from src.settings import PUNCH_SOUND_PATH, PUNCH_SOUND_VOLUME
 
 class Player(pygame.sprite.Sprite):
+    # Con la caja puesta Snake camina más lento: 0.5 = mitad de velocidad (igual que agachado).
+    # Subilo (ej. 0.7) para que sea menos lento, o bajalo (ej. 0.3) para que sea más lento.
+    BOX_SPEED_MULTIPLIER = 0.6
+
     def __init__(self, x, y):
         super().__init__()
         
@@ -19,6 +23,8 @@ class Player(pygame.sprite.Sprite):
         self.death_frame_index = 0
         self.death_timer = 0.0
         self.death_animation_speed = 0.6
+        self.death_finished = False
+        self.death_anim_timer = 0.0
         
         # Variables para golpear
         self.is_punching = False
@@ -183,7 +189,7 @@ class Player(pygame.sprite.Sprite):
 
     # Cargar sprite de la Caja de Cartón
         try:
-            raw_box = pygame.image.load("assets/sprites/solid_python/cardboard_box.png").convert_alpha()
+            raw_box = pygame.image.load("assets/sprites/solid_python/box1.png").convert_alpha()
             w = int(raw_box.get_width() * SCALE_FACTOR)
             h = int(raw_box.get_height() * SCALE_FACTOR)
             self.box_sprite = pygame.transform.scale(raw_box, (w, h))
@@ -380,6 +386,10 @@ class Player(pygame.sprite.Sprite):
         elif self.stance == "CRAWL":
             current_speed = PLAYER_SPEED * 0.08  
 
+        # Dentro de la caja Snake se mueve más lento.
+        if self.is_disguised:
+            current_speed *= self.BOX_SPEED_MULTIPLIER
+
         if self.stance == "CRAWL" and dy < 0 and self.active_hidden_top_zone is None:
             proposed_rect = self.rect.copy()
             proposed_rect.x = round(self.x + dx * current_speed * dt)
@@ -461,6 +471,25 @@ class Player(pygame.sprite.Sprite):
             self.active_hidden_bottom_marker = None
 
         self.is_hidden = self.stance == "CRAWL" and self._is_inside_hidden_zone(self.rect)
+
+        if self.health <= 0:
+            self.is_moving = False
+            if not self.is_dead:
+                self.is_dead = True
+                self.frame_index = 0
+                self.anim_timer = 0.0
+
+            # Reproducimos la animación de muerte
+            if not self.death_finished:
+                self.anim_timer += dt
+                if self.anim_timer >= self.animation_speed:
+                    self.anim_timer = 0.0
+                    self.frame_index += 1
+                    
+                    if self.frame_index >= len(self.animations["DIE"]):
+                        self.frame_index = len(self.animations["DIE"]) - 1
+                        self.death_finished = True
+            return
 
     def check_collisions_x(self, walls, dx):
         collided = False

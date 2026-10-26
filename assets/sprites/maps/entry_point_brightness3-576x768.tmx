@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="36" height="48" tilewidth="16" tileheight="16" infinite="0" nextlayerid="11" nextobjectid="140">
+<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="36" height="48" tilewidth="16" tileheight="16" infinite="0" nextlayerid="12" nextobjectid="148">
  <editorsettings>
   <export target="entry_point_brightness3-576x768.tmx" format="tmx"/>
  </editorsettings>
@@ -66,11 +66,29 @@
   </object>
  </objectgroup>
  <objectgroup id="7" name="enemy_patrols">
-  <object id="99" name="Soldier1_Waypoint" x="152" y="119.75">
+  <object id="99" name="Soldier1_Waypoint" x="144" y="111.75">
    <point/>
   </object>
-  <object id="103" name="FirstZone_Path" x="148" y="112.322">
-   <polygon points="-4,-0.321609 220,-0.321609 220,63.6784 -4,63.6784"/>
+  <object id="103" name="FirstZone_Path" x="148" y="112.502">
+   <polygon points="-4,-0.502001 220,-0.320698 220,63.498 -4,63.498"/>
+  </object>
+  <object id="141" name="SecondZone_Path" x="208" y="440">
+   <polygon points="0,0 176,0 0,0"/>
+  </object>
+  <object id="142" name="Soldier2_Waypoint" x="384" y="440">
+   <point/>
+  </object>
+  <object id="143" name="ThirdZone_Path" x="212" y="256">
+   <polygon points="0,0 0,112 0,0"/>
+  </object>
+  <object id="144" name="Soldier3_Waypoint" x="212" y="256">
+   <point/>
+  </object>
+  <object id="145" name="FourthZone_Path" x="244" y="244">
+   <polygon points="0,0 88,0 88,56 0,56"/>
+  </object>
+  <object id="146" name="Soldier4_Waypoint" x="244" y="244">
+   <point/>
   </object>
  </objectgroup>
  <objectgroup color="#aa00ff" id="8" name="zonas_oculto">
@@ -85,7 +103,7 @@
   <object id="136" x="448" y="96" width="16" height="56"/>
   <object id="137" x="416" y="88" width="16" height="72"/>
  </objectgroup>
- <layer id="9" name="techos" width="36" height="48" visible="0">
+ <layer id="9" name="techos" width="36" height="48">
   <data encoding="csv">
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -250,5 +268,8 @@
     <property name="target_map" value="assets/sprites/maps/truck_interior_2.tmx"/>
    </properties>
   </object>
+ </objectgroup>
+ <objectgroup id="11" name="items">
+  <object id="147" name="pistola" x="56" y="164" width="34" height="18"/>
  </objectgroup>
 </map>

@@ -12,6 +12,7 @@ from src.settings import ENEMY_CONTACT_DAMAGE
 from src.pause import PauseMenu
 from src.settings import PUNCH_DAMAGE, PUNCH_HIT_PADDING, PUNCH_STUN_TIME
 from src.inventory import InventoryMenu
+from src.item_message import ItemMessage
 
 class Game:
     def __init__(self, mission_number=1):
@@ -37,6 +38,8 @@ class Game:
         # --- INVENTARIO ---
         self.inventory_open = False
         self.inventory_menu = InventoryMenu(SCREEN_WIDTH, SCREEN_HEIGHT)
+        # --- MÚSICA DE FONDO (solo misión 1: Entry Point) ---
+        self.start_level_music()
         
         # 1. DICCIONARIO DE NIVELES: Mapea cada misión a sus respectivas rutas de archivos
         self.levels_data = {
@@ -70,6 +73,8 @@ class Game:
         self.items_group = pygame.sprite.Group()
         self.bullets_group = pygame.sprite.Group()
         
+        self.enemy_bullets = pygame.sprite.Group()
+
         # Instanciación inicial del mapa y entidades
         self.load_level(current_level["tmx"])
 
@@ -91,6 +96,22 @@ class Game:
         self.all_sprites.add(self.player)
 
         self.health_bar = HealthBar()
+        self.item_message = ItemMessage()
+
+    def start_level_music(self):
+        """Música de fondo en bucle del mapa Entry Point (misión 1).
+
+        Usa el volumen actual del slider de OPCIONES de la pausa, así lo que se ve
+        en pantalla coincide con lo que suena. Si el archivo no está, el juego sigue
+        sin música (solo avisa por consola)."""
+        if self.mission_number != 1:
+            return
+        try:
+            pygame.mixer.music.load("assets/audio/music/musica_entry_point.mp3")
+            pygame.mixer.music.set_volume(self.pause_menu.music_volume)
+            pygame.mixer.music.play(-1)  # -1 = bucle infinito
+        except Exception as e:
+            print(f"Aviso música de Entry Point: {e}")
 
     def load_level(self, tmx_or_key):
         """Carga un nivel"""
@@ -114,22 +135,17 @@ class Game:
             self.map_scale = 2 
             self.map_image = pygame.transform.scale(self.raw_map, (self.raw_map.get_width() * self.map_scale, self.raw_map.get_height() * self.map_scale))
 
+        self.enemies_group.empty()
+        self.items_group.empty()
+        self.enemy_bullets.empty()
+
         # Actualizar zonas ocultas y barreras de forma segura
         if self.map:
             self.hidden_zones = self.map.get_hidden_zones("zonas_oculto") or []
             self.hidden_zones_top = self.map.get_hidden_zones_top() or []
             self.hidden_zones_bottom = self.map.get_hidden_zones_bottom() or []
             self.top_barriers = self.map.get_top_barriers("limites_top") or []
-            patrol_routes = self.map.get_patrol_path("enemy_patrols")
-            if self.enemies_group:
-                actor_size = self.enemies_group.sprites()[0].rect.size
-                self.pathfinding_grid = self.map.create_pathfinding_grid(16, actor_size)
-        else:
-            self.hidden_zones = []
-            self.hidden_zones_top = []
-            self.hidden_zones_bottom = []
-            self.top_barriers = []
-            self.pathfinding_grid = None
+            self.walls = self.map.get_collision_rects()   # cacheadas una sola vez
 
         self.enemies_group.empty()
         self.items_group.empty()
@@ -137,30 +153,61 @@ class Game:
 
         if self.map:
             patrol_routes = self.map.get_patrol_path("enemy_patrols")
-            if patrol_routes:
-                for ruta in patrol_routes:
-                    pos_inicial_x = ruta[0][0]
-                    pos_inicial_y = ruta[0][1]
-                    guardia = Enemy(pos_inicial_x, pos_inicial_y, ruta)
-                    self.enemies_group.add(guardia)
+            for i, ruta in enumerate(patrol_routes):
+                guardia = Enemy(ruta[0][0], ruta[0][1], ruta, start_delay=i * 1.0)
+                self.enemies_group.add(guardia)
 
             if hasattr(self.map.tmx_data, 'objects'):
                 for obj in self.map.tmx_data.objects:
                     if obj.name == "cardboard_box" and hasattr(self, 'player') and "cardboard_box" not in self.player.inventory:
                         scale = self.map.scale
                         try:
-                            box_item = Item("cardboard_box", 0, 0, "assets/sprites/solid_python/cardboard_box.png", scale=2)
+                            box_item = Item("cardboard_box", 0, 0, "assets/sprites/solid_python/box2.png", scale=2)
                             box_item.rect.center = (int((obj.x + obj.width / 2) * scale), int((obj.y + obj.height / 2) * scale))
                             self.items_group.add(box_item)
                         except Exception as e:
                             print(f"Error cargando sprite de la caja: {e}")
 
-            # C. GRILLA DE PATHFINDING (después de crear los enemigos: usa el tamaño de su hitbox)
+            # Ración de comida (camión de truck_interior_2). Se agrega aparte, igual que la caja.
+            if hasattr(self.map.tmx_data, 'objects'):
+                for obj in self.map.tmx_data.objects:
+                    if obj.name == "food_ration" and hasattr(self, 'player') and "food_ration" not in self.player.inventory:
+                        scale = self.map.scale
+                        try:
+                            ration_item = Item("food_ration", 0, 0, "assets/sprites/items/racion_roja.png", scale=1.7)
+                            ration_item.rect.center = (int((obj.x + obj.width / 2) * scale), int((obj.y + obj.height / 2) * scale))
+                            self.items_group.add(ration_item)
+                        except Exception as e:
+                            print(f"Error cargando sprite de la ración: {e}")
+
+            # Pistola (Entry Point). Se agrega aparte, igual que la caja y la ración.
+            # OJO: acá NO se exige que ya exista self.player, porque este mapa se carga
+            # en __init__ antes de crear a Snake.
+            if hasattr(self.map.tmx_data, 'objects'):
+                for obj in self.map.tmx_data.objects:
+                    if obj.name == "pistola" and (not hasattr(self, 'player') or "pistola" not in self.player.inventory):
+                        scale = self.map.scale
+                        try:
+                            pistol_item = Item("pistola", 0, 0, "assets/sprites/weapons/pistola.png", scale=1.2)
+                            pistol_item.rect.center = (int((obj.x + obj.width / 2) * scale), int((obj.y + obj.height / 2) * scale))
+                            self.items_group.add(pistol_item)
+                        except Exception as e:
+                            print(f"Error cargando sprite de la pistola: {e}")
+
+            # Grilla: DESPUÉS de crear los enemigos, con el hitbox real del guardia
             if self.enemies_group:
                 actor_size = self.enemies_group.sprites()[0].rect.size
-                self.pathfinding_grid = self.map.create_pathfinding_grid(16, actor_size)
+                self.pathfinding_grid = self.map.create_pathfinding_grid(
+                    cell_px=8, actor_size=actor_size)
             else:
                 self.pathfinding_grid = None
+        else:
+            self.hidden_zones = []
+            self.hidden_zones_top = []
+            self.hidden_zones_bottom = []
+            self.top_barriers = []
+            self.walls = []
+            self.pathfinding_grid = None
 
     def check_map_transitions(self):
         if not self.map:
@@ -198,6 +245,11 @@ class Game:
                 print(f"Aviso música de victoria: {e}")
 
     def trigger_death_sequence(self):
+
+        self.player.is_dead = True
+        self.player.frame_index = 0
+        self.player.anim_timer = 0.0
+
         if self.state == "PLAYING":
             self.state = "DYING"
             self.death_timer = pygame.time.get_ticks()
@@ -344,10 +396,9 @@ class Game:
                 self.inventory_open = True
                 continue
 
-            # Abrir/cerrar Pausa con la tecla M
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_m:
-                self.is_paused = not self.is_paused
-                continue
+            # Abrir Pausa con la tecla P (cerrar / volver lo maneja el propio menú de pausa)
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE and not self.is_paused:
+                self.is_paused = True
 
             # Si el juego está en pausa, la navegación y selección las procesa la pausa
             if self.is_paused:
@@ -366,6 +417,7 @@ class Game:
                     self.is_paused = False
                 elif action == "VOLVER AL MENÚ":
                     self.is_paused = False
+                    pygame.mixer.music.stop()  # corta la música de la misión al volver al menú principal
                     return "GOTO_MENU"
             else:
                 # Si el juego NO está en pausa, responde a las acciones del jugador
@@ -412,6 +464,7 @@ class Game:
 
     def update(self, dt):
         # Manejo limpio del fundido de entrada (Fade-in)
+
         if self.fading_in:
             elapsed_fade = pygame.time.get_ticks() - self.fade_in_timer
             self.fade_alpha = max(0, 255 - int((elapsed_fade / 1000.0) * 255))
@@ -441,7 +494,7 @@ class Game:
         if self.state == "GAME_OVER" or self.state == "VICTORY":
             return
 
-        walls = self.map.get_collision_rects() if self.map else []
+        walls = self.walls
 
         self.player.update(
             dt,
@@ -452,13 +505,17 @@ class Game:
             self.hidden_zones_bottom,
         )
 
+        inventario_previo = list(self.player.inventory)
         if hasattr(self.player, 'collect_items'):
             self.player.collect_items(self.items_group)
+        for nombre_item in self.player.inventory:
+            if nombre_item not in inventario_previo:
+                self.item_message.show(nombre_item, self.pause_menu.sfx_volume)
 
         self.check_map_transitions()
 
         for enemy in self.enemies_group:
-            enemy.update(dt, walls, self.player, self.pathfinding_grid)
+            enemy.update(dt, walls, self.player, self.pathfinding_grid, self.enemy_bullets)
 
         # Golpe: mientras dura, daña al primer enemigo que tenga delante (una vez por golpe).
         if self.player.is_punching and not self.player.punch_hit_done:
@@ -476,7 +533,26 @@ class Game:
             bounds = self.map_image.get_rect()
         self.bullets_group.update(dt, walls, self.enemies_group, bounds)
 
+        self.enemy_bullets.update(dt)
+
+        hits = pygame.sprite.spritecollide(self.player, self.enemy_bullets, True)
+        for hit in hits:
+            self.player.health -= 20
+            if self.player.health <= 0 and not getattr(self.player, "is_dead", False):
+                self.trigger_death_sequence()
+                
         self.camera.update(self.player)
+
+        if self.state == "PLAYING":
+            # Si el jugador se queda sin vida
+            if getattr(self.player, "is_dead", False):
+                if getattr(self.player, "death_finished", False):
+                    self.state = "GAME_OVER"
+                return
+            
+        if self.player.health <= 0:
+            self.trigger_death_sequence()
+            return
 
     def draw(self, surface):
         self.virtual_surface.fill((0, 0, 0))
@@ -683,6 +759,9 @@ class Game:
         for item in self.items_group:
             item_rect = self.camera.apply(item)
             self.virtual_surface.blit(item.image, item_rect)
+
+        for bullet in self.enemy_bullets:
+            bullet.draw_with_camera(self.virtual_surface, self.camera)
         
         entities_to_draw = [self.player] + list(self.enemies_group)
         entities_to_draw.sort(key=lambda entity: entity.rect.bottom)
@@ -713,6 +792,7 @@ class Game:
         surface.blit(scaled_surface, (0, 0))
 
         self.health_bar.draw(surface, self.player)
+        self.item_message.draw(surface)
 
         # INVENTARIO ENCIMA DE TODO SI ESTÁ ABIERTO
         if self.inventory_open:
@@ -721,3 +801,8 @@ class Game:
         # RENDERIZAR PAUSA ENCIMA DE TODO SI ESTÁ ACTIVA
         if self.is_paused:
             self.pause_menu.draw(surface)
+
+        if self.pathfinding_grid:
+            for enemy in self.enemies_group:
+                enemy.draw_regions_debug(self.virtual_surface, self.camera, self.pathfinding_grid)
+                break
