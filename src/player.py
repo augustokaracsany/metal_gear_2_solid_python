@@ -1,6 +1,9 @@
 import pygame
-from src.settings import PLAYER_SPEED
-from src.settings import PLAYER_SPEED, PLAYER_MAX_HEALTH, PLAYER_INVULNERABLE_TIME
+from src.settings import PLAYER_SPEED, PLAYER_MAX_HEALTH, PLAYER_INVULNERABLE_TIME, PLAYER_SHOOT_COOLDOWN, PLAYER_GUN_SPRITES_PATH, PLAYER_GUN_SHOW_TIME
+from src.bullet import Bullet
+from src.settings import SHOOT_SOUND_PATH, SHOOT_SOUND_VOLUME
+from src.settings import PUNCH_RANGE
+from src.settings import PUNCH_SOUND_PATH, PUNCH_SOUND_VOLUME
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, x, y):
@@ -23,6 +26,7 @@ class Player(pygame.sprite.Sprite):
         self.punch_length = 500
         self.last_punch = 0
         self.cooldown_punch = 600
+        self.punch_hit_done = False   # True cuando el golpe actual ya le pegó a un enemigo.
         
         # Estados de postura: "STAND", "CROUCH", "CRAWL"
         self.stance = "STAND"
@@ -54,6 +58,27 @@ class Player(pygame.sprite.Sprite):
         self.health = self.max_health
         self.is_dead = False
         self.last_hit_time = -PLAYER_INVULNERABLE_TIME  # Para que el primer golpe sí cuente.
+        
+
+        # Disparo.
+        self.last_shot_time = -PLAYER_SHOOT_COOLDOWN
+        self.gun_until = 0   # Hasta qué momento (ms) se muestra la pose con arma.
+
+        # Sonido del disparo (si no se encuentra el archivo, el juego sigue sin sonido).
+        self.shoot_sound = None
+        try:
+            self.shoot_sound = pygame.mixer.Sound(SHOOT_SOUND_PATH)
+            self.shoot_sound.set_volume(SHOOT_SOUND_VOLUME)
+        except Exception as e:
+            print(f"AVISO: no se pudo cargar el sonido del disparo ({e}).")
+
+        # Sonido del golpe (si no se encuentra el archivo, el juego sigue sin sonido).
+        self.punch_sound = None
+        try:
+            self.punch_sound = pygame.mixer.Sound(PUNCH_SOUND_PATH)
+            self.punch_sound.set_volume(PUNCH_SOUND_VOLUME)
+        except Exception as e:
+            print(f"AVISO: no se pudo cargar el sonido del golpe ({e}).")
         
 
         # Control de animación y carga de sprites
@@ -114,6 +139,9 @@ class Player(pygame.sprite.Sprite):
                         self.is_punching = True
                         self.init_time_punch = current_time
                         self.last_punch = current_time
+                        self.punch_hit_done = False   # NUEVO: cada golpe nuevo puede pegar una vez.
+                        if self.punch_sound:
+                            self.punch_sound.play()   # NUEVO
             
             elif event.key == pygame.K_c:
                 # 'C' solo sirve para agacharse (la caja se equipa con 'B'). Con la caja puesta no se agacha.
@@ -236,6 +264,25 @@ class Player(pygame.sprite.Sprite):
                 cs("assets/sprites/solid_python/crawl_down2.png")
             ]
         }
+
+        # Sprites de Snake con arma (si no los encuentra, usa los normales).
+        self.gun_animations = None
+        try:
+            gun_animations = {}
+            for direction in ("DOWN", "UP", "LEFT", "RIGHT"):
+                d = direction.lower()
+                stand = cs(f"{PLAYER_GUN_SPRITES_PATH}armed_stand_{d}.png")
+                # Mismo ciclo que el caminar normal: quieto -> paso 1 -> quieto -> paso 2.
+                gun_animations[direction] = [
+                    stand,
+                    cs(f"{PLAYER_GUN_SPRITES_PATH}armed_walk_{d}1.png"),
+                    stand,
+                    cs(f"{PLAYER_GUN_SPRITES_PATH}armed_walk_{d}2.png"),
+                ]
+            self.gun_animations = gun_animations
+        except Exception as e:
+            print(f"AVISO: no se pudieron cargar los sprites con arma ({e}). Se usan los normales.")
+            self.gun_animations = None
 
     def update_offsets_for_stance(self):
         stand_img = self.animations["IDLE"]["DOWN"]
@@ -679,6 +726,7 @@ class Player(pygame.sprite.Sprite):
     
     def draw_with_camera(self, surface, camera):
         current_image = None
+        gun_pose = False  # NUEVO
 
         # === AGREGADO: MOSTRAR SPRITE DE LA CAJA SI ESTÁ DISFRAZADO ===
 
@@ -689,6 +737,10 @@ class Player(pygame.sprite.Sprite):
                 current_image = self.box_sprite
             elif self.is_punching:
                 current_image = self.animations["PUNCH"][self.facing]
+            elif self.is_aiming() and self.stance == "STAND" and self.gun_animations:  # NUEVO
+                frames = self.gun_animations[self.facing]  # NUEVO
+                current_image = frames[self.frame_index % 4] if self.is_moving else frames[0]  # NUEVO
+                gun_pose = True  # NUEVO
             elif self.is_moving:
                 if self.stance == "CROUCH":
                     current_image = self.animations["CROUCH"][self.facing][self.frame_index]
@@ -713,6 +765,14 @@ class Player(pygame.sprite.Sprite):
         surface.blit(current_image, (draw_x, draw_y))
         pygame.draw.rect(surface, (255, 0, 0), dest_rect, 2)
 
+        if gun_pose:  # NUEVO
+            # Si el sprite con arma tiene otro tamaño, lo centra sobre el hitbox de los pies.
+            draw_x = dest_rect.centerx - current_image.get_width() // 2
+            draw_y = dest_rect.bottom - current_image.get_height()
+        
+        surface.blit(current_image, (draw_x, draw_y))
+        pygame.draw.rect(surface, (255, 0, 0), dest_rect, 2)
+
         # Parpadeo mientras es invulnerable (se salta un frame de cada dos).
         if self.is_invulnerable() and not self.is_dead and (pygame.time.get_ticks() // 100) % 2 == 0:
             return
@@ -724,6 +784,42 @@ class Player(pygame.sprite.Sprite):
         # y en el centro de su cuerpo ( Aprox. ) al estar cuerpo a tierra.
         # Descomentar para que funcione: 
         # pygame.draw.rect(surface, (255, 0, 0), dest_rect, 2)
+
+    def is_aiming(self):
+        return pygame.time.get_ticks() < self.gun_until
+
+    def get_punch_rect(self):
+        #Zona delante de Snake que alcanza el puño (en el mismo plano que los pies).
+        r = self.rect
+        if self.facing == "UP":
+            return pygame.Rect(r.x, r.top - PUNCH_RANGE, r.width, PUNCH_RANGE)
+        elif self.facing == "DOWN":
+            return pygame.Rect(r.x, r.bottom, r.width, PUNCH_RANGE)
+        elif self.facing == "LEFT":
+            return pygame.Rect(r.left - PUNCH_RANGE, r.y, PUNCH_RANGE, r.height)
+        else:
+            return pygame.Rect(r.right, r.y, PUNCH_RANGE, r.height)
+
+    def can_shoot(self):
+        if self.is_dying or self.is_dead:
+            return False
+        # Solo de pie, y no durante la transición de postura.
+        if self.stance != "STAND" or self.is_transitioning:
+            return False
+        # No mientras golpea ni con la caja puesta.
+        if self.is_punching or self.is_disguised:
+            return False
+        return pygame.time.get_ticks() - self.last_shot_time >= PLAYER_SHOOT_COOLDOWN
+
+    def shoot(self):
+        #Devuelve una Bala hacia donde mira Snake, o None si no puede disparar.
+        if not self.can_shoot():
+            return None
+        self.last_shot_time = pygame.time.get_ticks()
+        self.gun_until = self.last_shot_time + PLAYER_GUN_SHOW_TIME   # NUEVO
+        if self.shoot_sound:
+            self.shoot_sound.play()
+        return Bullet(self.rect, self.facing)
 
     def is_invulnerable(self):
         return pygame.time.get_ticks() - self.last_hit_time < PLAYER_INVULNERABLE_TIME

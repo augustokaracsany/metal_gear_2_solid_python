@@ -10,6 +10,8 @@ from src.items import Item
 from src.hud import HealthBar
 from src.settings import ENEMY_CONTACT_DAMAGE
 from src.pause import PauseMenu
+from src.settings import PUNCH_DAMAGE, PUNCH_HIT_PADDING, PUNCH_STUN_TIME
+from src.inventory import InventoryMenu
 
 class Game:
     def __init__(self, mission_number=1):
@@ -31,6 +33,10 @@ class Game:
         # --- SISTEMA DE PAUSA ---
         self.is_paused = False
         self.pause_menu = PauseMenu(SCREEN_WIDTH, SCREEN_HEIGHT)
+
+        # --- INVENTARIO ---
+        self.inventory_open = False
+        self.inventory_menu = InventoryMenu(SCREEN_WIDTH, SCREEN_HEIGHT)
         
         # 1. DICCIONARIO DE NIVELES: Mapea cada misión a sus respectivas rutas de archivos
         self.levels_data = {
@@ -62,6 +68,7 @@ class Game:
         self.all_sprites = pygame.sprite.Group()
         self.enemies_group = pygame.sprite.Group()
         self.items_group = pygame.sprite.Group()
+        self.bullets_group = pygame.sprite.Group()
         
         # Instanciación inicial del mapa y entidades
         self.load_level(current_level["tmx"])
@@ -126,6 +133,7 @@ class Game:
 
         self.enemies_group.empty()
         self.items_group.empty()
+        self.bullets_group.empty()
 
         if self.map:
             patrol_routes = self.map.get_patrol_path("enemy_patrols")
@@ -208,6 +216,12 @@ class Game:
         next_num = self.mission_number + 1
         if next_num not in self.levels_data:
             return False
+        
+        data = self.levels_data[next_num]
+        tmx_exists = os.path.exists(data.get("tmx", ""))
+        png_exists = os.path.exists(data.get("png", ""))
+        
+        return tmx_exists or png_exists
         
         data = self.levels_data[next_num]
         tmx_exists = os.path.exists(data.get("tmx", ""))
@@ -319,9 +333,20 @@ class Game:
                         self.confirm_game_over_option()
                 continue
 
-             # Abrir Pausa con la tecla ESC (cerrar / volver lo maneja el propio menú de pausa)
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE and not self.is_paused:
-                self.is_paused = True
+            # Inventario: se abre con la tecla I y mientras está abierto el juego queda pausado.
+            if self.inventory_open:
+                if self.inventory_menu.handle_input(event, self.player) == "CLOSE":
+                    self.inventory_open = False
+                continue
+            if (event.type == pygame.KEYDOWN and event.key == pygame.K_i
+                    and not self.is_paused and self.state == "PLAYING"):
+                self.inventory_menu.open(self.player)
+                self.inventory_open = True
+                continue
+
+            # Abrir/cerrar Pausa con la tecla M
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_m:
+                self.is_paused = not self.is_paused
                 continue
 
             # Si el juego está en pausa, la navegación y selección las procesa la pausa
@@ -353,12 +378,24 @@ class Game:
                         self.player.take_damage(10)
                     elif event.key == pygame.K_j:
                         self.player.heal(10)
+                    elif event.key == pygame.K_SPACE:
+                        self.player_shoot()
                 self.player.punch_self_event(event)
         return None
 
+    def player_shoot(self):
+        if self.state != "PLAYING":
+            return
+        bullet = self.player.shoot()
+        print("DISPARO:", "OK" if bullet else "bloqueado", "| postura:", self.player.stance)
+        if bullet:
+            self.bullets_group.add(bullet)
+
     def confirm_victory_option(self):
+        """Ejecuta la acción seleccionada en el menú de Victoria"""
         pygame.mixer.music.fadeout(1000)
         has_next = self.has_next_mission()
+        
         if self.victory_selected_option == 0:
             self.__init__(self.mission_number)
         elif self.victory_selected_option == 1 and has_next:
@@ -381,7 +418,7 @@ class Game:
             if self.fade_alpha == 0:
                 self.fading_in = False
 
-        if self.is_paused:
+        if self.is_paused or self.inventory_open:
             return
 
         if self.state == "DYING":
@@ -422,6 +459,22 @@ class Game:
 
         for enemy in self.enemies_group:
             enemy.update(dt, walls, self.player, self.pathfinding_grid)
+
+        # Golpe: mientras dura, daña al primer enemigo que tenga delante (una vez por golpe).
+        if self.player.is_punching and not self.player.punch_hit_done:
+            punch_rect = self.player.get_punch_rect()
+            for enemy in self.enemies_group:
+                if punch_rect.colliderect(enemy.rect.inflate(PUNCH_HIT_PADDING, PUNCH_HIT_PADDING)):
+                    enemy.take_damage(PUNCH_DAMAGE, PUNCH_STUN_TIME, self.player.rect.center)
+                    self.player.punch_hit_done = True
+                    break
+
+        # Balas: se mueven y chocan contra paredes, enemigos o el borde del mapa.
+        if self.map:
+            bounds = pygame.Rect(0, 0, self.map.width, self.map.height)
+        else:
+            bounds = self.map_image.get_rect()
+        self.bullets_group.update(dt, walls, self.enemies_group, bounds)
 
         self.camera.update(self.player)
 
@@ -637,6 +690,9 @@ class Game:
         for entity in entities_to_draw:
             entity.draw_with_camera(self.virtual_surface, self.camera)
 
+        for bullet in self.bullets_group:
+            bullet.draw_with_camera(self.virtual_surface, self.camera)
+
         for enemy in self.enemies_group:
             enemy.draw_vision(self.virtual_surface, self.camera)
         
@@ -657,6 +713,10 @@ class Game:
         surface.blit(scaled_surface, (0, 0))
 
         self.health_bar.draw(surface, self.player)
+
+        # INVENTARIO ENCIMA DE TODO SI ESTÁ ABIERTO
+        if self.inventory_open:
+            self.inventory_menu.draw(surface, self.player, self.health_bar)
 
         # RENDERIZAR PAUSA ENCIMA DE TODO SI ESTÁ ACTIVA
         if self.is_paused:
