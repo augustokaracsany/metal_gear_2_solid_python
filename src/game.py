@@ -82,6 +82,11 @@ class Game:
         
         self.enemy_bullets = pygame.sprite.Group()
 
+        # Estado guardado de cada mapa visitado (guardias muertos y posiciones de los vivos).
+        self.map_states = {}
+        self.current_map_key = None
+        self.current_route_count = 0
+
         self.alert_level = 0.0
         self.chase_music_active = False   # True si la música de persecución tomó el control
         self.music_delay = None           # segundos hasta que arranque la música tras el SFX
@@ -134,7 +139,35 @@ class Game:
         except Exception as e:
             print(f"Aviso música de Entry Point: {e}")
 
+    def _save_map_state(self):
+        """Guarda qué guardias siguen vivos en el mapa actual y dónde estaban."""
+        key = self.current_map_key
+        if key is None or not self.map:
+            return
+
+        snapshots = {}
+        for enemy in self.enemies_group:
+            i = getattr(enemy, "route_index", None)
+            if i is None:
+                continue
+            snapshots[i] = {
+                "x": enemy.x,
+                "y": enemy.y,
+                "facing": enemy.facing,
+                "target_index": enemy.current_target_index,
+                "health": enemy.health,
+                "state": enemy.state,
+            }
+
+        # Los que no están vivos ahora, están muertos y no tienen que reaparecer.
+        dead = set(range(self.current_route_count)) - set(snapshots.keys())
+        self.map_states[key] = {"dead": dead, "snapshots": snapshots}
+
     def load_level(self, tmx_or_key):
+
+        # Antes de dejar el mapa actual, guardamos cómo quedó.
+        self._save_map_state()
+
         """Carga un nivel"""
         if tmx_or_key in self.levels_data:
             level_info = self.levels_data[tmx_or_key]
@@ -156,6 +189,7 @@ class Game:
             self.map_scale = 2 
             self.map_image = pygame.transform.scale(self.raw_map, (self.raw_map.get_width() * self.map_scale, self.raw_map.get_height() * self.map_scale))
 
+        self.current_map_key = tmx_path
         self.enemies_group.empty()
         self.items_group.empty()
         self.enemy_bullets.empty()
@@ -175,8 +209,28 @@ class Game:
 
         if self.map:
             patrol_routes = self.map.get_patrol_path("enemy_patrols")
+            self.current_route_count = len(patrol_routes)
+
+            # Si ya visitaste este mapa: guardias muertos y posiciones de los vivos.
+            saved = self.map_states.get(tmx_path, {"dead": set(), "snapshots": {}})
+
             for i, ruta in enumerate(patrol_routes):
-                guardia = Enemy(ruta[0][0], ruta[0][1], ruta, start_delay=i * 1.0)
+                if i in saved["dead"]:
+                    continue   # Este guardia ya murió: no reaparece.
+
+                snap = saved["snapshots"].get(i)
+                if snap:
+                    # Vuelve exactamente donde estaba cuando saliste del mapa.
+                    guardia = Enemy(snap["x"], snap["y"], ruta, start_delay=0.0)
+                    guardia.facing = snap["facing"]
+                    guardia.current_target_index = snap["target_index"]
+                    guardia.health = snap["health"]
+                    if snap["state"] not in ("WALKING", "LOOKING") and hasattr(guardia, "_set_state"):
+                        guardia._set_state("RETURN")   # Si estaba persiguiendo, vuelve a su patrulla.
+                else:
+                    guardia = Enemy(ruta[0][0], ruta[0][1], ruta, start_delay=i * 1.0)
+
+                guardia.route_index = i
                 self.enemies_group.add(guardia)
 
             if hasattr(self.map.tmx_data, 'objects'):
@@ -391,6 +445,8 @@ class Game:
         p.frame_index = 0
         p.anim_timer = 0.0
         p.update_offsets_for_stance()
+
+        self.map_states = {}
 
         # 2) Mapa de la misión desde cero (enemigos + ítems como la caja del camión).
         #    Si Snake estaba dentro del camión, esto también lo devuelve al mapa principal.
