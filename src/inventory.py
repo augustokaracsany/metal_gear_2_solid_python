@@ -18,21 +18,31 @@ CATEGORIES = [
     {"name": "ARMAS", "desc": "Armamento disponible."},
 ]
 
-# Descripciones de cada objeto del inventario (la clave es el nombre interno del ítem).
+# Objetos que se muestran en la categoría ARMAS (todo lo demás va en ITEMS).
+WEAPON_KEYS = {"pistola"}
+
+# Datos de cada objeto del inventario (la clave es el nombre interno del ítem).
+# "sprite" es la imagen que se ve en grande dentro del anillo (None = Snake).
 ITEM_INFO = {
     "cardboard_box": {
         "name": "CAJA DE CARTÓN",
         "desc": "El disfraz clásico. Si te quedás quieto, los guardias no te ven. "
                 "ENTER para ponértela o sacártela.",
+        "sprite": None,
+    },
+    "food_ration": {
+        "name": "RACIÓN",
+        "desc": "Ración de combate. Comida para mantenerse en pie durante la misión.",
+        "sprite": "assets/sprites/items/racion_roja.png",
     },
 }
 
-# Descripciones de cada arma.
 WEAPON_INFO = {
-    "pistol": {
+    "pistola": {
         "name": "PISTOLA",
         "desc": "Se dispara con ESPACIO hacia donde mira Snake. "
                 "Solo se puede usar de pie. Un tiro elimina a un guardia.",
+        "sprite": "assets/sprites/weapons/pistola.png",
     },
 }
 
@@ -57,6 +67,7 @@ class InventoryMenu:
         self.entry_index = 0
         self.in_entries = False     # False: eligiendo categoría. True: eligiendo un elemento de la lista.
         self.entries = []
+        self._sprite_cache = {}   # Imágenes ya cargadas para la vista previa.
 
         # Centro del anillo de la izquierda.
         self.ring_center = (int(self.w * 0.30), int(self.h * 0.43))
@@ -79,14 +90,20 @@ class InventoryMenu:
 
     def _refresh_entries(self, player):
         self.entries = []
-        if self.category_index == 0:
-            for key in player.inventory:
-                info = ITEM_INFO.get(key, {"name": key.upper(), "desc": "Sin descripción."})
-                self.entries.append({"key": key, "kind": "item", "name": info["name"], "desc": info["desc"]})
-        else:
-            for key in getattr(player, "weapons", ["pistol"]):
-                info = WEAPON_INFO.get(key, {"name": key.upper(), "desc": "Sin descripción."})
-                self.entries.append({"key": key, "kind": "weapon", "name": info["name"], "desc": info["desc"]})
+        want_weapons = (self.category_index == 1)
+        for key in player.inventory:
+            is_weapon = key in WEAPON_KEYS
+            if is_weapon != want_weapons:
+                continue
+            info = (WEAPON_INFO if is_weapon else ITEM_INFO).get(
+                key, {"name": key.upper(), "desc": "Sin descripción."})
+            self.entries.append({
+                "key": key,
+                "kind": "weapon" if is_weapon else "item",
+                "name": info["name"],
+                "desc": info["desc"],
+                "sprite": info.get("sprite"),
+            })
 
     def _entry_tag(self, entry, player):
         if entry["key"] == "cardboard_box" and player.is_disguised:
@@ -169,12 +186,24 @@ class InventoryMenu:
 
     def _preview_image(self, player):
         entry = self.entries[self.entry_index] if (self.in_entries and self.entries) else None
-        if entry and entry["key"] == "cardboard_box" and getattr(player, "box_sprite", None):
-            return player.box_sprite
-        if entry and entry["kind"] == "weapon" and getattr(player, "gun_animations", None):
-            return player.gun_animations["RIGHT"][0]
+        if entry:
+            if entry["key"] == "cardboard_box" and getattr(player, "box_sprite", None):
+                return player.box_sprite
+            if entry.get("sprite"):
+                image = self._load_sprite(entry["sprite"])
+                if image:
+                    return image
         return player.animations["IDLE"]["DOWN"]
 
+    def _load_sprite(self, path):
+        if path not in self._sprite_cache:
+            try:
+                self._sprite_cache[path] = pygame.image.load(path).convert_alpha()
+            except Exception as e:
+                print(f"AVISO: no se pudo cargar {path} para el inventario ({e}).")
+                self._sprite_cache[path] = None
+        return self._sprite_cache[path]
+    
     def draw(self, surface, player, health_bar):
         surface.blit(self.background, (0, 0))
 
@@ -183,9 +212,9 @@ class InventoryMenu:
 
         # Sprite grande dentro del anillo.
         image = self._preview_image(player)
-        target_h = 300
-        scale = target_h / image.get_height()
-        big = pygame.transform.scale(image, (int(image.get_width() * scale), target_h))
+        box = 300
+        scale = min(box / image.get_width(), box / image.get_height())
+        big = pygame.transform.scale(image, (int(image.get_width() * scale), int(image.get_height() * scale)))
         surface.blit(big, big.get_rect(center=self.ring_center))
 
         # Columna derecha: categorías y, debajo, los elementos de la categoría elegida.

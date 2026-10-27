@@ -832,6 +832,9 @@ class Player(pygame.sprite.Sprite):
     def can_shoot(self):
         if self.is_dying or self.is_dead:
             return False
+        # Solo puede disparar si ya recogió la pistola.   
+        if "pistola" not in self.inventory:               # NUEVO
+            return False                                  # NUEVO
         # Solo de pie, y no durante la transición de postura.
         if self.stance != "STAND" or self.is_transitioning:
             return False
