@@ -1,6 +1,7 @@
 import os
 import pygame
 import sys
+import math
 from src.enemy import Enemy
 from src.player import Player
 from src.camera import Camera
@@ -15,6 +16,12 @@ from src.inventory import InventoryMenu
 from src.item_message import ItemMessage
 
 class Game:
+    ALERT_MAX = 99
+    ALERT_DECAY_TIME = 15.0    # en segundos
+    FOUND_SFX_PATH = "assets/audio/sfx/found.mp3"
+    CHASE_MUSIC_PATH = "assets/audio/music/encounter.mp3"
+    ALERT_FONT_PATH = "assets/fonts/PixelOperator8-Bold.ttf"
+    ALERTED_STATES = ("ALERT", "CHASE")
     def __init__(self, mission_number=1):
         self.mission_number = mission_number
         # "PLAYING" -> Jugador con vida
@@ -74,6 +81,20 @@ class Game:
         self.bullets_group = pygame.sprite.Group()
         
         self.enemy_bullets = pygame.sprite.Group()
+
+        self.alert_level = 0.0
+        self.chase_music_active = False   # True si la música de persecución tomó el control
+        self.music_delay = None           # segundos hasta que arranque la música tras el SFX
+        try:
+            self.found_sfx = pygame.mixer.Sound(self.FOUND_SFX_PATH)
+        except Exception as e:
+            print(f"Aviso SFX de alerta: {e}")
+            self.found_sfx = None
+        try:
+            self.alert_font = pygame.font.Font(self.ALERT_FONT_PATH, 16)
+        except Exception as e:
+            print(f"Aviso fuente de alerta: {e}")
+            self.alert_font = pygame.font.Font(None, 24)
 
         # Instanciación inicial del mapa y entidades
         self.load_level(current_level["tmx"])
@@ -138,6 +159,7 @@ class Game:
         self.enemies_group.empty()
         self.items_group.empty()
         self.enemy_bullets.empty()
+        self._reset_alert()
 
         # Actualizar zonas ocultas y barreras de forma segura
         if self.map:
@@ -246,6 +268,7 @@ class Game:
 
     def trigger_death_sequence(self):
 
+        self._reset_alert()
         self.player.is_dead = True
         self.player.frame_index = 0
         self.player.anim_timer = 0.0
@@ -274,6 +297,72 @@ class Game:
         png_exists = os.path.exists(data.get("png", ""))
         
         return tmx_exists or png_exists
+
+    def _update_alert(self, dt):
+        detected = any(e.sees_player for e in self.enemies_group)
+        hunting = any(e.state in self.ALERTED_STATES for e in self.enemies_group)
+
+        if detected:
+            if self.alert_level <= 0:
+                self._on_alert_start()
+            self.alert_level = self.ALERT_MAX
+        elif self.alert_level > 0 and not hunting:
+            # Solo baja cuando TODOS los conos están en verde
+            decay = self.ALERT_MAX / self.ALERT_DECAY_TIME
+            self.alert_level = max(0.0, self.alert_level - decay * dt)
+            if self.alert_level <= 0:
+                self._on_alert_end()
+
+        # La música arranca cuando termina el sonido de alerta.
+        if self.music_delay is not None:
+            self.music_delay -= dt
+            if self.music_delay <= 0:
+                self.music_delay = None
+                self._start_chase_music()
+
+    def _on_alert_start(self):
+        self.chase_music_active = True
+        pygame.mixer.music.stop()   # corta la música del nivel para que se oiga el SFX
+        if self.found_sfx:
+            self.found_sfx.play()
+            self.music_delay = self.found_sfx.get_length()
+        else:
+            self.music_delay = 0.0
+
+    def _start_chase_music(self):
+        try:
+            pygame.mixer.music.load(self.CHASE_MUSIC_PATH)
+            pygame.mixer.music.play(-1)
+        except Exception as e:
+            print(f"Aviso música de persecución: {e}")
+
+    def _on_alert_end(self):
+        self.music_delay = None
+        if self.chase_music_active:
+            pygame.mixer.music.fadeout(1500)
+            self.chase_music_active = False
+
+    def _reset_alert(self):
+        """Apaga todo de golpe (cambio de nivel, muerte)."""
+        if self.chase_music_active:
+            pygame.mixer.music.stop()
+        if getattr(self, "found_sfx", None):
+            self.found_sfx.stop()
+        self.alert_level = 0.0
+        self.music_delay = None
+        self.chase_music_active = False
+
+    def _draw_alert(self, surface):
+        if self.alert_level <= 0:
+            return
+        value = math.ceil(self.alert_level)
+        color = (255, 40, 40) if self.alert_level >= self.ALERT_MAX else (255, 200, 0)
+        text = f"ALERT {value}"
+        shadow = self.alert_font.render(text, True, (0, 0, 0))
+        label = self.alert_font.render(text, True, color)
+        rect = label.get_rect(topright=(surface.get_width() - 20, 20))
+        surface.blit(shadow, rect.move(2, 2))
+        surface.blit(label, rect)
         
         data = self.levels_data[next_num]
         tmx_exists = os.path.exists(data.get("tmx", ""))
@@ -511,7 +600,9 @@ class Game:
 
         self.check_map_transitions()
 
+        alerted = self.alert_level > 0
         for enemy in self.enemies_group:
+            enemy.global_alert = alerted
             enemy.update(dt, walls, self.player, self.pathfinding_grid, self.enemy_bullets)
 
         # Golpe: mientras dura, daña al primer enemigo que tenga delante (una vez por golpe).
@@ -794,6 +885,8 @@ class Game:
         # INVENTARIO ENCIMA DE TODO SI ESTÁ ABIERTO
         if self.inventory_open:
             self.inventory_menu.draw(surface, self.player, self.health_bar)
+
+        self._draw_alert(surface)
 
         # RENDERIZAR PAUSA ENCIMA DE TODO SI ESTÁ ACTIVA
         if self.is_paused:

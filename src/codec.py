@@ -35,6 +35,7 @@ class CodecManager:
         self.fade_alpha = 0
         self.fade_duration = 2000
         self.fade_start_time = 0
+        self.has_skipped = False
 
         # 4. Variables para la advertencia de skip con ESC
         self.skip_warning_active = False
@@ -97,6 +98,10 @@ class CodecManager:
 
         # 2. Controlar la transición de Fade Out al terminar la llamada
         if self.is_fading:
+            if self.has_skipped:
+                self.fade_duration = 500
+            else:
+                self.fade_duration = 2000
             elapsed_fade = tiempo_actual - self.fade_start_time
             progress = min(1.0, elapsed_fade / self.fade_duration)
             self.fade_alpha = int(progress * 255)
@@ -164,6 +169,7 @@ class CodecManager:
                         self.skip_warning_timer = pygame.time.get_ticks()
                     else:
                         # Segunda vez que presiona ESC: Iniciamos fade out directo para saltear
+                        self.has_skipped = True
                         self.is_fading = True
                         self.fade_start_time = pygame.time.get_ticks()
                         if self.text_sound and self.text_sound_playing:
@@ -219,7 +225,7 @@ class CodecManager:
 
         # 4. Advertencia de skip en pantalla si se presionó ESC una vez
         if self.skip_warning_active:
-            warning_surf = self.font.render("Presiona ESC nuevamente para saltear llamada", True, (255, 50, 50))
+            warning_surf = self.font.render("Presiona ESC nuevamente para saltear llamada", True, (255, 255, 255))
             warning_rect = warning_surf.get_rect(center=(w // 2, 50))
             surface.blit(warning_surf, warning_rect)
 
