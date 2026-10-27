@@ -19,6 +19,9 @@ class Game:
     CHASE_MUSIC_PATH = "assets/audio/music/encounter.mp3"
     ALERT_FONT_PATH = "assets/fonts/PixelOperator8-Bold.ttf"
     ALERTED_STATES = ("ALERT", "CHASE")
+    NOISE_PUNCH_RADIUS = 250   # px
+    ALLY_CALL_RADIUS = 320     # px: a quién avisa el guardia que te ve
+    PUNCH_REACH = 14           # px por delante del jugador
     def __init__(self, mission_number=1):
         self.mission_number = mission_number
         # "PLAYING" -> Jugador con vida
@@ -84,6 +87,8 @@ class Game:
         except Exception as e:
             print(f"Aviso fuente de alerta: {e}")
             self.alert_font = pygame.font.Font(None, 24)
+
+        self._was_punching = False
 
         # Instanciación inicial del mapa y entidades
         self.load_level(current_level["tmx"])
@@ -247,6 +252,7 @@ class Game:
         if detected:
             if self.alert_level <= 0:
                 self._on_alert_start()
+                self._call_allies()
             self.alert_level = self.ALERT_MAX
         elif self.alert_level > 0 and not hunting:
             # Solo baja cuando TODOS los conos están en verde
@@ -257,7 +263,7 @@ class Game:
 
         # La música arranca cuando termina el sonido de alerta.
         if self.music_delay is not None:
-            self.music_delay -= dt
+            self.music_delay = 0
             if self.music_delay <= 0:
                 self.music_delay = None
                 self._start_chase_music()
@@ -373,6 +379,7 @@ class Game:
 
             # Abrir/cerrar Pausa con la tecla M
             if event.type == pygame.KEYDOWN and event.key == pygame.K_m:
+                self.cleanup()
                 self.is_paused = not self.is_paused
                 continue
 
@@ -397,13 +404,17 @@ class Game:
                 # Si el juego NO está en pausa, responde a las acciones del jugador
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_k:  # Tecla de prueba de muerte
+                        self.cleanup()
                         self.trigger_death_sequence()
                     elif event.key == pygame.K_v:
+                        self.cleanup()
                         self.trigger_victory_sequence()
                     elif event.key == pygame.K_h:
                         self.player.take_damage(10)
                     elif event.key == pygame.K_j:
                         self.player.heal(10)
+                    elif event.key == pygame.K_ESCAPE:
+                        self.cleanup()
                 self.player.punch_self_event(event)
         return None
 
@@ -470,6 +481,8 @@ class Game:
         if hasattr(self.player, 'collect_items'):
             self.player.collect_items(self.items_group)
 
+        self._check_punch_noise()
+
         self.check_map_transitions()
 
         alerted = self.alert_level > 0
@@ -499,6 +512,37 @@ class Game:
         if self.player.health <= 0:
             self.trigger_death_sequence()
             return
+
+    def emit_noise(self, pos, radius):
+        for e in self.enemies_group:
+            e.hear_noise(pos, radius, self.pathfinding_grid)
+
+    def _check_punch_noise(self):
+        """Ruido solo en el primer frame del golpe, y solo si pega contra un sólido."""
+        p = self.player
+        if p.is_punching and not self._was_punching:
+            r, d = p.rect, self.PUNCH_REACH
+            probe = {
+                "UP": r.move(0, -d), "DOWN": r.move(0, d),
+                "LEFT": r.move(-d, 0), "RIGHT": r.move(d, 0),
+            }[p.facing]
+            if probe.collidelist(self.walls) != -1:
+                self.emit_noise(p.rect.center, self.NOISE_PUNCH_RADIUS)
+        self._was_punching = p.is_punching
+
+    def _call_allies(self):
+        """El guardia que te ve avisa a los cercanos: van a donde te vieron."""
+        for spotter in [e for e in self.enemies_group if e.sees_player]:
+            for other in self.enemies_group:
+                if other is not spotter:
+                    other.hear_noise(self.player.rect.center, self.ALLY_CALL_RADIUS,
+                                    self.pathfinding_grid, origin=spotter.rect.center,
+                                    gesture=False)
+
+    def cleanup(self):
+        """Llamar siempre que se abandone el nivel (ESC, menú, salir)."""
+        self._reset_alert()
+        pygame.mixer.music.stop()   # por si quedó sonando algo del nivel
 
     def draw(self, surface):
         self.virtual_surface.fill((0, 0, 0))

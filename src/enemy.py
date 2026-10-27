@@ -61,6 +61,10 @@ class Enemy(pygame.sprite.Sprite):
     ARRIVE_DIST = 4      # llegó si está a esta distancia (px) del destino
     FINISH_DIST = 16     # o si terminó su ruta y está a esta distancia (px)
 
+    NOISE_REACT_TIME = 0.9                          # segundos con el ícono antes de ir a investigar
+    SOUND_ICON_PATH = "assets/sprites/alerts/sound.png"
+    _sound_icon = None
+
     _alert_icon = None  
 
     def __init__(self, x, y, patrol_points, start_delay=0.0):
@@ -193,6 +197,8 @@ class Enemy(pygame.sprite.Sprite):
             moving = self._search(dt, grid)
         elif self.state == "RETURN":
             moving = self._return(dt, grid)
+        elif self.state == "NOISE":
+            self._heard(dt)
 
         self.is_moving = moving
 
@@ -630,6 +636,74 @@ class Enemy(pygame.sprite.Sprite):
             return (g[0] * ts + ts / 2, g[1] * ts + ts / 2)
         return (tx, ty)
 
+    def _strict_target(self, grid, tx, ty, max_path):
+        """Punto alcanzable cerca de (tx, ty), o None. NO usa el 'más cercano en toda la región':
+        si la fuente está en un hueco inaccesible, se ignora."""
+        if grid is None:
+            return (tx, ty)
+        ts = self.GRID_TILE
+        fx, fy = self._fcenter()
+        own = (int(fx // ts), int(fy // ts))
+        starts = self._cells_near(grid, own[0], own[1], fx, fy, max(2, 24 // ts), 4)
+        goals = self._cells_near(grid, int(tx // ts), int(ty // ts), tx, ty, max(2, 16 // ts), 6)
+        for s in starts:
+            for g in goals:
+                if grid.region[s[1]][s[0]] != grid.region[g[1]][g[0]]:
+                    continue
+                pts = self._astar(grid, s, g, own)
+                if pts is not None and len(pts) * ts <= max_path:
+                    return (g[0] * ts + ts / 2, g[1] * ts + ts / 2)
+        return None
+
+    def hear_noise(self, pos, radius, grid, origin=None):
+        """pos: a dónde ir. origin: desde dónde se mide el radio (por defecto, pos).
+        Devuelve True si decidió ir a investigar."""
+        if self.start_delay > 0 or self.state in ("ALERT", "CHASE"):
+            return False                      # ya está en lo suyo
+
+        ox, oy = origin if origin else pos
+        fx, fy = self._fcenter()
+        if math.hypot(ox - fx, oy - fy) > radius:
+            return False
+
+        target = self._strict_target(grid, pos[0], pos[1], max_path=radius * 2.5)
+        if target is None:
+            return False                      # inalcanzable o camino demasiado largo
+
+        self.last_known_pos = target
+        self.search_target = target
+        self._set_state("SEARCH")             # no borra search_target
+        self._face_towards(*target)
+        return True
+
+    def _heard(self, dt):
+        """Gesto de "escuché algo": se queda quieto mirando hacia la fuente y luego investiga."""
+        if self.search_target:
+            self._face_towards(*self.search_target)
+        self.state_timer += dt
+        if self.state_timer >= self.NOISE_REACT_TIME:
+            self._set_state("SEARCH")   # _set_state no borra search_target
+
+    def hear_noise(self, pos, radius, grid, origin=None, gesture=True):
+        """gesture=True: hace la pausa con el ícono. gesture=False: va directo a investigar."""
+        if self.start_delay > 0 or self.state in ("ALERT", "CHASE", "NOISE"):
+            return False
+
+        ox, oy = origin if origin else pos
+        fx, fy = self._fcenter()
+        if math.hypot(ox - fx, oy - fy) > radius:
+            return False
+
+        target = self._strict_target(grid, pos[0], pos[1], max_path=radius * 2.5)
+        if target is None:
+            return False
+
+        self.last_known_pos = target
+        self.search_target = target
+        self._set_state("NOISE" if gesture else "SEARCH")
+        self._face_towards(*target)
+        return True
+
     # DIBUJO
     @classmethod
     def _get_alert_icon(cls):
@@ -643,6 +717,19 @@ class Enemy(pygame.sprite.Sprite):
             except Exception as e:
                 cls._alert_icon = pygame.Surface((1, 1), pygame.SRCALPHA)
         return cls._alert_icon
+
+    @classmethod
+    def _get_sound_icon(cls):
+        if cls._sound_icon is None:
+            try:
+                img = pygame.image.load(cls.SOUND_ICON_PATH).convert_alpha()
+                s = cls.ALERT_ICON_SCALE
+                cls._sound_icon = pygame.transform.scale(
+                    img, (int(img.get_width() * s), int(img.get_height() * s))
+                )
+            except Exception:
+                cls._sound_icon = pygame.Surface((1, 1), pygame.SRCALPHA)
+        return cls._sound_icon
 
     def draw_vision(self, surface, camera):
         dir_x, dir_y = self.DIRS[self._vision_facing()]
@@ -689,6 +776,10 @@ class Enemy(pygame.sprite.Sprite):
 
         if self.state == "ALERT":
             icon = self._get_alert_icon()
+            surface.blit(icon, (dest_rect.centerx - icon.get_width() // 2,
+                                draw_y - icon.get_height() - 2))
+        if self.state == "NOISE":
+            icon = self._get_sound_icon()
             surface.blit(icon, (dest_rect.centerx - icon.get_width() // 2,
                                 draw_y - icon.get_height() - 2))
 
