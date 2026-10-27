@@ -396,9 +396,11 @@ class Game:
                 self.inventory_open = True
                 continue
 
-            # Abrir Pausa con la tecla P (cerrar / volver lo maneja el propio menú de pausa)
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE and not self.is_paused:
+            # Abrir la pausa con ESC (cerrar / volver lo maneja el propio menú de pausa)
+            if (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE
+                    and not self.is_paused and self.state == "PLAYING"):
                 self.is_paused = True
+                continue
 
             # Si el juego está en pausa, la navegación y selección las procesa la pausa
             if self.is_paused:
@@ -409,11 +411,6 @@ class Game:
                     self.pause_menu.trigger_feedback("No se encontró ningún punto de guardado previo.")
                 elif action == "REINICIAR MISIÓN":
                     self.restart_mission()
-                    current_key = self.mission_number
-                    self.load_level(current_key)
-                    spawn_x, spawn_y = self.map.get_spawn_point("player_spawn", (400, 350)) if self.map else (400, 350)
-                    self.player.x, self.player.y = spawn_x, spawn_y
-                    self.player.rect.x, self.player.rect.y = int(spawn_x), int(spawn_y)
                     self.is_paused = False
                 elif action == "VOLVER AL MENÚ":
                     self.is_paused = False
