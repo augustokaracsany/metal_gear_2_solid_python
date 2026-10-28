@@ -22,6 +22,10 @@ class Game:
     NOISE_PUNCH_RADIUS = 250   # px
     ALLY_CALL_RADIUS = 320     # px: a quién avisa el guardia que te ve
     PUNCH_REACH = 14           # px por delante del jugador
+    RADAR_W = 140
+    RADAR_H = 100
+    RADAR_SCALE = 0.1       # 1 px del radar = 10 px del mapa
+    RADAR_MARGIN = 20
     def __init__(self, mission_number=1):
         self.mission_number = mission_number
         # "PLAYING" -> Jugador con vida
@@ -147,10 +151,15 @@ class Game:
             self.top_barriers = self.map.get_top_barriers("limites_top") or []
             self.walls = self.map.get_collision_rects()   # cacheadas una sola vez
 
+            self._build_radar_map()
+
             patrol_routes = self.map.get_patrol_path("enemy_patrols")
             for i, ruta in enumerate(patrol_routes):
                 guardia = Enemy(ruta[0][0], ruta[0][1], ruta, start_delay=i * 1.0)
                 self.enemies_group.add(guardia)
+
+            for g in self.enemies_group:
+                g.others = list(self.enemies_group)
 
             if hasattr(self.map.tmx_data, 'objects'):
                 for obj in self.map.tmx_data.objects:
@@ -177,6 +186,7 @@ class Game:
             self.top_barriers = []
             self.walls = []
             self.pathfinding_grid = None
+            self.radar_map = None
 
     def check_map_transitions(self):
         if not self.map:
@@ -305,10 +315,10 @@ class Game:
             return
         value = math.ceil(self.alert_level)
         color = (255, 40, 40) if self.alert_level >= self.ALERT_MAX else (255, 200, 0)
-        text = f"ALERT {value}"
+        text = f"ALERTA {value}"
         shadow = self.alert_font.render(text, True, (0, 0, 0))
         label = self.alert_font.render(text, True, color)
-        rect = label.get_rect(topright=(surface.get_width() - 20, 20))
+        rect = label.get_rect(midtop=(surface.get_width() // 2, 20))
         surface.blit(shadow, rect.move(2, 2))
         surface.blit(label, rect)
         
@@ -539,10 +549,70 @@ class Game:
                                     self.pathfinding_grid, origin=spotter.rect.center,
                                     gesture=False)
 
+    def _build_radar_map(self):
+        s = self.RADAR_SCALE
+        self.radar_map = pygame.Surface((max(1, int(self.map.width * s)),
+                                         max(1, int(self.map.height * s))))
+        self.radar_map.fill((0, 25, 0))
+        for r in self.walls:
+            pygame.draw.rect(self.radar_map, (0, 150, 0),
+                             (int(r.x * s), int(r.y * s),
+                              max(1, int(r.w * s)), max(1, int(r.h * s))))
+
     def cleanup(self):
         """Llamar siempre que se abandone el nivel (ESC, menú, salir)."""
         self._reset_alert()
         pygame.mixer.music.stop()   # por si quedó sonando algo del nivel
+
+    def _draw_radar(self, surface):
+        if not getattr(self, "radar_map", None):
+            return
+        s = self.RADAR_SCALE
+        mw, mh = self.radar_map.get_size()
+
+        # Si el mapa es más chico que el radar, el radar se achica a su tamaño.
+        W = min(self.RADAR_W, mw)
+        H = min(self.RADAR_H, mh)
+
+        # Esquina superior izquierda de la ventana, limitada a los bordes del mapa.
+        px, py = self.player.rect.center
+        vx = max(0, min(int(px * s) - W // 2, mw - W))
+        vy = max(0, min(int(py * s) - H // 2, mh - H))
+
+        radar = pygame.Surface((W, H))
+        radar.blit(self.radar_map, (-vx, -vy))
+
+        # Conos de visión (misma geometría que Enemy.draw_vision), con transparencia.
+        cones = pygame.Surface((W, H), pygame.SRCALPHA)
+        for e in self.enemies_group:
+            dir_x, dir_y = e.DIRS[e._vision_facing()]
+            perp_x, perp_y = -dir_y, dir_x
+            sx, sy = e.rect.center
+            rng, w = e.VISION_RANGE, e.CONE_TAN
+            world_pts = [
+                (sx, sy),
+                (sx + (dir_x - perp_x * w) * rng, sy + (dir_y - perp_y * w) * rng),
+                (sx + (dir_x + perp_x * w) * rng, sy + (dir_y + perp_y * w) * rng),
+            ]
+            pts = [(x * s - vx, y * s - vy) for x, y in world_pts]
+            color = (255, 0, 0, 90) if e.state in self.ALERTED_STATES else (0, 255, 0, 90)
+            pygame.draw.polygon(cones, color, pts)
+        radar.blit(cones, (0, 0))
+
+        # Guardias
+        for e in self.enemies_group:
+            ex, ey = e.rect.center
+            x, y = int(ex * s) - vx, int(ey * s) - vy
+            if 0 <= x < W and 0 <= y < H:
+                color = (255, 40, 40) if e.state in self.ALERTED_STATES else (255, 200, 0)
+                pygame.draw.rect(radar, color, (x - 1, y - 1, 3, 3))
+
+        # Jugador
+        x, y = int(px * s) - vx, int(py * s) - vy
+        pygame.draw.rect(radar, (255, 255, 255), (x - 1, y - 1, 3, 3))
+
+        pygame.draw.rect(radar, (0, 200, 0), radar.get_rect(), 1)
+        surface.blit(radar, (surface.get_width() - W - self.RADAR_MARGIN, self.RADAR_MARGIN))
 
     def draw(self, surface):
         self.virtual_surface.fill((0, 0, 0))
@@ -759,8 +829,8 @@ class Game:
         for entity in entities_to_draw:
             entity.draw_with_camera(self.virtual_surface, self.camera)
 
-        for enemy in self.enemies_group:
-            enemy.draw_vision(self.virtual_surface, self.camera)
+        # for enemy in self.enemies_group:
+        #     enemy.draw_vision(self.virtual_surface, self.camera)
         
         if self.map:
             self.map.render_roofs(
@@ -779,8 +849,8 @@ class Game:
         surface.blit(scaled_surface, (0, 0))
 
         self.health_bar.draw(surface, self.player)
-
         self._draw_alert(surface)
+        self._draw_radar(surface)
 
         # RENDERIZAR PAUSA ENCIMA DE TODO SI ESTÁ ACTIVA
         if self.is_paused:
