@@ -14,6 +14,7 @@ from src.pause import PauseMenu
 from src.settings import PUNCH_DAMAGE, PUNCH_HIT_PADDING, PUNCH_STUN_TIME
 from src.inventory import InventoryMenu
 from src.item_message import ItemMessage
+from src.hud_inventory import HUDInventory  # <--- HUD de inventario equipado activo
 
 class Game:
     ALERT_MAX = 99
@@ -42,9 +43,14 @@ class Game:
         self.is_paused = False
         self.pause_menu = PauseMenu(SCREEN_WIDTH, SCREEN_HEIGHT)
 
-        # --- INVENTARIO ---
+        # --- INVENTARIO COMPLETO (MENÚ) ---
         self.inventory_open = False
         self.inventory_menu = InventoryMenu(SCREEN_WIDTH, SCREEN_HEIGHT)
+
+        # --- HUD EQUIPAMIENTO ACTIVO (PANTALLA PRINCIPAL) ---
+        # Puedes cambiar la posición a: 'bottom-right', 'bottom-left', 'top-right' o 'top-left'
+        self.hud_inventory = HUDInventory(position="bottom-right")
+
         # --- MÚSICA DE FONDO (solo misión 1: Entry Point) ---
         self.start_level_music()
         
@@ -257,8 +263,6 @@ class Game:
                             print(f"Error cargando sprite de la ración: {e}")
 
             # Pistola (Entry Point). Se agrega aparte, igual que la caja y la ración.
-            # OJO: acá NO se exige que ya exista self.player, porque este mapa se carga
-            # en __init__ antes de crear a Snake.
             if hasattr(self.map.tmx_data, 'objects'):
                 for obj in self.map.tmx_data.objects:
                     if obj.name == "pistola" and (not hasattr(self, 'player') or "pistola" not in self.player.inventory):
@@ -418,16 +422,8 @@ class Game:
         surface.blit(shadow, rect.move(2, 2))
         surface.blit(label, rect)
         
-        data = self.levels_data[next_num]
-        tmx_exists = os.path.exists(data.get("tmx", ""))
-        png_exists = os.path.exists(data.get("png", ""))
-        
-        return tmx_exists or png_exists
-        
     def restart_mission(self):
         """Reinicia la misión completa: mapa, enemigos, ítems y estado de Snake."""
-        # 1) Estado del jugador (ANTES de cargar el nivel: la caja solo reaparece
-        #    si Snake no la tiene en el inventario).
         p = self.player
         p.inventory = []
         p.is_disguised = False
@@ -448,18 +444,14 @@ class Game:
 
         self.map_states = {}
 
-        # 2) Mapa de la misión desde cero (enemigos + ítems como la caja del camión).
-        #    Si Snake estaba dentro del camión, esto también lo devuelve al mapa principal.
         self.load_level(self.mission_number)
 
-        # 3) Cámara con las medidas del mapa recargado.
         if self.map:
             map_width, map_height = self.map.width, self.map.height
         else:
             map_width, map_height = self.map_image.get_width(), self.map_image.get_height()
         self.camera = Camera(map_width, map_height, self.virtual_width, self.virtual_height)
 
-        # 4) Snake de vuelta al spawn.
         spawn_x, spawn_y = self.map.get_spawn_point("player_spawn", (400, 350)) if self.map else (400, 350)
         p.x, p.y = float(spawn_x), float(spawn_y)
         p.rect.x, p.rect.y = int(spawn_x), int(spawn_y)
@@ -937,6 +929,9 @@ class Game:
 
         self.health_bar.draw(surface, self.player)
         self.item_message.draw(surface)
+
+        # DIBUJAR HUD DE INVENTARIO SOBRE LA PANTALLA PRINCIPAL
+        self.hud_inventory.draw(surface, self.player)
 
         # INVENTARIO ENCIMA DE TODO SI ESTÁ ABIERTO
         if self.inventory_open:
