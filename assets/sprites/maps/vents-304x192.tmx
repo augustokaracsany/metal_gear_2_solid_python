@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="19" height="12" tilewidth="16" tileheight="16" infinite="0" nextlayerid="8" nextobjectid="20">
+ <tileset firstgid="1" source="colisiones.tsx"/>
+ <imagelayer id="1" name="vents">
+  <image source="vents-304x192.png" width="304" height="192"/>
+ </imagelayer>
+ <layer id="2" name="colisiones_grid" width="19" height="12">
+  <data encoding="csv">
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+</data>
+ </layer>
+ <objectgroup color="#ff0000" id="3" name="colisiones_objs">
+  <object id="1" x="0" y="0" width="150" height="46"/>
+  <object id="2" x="172" y="0" width="132" height="108"/>
+  <object id="3" x="45" y="62" width="105" height="64"/>
+  <object id="4" x="0" y="46" width="19" height="96"/>
+  <object id="5" x="45" y="126" width="165" height="32"/>
+  <object id="6" x="0" y="142" width="4" height="16"/>
+  <object id="7" x="236" y="108" width="68" height="82"/>
+  <object id="8" x="0" y="158" width="210" height="32"/>
+  <object id="9" x="0" y="190" width="304" height="2"/>
+  <object id="10" x="0" y="192" width="304" height="8"/>
+ </objectgroup>
+ <objectgroup color="#aa55ff" id="4" name="player_spawn">
+  <object id="11" name="player_spawn" x="222" y="160">
+   <point/>
+  </object>
+ </objectgroup>
+ <objectgroup color="#ffff00" id="5" name="triggers">
+  <object id="12" name="exit_trigger" x="150" y="0" width="22" height="6">
+   <properties>
+    <property name="mission" type="int" value="2"/>
+    <property name="prone" type="bool" value="true"/>
+    <property name="spawn_x" type="int" value="627"/>
+    <property name="spawn_y" type="int" value="938"/>
+    <property name="target_map" value="assets/sprites/maps/building1_floor1-960x960.tmx"/>
+   </properties>
+  </object>
+ </objectgroup>
+ <objectgroup id="6" name="items">
+  <object id="13" name="ammo" x="24" y="100" width="16" height="16"/>
+ </objectgroup>
+ <objectgroup color="#00aaff" id="7" name="referencias">
+  <object id="14" name="vent_entry" x="208" y="178" width="32" height="14"/>
+ </objectgroup>
+</map>

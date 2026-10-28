@@ -99,6 +99,11 @@ class HUDInventory:
                 "assets/sprites/weapons/pistola.png"
             )
 
+        if item_key == "ammo":
+            return self._load_sprite(
+                "assets/sprites/items/municiones.png"
+            )
+
         # Permite incorporar sprites adicionales sin cambiar el HUD.
         sprites = getattr(player, "item_sprites", {})
         if isinstance(sprites, dict):

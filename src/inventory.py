@@ -33,6 +33,11 @@ ITEM_INFO = {
                 "ENTER para equipar.",
         "sprite": "assets/sprites/items/racion_roja.png",
     },
+    "ammo": {
+        "name": "MUNICIONES",
+        "desc": "Cargador para la pistola.",
+        "sprite": "assets/sprites/items/municiones.png",
+    },
 }
 
 WEAPON_INFO = {

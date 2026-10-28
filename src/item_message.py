@@ -7,6 +7,7 @@ ITEM_MESSAGES = {
     "food_ration": ("Recogido", "Ración [Unidad B1]."),
     "cardboard_box": ("Recogido", "Caja de cartón."),
     "pistola": ("Recogido", "Pistola Beretta 92FS."),
+    "ammo": ("Recogido", "Municiones."),
 }
 
 FONT_PATH = "assets/fonts/PixelOperator8.ttf"   # la misma fuente del prólogo

@@ -188,7 +188,7 @@ class TiledMap:
             # (Un grupo de objetos de pytmx no tiene atributo 'objects', hay que chequear el tipo.)
             if layer.name == "triggers" and isinstance(layer, pytmx.TiledObjectGroup):
                 for obj in layer:
-                    if obj.name in ["truck_trigger", "exit_trigger"]:
+                    if obj.name in ["truck_trigger", "exit_trigger", "vent_trigger"]:
                         rect = pygame.Rect(
                             int(obj.x * self.scale),
                             int(obj.y * self.scale),

@@ -274,6 +274,18 @@ class Game:
                         except Exception as e:
                             print(f"Error cargando sprite de la pistola: {e}")
 
+            # Municiones (ductos). Se agrega aparte, igual que la caja, la ración y la pistola.
+            if hasattr(self.map.tmx_data, 'objects'):
+                for obj in self.map.tmx_data.objects:
+                    if obj.name == "ammo" and (not hasattr(self, 'player') or "ammo" not in self.player.inventory):
+                        scale = self.map.scale
+                        try:
+                            ammo_item = Item("ammo", 0, 0, "assets/sprites/items/municiones.png", scale=1.5)
+                            ammo_item.rect.center = (int((obj.x + obj.width / 2) * scale), int((obj.y + obj.height / 2) * scale))
+                            self.items_group.add(ammo_item)
+                        except Exception as e:
+                            print(f"Error cargando sprite de las municiones: {e}")
+
             # Grilla: DESPUÉS de crear los enemigos, con el hitbox real del guardia
             if self.enemies_group:
                 actor_size = self.enemies_group.sprites()[0].rect.size
@@ -300,6 +312,10 @@ class Game:
                 target_map = props.get("target_map")
                 self.load_level(target_map)
 
+                # Propiedad opcional "mission": el trigger cambia el número de misión actual.
+                if "mission" in props:
+                    self.mission_number = int(props["mission"])
+
                 scale = self.map.scale if self.map else 2
                 spawn_x = float(props.get("spawn_x", 180)) * scale
                 spawn_y = float(props.get("spawn_y", 550)) * scale
@@ -307,6 +323,10 @@ class Game:
                 self.player.y = spawn_y
                 self.player.rect.x = int(spawn_x)
                 self.player.rect.y = int(spawn_y)
+
+                # Propiedad opcional "prone": True = llega cuerpo a tierra, False = de pie.
+                if "prone" in props:
+                    self.player.set_stance("CRAWL" if props["prone"] else "STAND")
                 
                 map_width = self.map.width if self.map else self.map_image.get_width()
                 map_height = self.map.height if self.map else self.map_image.get_height()
@@ -426,6 +446,8 @@ class Game:
         """Reinicia la misión completa: mapa, enemigos, ítems y estado de Snake."""
         p = self.player
         p.inventory = []
+        p.equipped_item = None      # si no, el HUD sigue mostrando lo que tenía equipado
+        p.equipped_weapon = None
         p.is_disguised = False
         p.is_punching = False
         p.is_transitioning = False
