@@ -45,7 +45,7 @@ class Enemy(pygame.sprite.Sprite):
     SEARCH_LOOK_TIME = 0.8         # Duración de cada paso del "mirar alrededor" al buscar.
     PATROL_LOOK_TIME = 1.5         # idem en patrulla.
     RETURN_TIMEOUT = 15.0   # S máx. volviendo a la patrulla
-    REPATH_INTERVAL = 0.4          # Cada cuánto PUEDE recalcular A* ( En segundos. )
+    REPATH_INTERVAL = 1          # Cada cuánto PUEDE recalcular A* ( En segundos. ) 0.4 DEFAULT
     CATCH_DISTANCE = 20            # A esta distancia de Snake se frena ( Acá iría el disparo/golpe. )
     HIT_SEARCH_EXTRA = 48          # Cuánto pasa de largo el punto del golpe al buscar (px).
 

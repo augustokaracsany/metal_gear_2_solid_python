@@ -30,8 +30,12 @@ class Game:
     RADAR_H = 100
     RADAR_SCALE = 0.1       # 1 px del radar = 10 px del mapa
     RADAR_MARGIN = 20
+    EXIT_FADE_MS = 700
     def __init__(self, mission_number=1):
         self.mission_number = mission_number
+        self.pending_action = None   # ("restart", n) o ("menu", None)
+        self.exit_fade_start = 0
+        self.exit_fade_volume = 1.0
         # "PLAYING" -> Jugador con vida
         # "DYING"   -> Animación de muerte
         # "GAME_OVER" -> Pantalla de muerte
@@ -42,7 +46,6 @@ class Game:
         self.game_over_timer = 0.0
         self.victory_selected_option = 0
         self.victory_timer = 0.0
-        self.fade_in_timer = pygame.time.get_ticks()
         self.game_over_selected_option = 0
         self.return_to_menu = False
 
@@ -138,6 +141,10 @@ class Game:
 
         self.health_bar = HealthBar()
         self.item_message = ItemMessage()
+
+        self.fading_in = True
+        self.fade_alpha = 255
+        self.fade_in_timer = pygame.time.get_ticks()
 
     def start_level_music(self):
         """Música de fondo en bucle del mapa Entry Point (misión 1).
@@ -492,6 +499,8 @@ class Game:
 
     def handle_events(self, events):
         for event in events:
+            if self.pending_action:
+                continue
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
@@ -613,28 +622,46 @@ class Game:
         if bullet:
             self.bullets_group.add(bullet)
 
+    def _begin_exit_fade(self, action, mission=None):
+        if self.pending_action:
+            return
+        self.pending_action = (action, mission)
+        self.exit_fade_start = pygame.time.get_ticks()
+        self.exit_fade_volume = pygame.mixer.music.get_volume()
+
     def confirm_victory_option(self):
-        """Ejecuta la acción seleccionada en el menú de Victoria"""
-        pygame.mixer.music.fadeout(1000)
         has_next = self.has_next_mission()
-        
         if self.victory_selected_option == 0:
-            self.__init__(self.mission_number)
+            self._begin_exit_fade("restart", self.mission_number)
         elif self.victory_selected_option == 1 and has_next:
-            self.__init__(self.mission_number + 1)
+            self._begin_exit_fade("restart", self.mission_number + 1)
         else:
-            self.return_to_menu = True  # Activamos la bandera
+            self._begin_exit_fade("menu")
 
     def confirm_game_over_option(self):
-        pygame.mixer.music.fadeout(1000)
         if self.game_over_selected_option == 0:
-            self.__init__(self.mission_number)
+            self._begin_exit_fade("restart", self.mission_number)
         else:
-            self.return_to_menu = True  # Activamos la bandera
+            self._begin_exit_fade("menu")
+
+    def _update_exit_fade(self):
+        t = (pygame.time.get_ticks() - self.exit_fade_start) / self.EXIT_FADE_MS
+        pygame.mixer.music.set_volume(self.exit_fade_volume * max(0.0, 1 - t))
+        if t < 1:
+            return
+        action, mission = self.pending_action
+        pygame.mixer.music.stop()
+        pygame.mixer.music.set_volume(self.pause_menu.music_volume)
+        if action == "restart":
+            self.__init__(mission)     # __init__ pone pending_action = None
+        else:
+            self.pending_action = None
+            self.return_to_menu = True
 
     def update(self, dt):
-        # Manejo limpio del fundido de entrada (Fade-in)
-
+        if self.pending_action:
+            self._update_exit_fade()
+            return
         if self.fading_in:
             elapsed_fade = pygame.time.get_ticks() - self.fade_in_timer
             self.fade_alpha = max(0, 255 - int((elapsed_fade / 1000.0) * 255))
@@ -690,6 +717,8 @@ class Game:
         for enemy in self.enemies_group:
             enemy.global_alert = alerted
             enemy.update(dt, walls, self.player, self.pathfinding_grid, self.enemy_bullets)
+
+        self._update_alert(dt)
 
         # Golpe: mientras dura, daña al primer enemigo que tenga delante (una vez por golpe).
         if self.player.is_punching and not self.player.punch_hit_done:
@@ -819,6 +848,14 @@ class Game:
         pygame.draw.rect(radar, (0, 200, 0), radar.get_rect(), 1)
         surface.blit(radar, (surface.get_width() - W - self.RADAR_MARGIN, self.RADAR_MARGIN))
 
+    def _draw_exit_fade(self, surface):
+        if not self.pending_action:
+            return
+        t = min(1.0, (pygame.time.get_ticks() - self.exit_fade_start) / self.EXIT_FADE_MS)
+        overlay = pygame.Surface(surface.get_size())
+        overlay.set_alpha(int(255 * t))
+        surface.blit(overlay, (0, 0))
+
     def draw(self, surface):
         self.virtual_surface.fill((0, 0, 0))
         
@@ -928,6 +965,7 @@ class Game:
                 fade_surface.fill((0, 0, 0))
                 fade_surface.set_alpha(fade_alpha)
                 surface.blit(fade_surface, (0, 0))
+            self._draw_exit_fade(surface)
             return
 
         if self.state == "GAME_OVER":
@@ -1013,6 +1051,7 @@ class Game:
                 fade_surface.fill((0, 0, 0))
                 fade_surface.set_alpha(fade_alpha)
                 surface.blit(fade_surface, (0, 0))
+            self._draw_exit_fade(surface)
             return
 
         # --- RENDERIZADO NORMAL DEL JUEGO (PLAYING / DYING) ---
@@ -1057,6 +1096,8 @@ class Game:
         surface.blit(scaled_surface, (0, 0))
 
         self.health_bar.draw(surface, self.player)
+        self._draw_alert(surface)
+        self._draw_radar(surface)
         self.item_message.draw(surface)
 
         # DIBUJAR HUD DE INVENTARIO SOBRE LA PANTALLA PRINCIPAL
@@ -1065,9 +1106,6 @@ class Game:
         # INVENTARIO ENCIMA DE TODO SI ESTÁ ABIERTO
         if self.inventory_open:
             self.inventory_menu.draw(surface, self.player, self.health_bar)
-
-        self._draw_alert(surface)
-        self._draw_radar(surface)
 
         # RENDERIZAR PAUSA ENCIMA DE TODO SI ESTÁ ACTIVA
         if self.is_paused:
