@@ -23,6 +23,13 @@ class Game:
     CHASE_MUSIC_PATH = "assets/audio/music/encounter.mp3"
     ALERT_FONT_PATH = "assets/fonts/PixelOperator8-Bold.ttf"
     ALERTED_STATES = ("ALERT", "CHASE")
+    NOISE_PUNCH_RADIUS = 250   # px
+    ALLY_CALL_RADIUS = 320     # px: a quién avisa el guardia que te ve
+    PUNCH_REACH = 14           # px por delante del jugador
+    RADAR_W = 140
+    RADAR_H = 100
+    RADAR_SCALE = 0.1       # 1 px del radar = 10 px del mapa
+    RADAR_MARGIN = 20
     def __init__(self, mission_number=1):
         self.mission_number = mission_number
         # "PLAYING" -> Jugador con vida
@@ -106,6 +113,8 @@ class Game:
         except Exception as e:
             print(f"Aviso fuente de alerta: {e}")
             self.alert_font = pygame.font.Font(None, 24)
+
+        self._was_punching = False
 
         # Instanciación inicial del mapa y entidades
         self.load_level(current_level["tmx"])
@@ -209,11 +218,8 @@ class Game:
             self.top_barriers = self.map.get_top_barriers("limites_top") or []
             self.walls = self.map.get_collision_rects()   # cacheadas una sola vez
 
-        self.enemies_group.empty()
-        self.items_group.empty()
-        self.bullets_group.empty()
+            self._build_radar_map()
 
-        if self.map:
             patrol_routes = self.map.get_patrol_path("enemy_patrols")
             self.current_route_count = len(patrol_routes)
 
@@ -238,6 +244,9 @@ class Game:
 
                 guardia.route_index = i
                 self.enemies_group.add(guardia)
+
+            for g in self.enemies_group:
+                g.others = list(self.enemies_group)
 
             if hasattr(self.map.tmx_data, 'objects'):
                 for obj in self.map.tmx_data.objects:
@@ -300,6 +309,7 @@ class Game:
             self.top_barriers = []
             self.walls = []
             self.pathfinding_grid = None
+            self.radar_map = None
 
     def check_map_transitions(self):
         if not self.map:
@@ -383,6 +393,7 @@ class Game:
         if detected:
             if self.alert_level <= 0:
                 self._on_alert_start()
+                self._call_allies()
             self.alert_level = self.ALERT_MAX
         elif self.alert_level > 0 and not hunting:
             # Solo baja cuando TODOS los conos están en verde
@@ -393,7 +404,7 @@ class Game:
 
         # La música arranca cuando termina el sonido de alerta.
         if self.music_delay is not None:
-            self.music_delay -= dt
+            self.music_delay = 0
             if self.music_delay <= 0:
                 self.music_delay = None
                 self._start_chase_music()
@@ -435,10 +446,10 @@ class Game:
             return
         value = math.ceil(self.alert_level)
         color = (255, 40, 40) if self.alert_level >= self.ALERT_MAX else (255, 200, 0)
-        text = f"ALERT {value}"
+        text = f"ALERTA {value}"
         shadow = self.alert_font.render(text, True, (0, 0, 0))
         label = self.alert_font.render(text, True, color)
-        rect = label.get_rect(topright=(surface.get_width() - 20, 20))
+        rect = label.get_rect(midtop=(surface.get_width() // 2, 20))
         surface.blit(shadow, rect.move(2, 2))
         surface.blit(label, rect)
         
@@ -558,6 +569,7 @@ class Game:
             # Abrir la pausa con ESC (cerrar / volver lo maneja el propio menú de pausa)
             if (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE
                     and not self.is_paused and self.state == "PLAYING"):
+                self.cleanup()
                 self.is_paused = True
                 continue
 
@@ -579,8 +591,10 @@ class Game:
                 # Si el juego NO está en pausa, responde a las acciones del jugador
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_k:  # Tecla de prueba de muerte
+                        self.cleanup()
                         self.trigger_death_sequence()
                     elif event.key == pygame.K_v:
+                        self.cleanup()
                         self.trigger_victory_sequence()
                     elif event.key == pygame.K_h:
                         self.player.take_damage(10)
@@ -668,6 +682,8 @@ class Game:
             if nombre_item not in inventario_previo:
                 self.item_message.show(nombre_item, self.pause_menu.sfx_volume)
 
+        self._check_punch_noise()
+
         self.check_map_transitions()
 
         alerted = self.alert_level > 0
@@ -711,6 +727,97 @@ class Game:
         if self.player.health <= 0:
             self.trigger_death_sequence()
             return
+
+    def emit_noise(self, pos, radius):
+        for e in self.enemies_group:
+            e.hear_noise(pos, radius, self.pathfinding_grid)
+
+    def _check_punch_noise(self):
+        """Ruido solo en el primer frame del golpe, y solo si pega contra un sólido."""
+        p = self.player
+        if p.is_punching and not self._was_punching:
+            r, d = p.rect, self.PUNCH_REACH
+            probe = {
+                "UP": r.move(0, -d), "DOWN": r.move(0, d),
+                "LEFT": r.move(-d, 0), "RIGHT": r.move(d, 0),
+            }[p.facing]
+            if probe.collidelist(self.walls) != -1:
+                self.emit_noise(p.rect.center, self.NOISE_PUNCH_RADIUS)
+        self._was_punching = p.is_punching
+
+    def _call_allies(self):
+        """El guardia que te ve avisa a los cercanos: van a donde te vieron."""
+        for spotter in [e for e in self.enemies_group if e.sees_player]:
+            for other in self.enemies_group:
+                if other is not spotter:
+                    other.hear_noise(self.player.rect.center, self.ALLY_CALL_RADIUS,
+                                    self.pathfinding_grid, origin=spotter.rect.center,
+                                    gesture=False)
+
+    def _build_radar_map(self):
+        s = self.RADAR_SCALE
+        self.radar_map = pygame.Surface((max(1, int(self.map.width * s)),
+                                         max(1, int(self.map.height * s))))
+        self.radar_map.fill((0, 25, 0))
+        for r in self.walls:
+            pygame.draw.rect(self.radar_map, (0, 150, 0),
+                             (int(r.x * s), int(r.y * s),
+                              max(1, int(r.w * s)), max(1, int(r.h * s))))
+
+    def cleanup(self):
+        """Llamar siempre que se abandone el nivel (ESC, menú, salir)."""
+        self._reset_alert()
+        pygame.mixer.music.stop()   # por si quedó sonando algo del nivel
+
+    def _draw_radar(self, surface):
+        if not getattr(self, "radar_map", None):
+            return
+        s = self.RADAR_SCALE
+        mw, mh = self.radar_map.get_size()
+
+        # Si el mapa es más chico que el radar, el radar se achica a su tamaño.
+        W = min(self.RADAR_W, mw)
+        H = min(self.RADAR_H, mh)
+
+        # Esquina superior izquierda de la ventana, limitada a los bordes del mapa.
+        px, py = self.player.rect.center
+        vx = max(0, min(int(px * s) - W // 2, mw - W))
+        vy = max(0, min(int(py * s) - H // 2, mh - H))
+
+        radar = pygame.Surface((W, H))
+        radar.blit(self.radar_map, (-vx, -vy))
+
+        # Conos de visión (misma geometría que Enemy.draw_vision), con transparencia.
+        cones = pygame.Surface((W, H), pygame.SRCALPHA)
+        for e in self.enemies_group:
+            dir_x, dir_y = e.DIRS[e._vision_facing()]
+            perp_x, perp_y = -dir_y, dir_x
+            sx, sy = e.rect.center
+            rng, w = e.VISION_RANGE, e.CONE_TAN
+            world_pts = [
+                (sx, sy),
+                (sx + (dir_x - perp_x * w) * rng, sy + (dir_y - perp_y * w) * rng),
+                (sx + (dir_x + perp_x * w) * rng, sy + (dir_y + perp_y * w) * rng),
+            ]
+            pts = [(x * s - vx, y * s - vy) for x, y in world_pts]
+            color = (255, 0, 0, 90) if e.state in self.ALERTED_STATES else (0, 255, 0, 90)
+            pygame.draw.polygon(cones, color, pts)
+        radar.blit(cones, (0, 0))
+
+        # Guardias
+        for e in self.enemies_group:
+            ex, ey = e.rect.center
+            x, y = int(ex * s) - vx, int(ey * s) - vy
+            if 0 <= x < W and 0 <= y < H:
+                color = (255, 40, 40) if e.state in self.ALERTED_STATES else (255, 200, 0)
+                pygame.draw.rect(radar, color, (x - 1, y - 1, 3, 3))
+
+        # Jugador
+        x, y = int(px * s) - vx, int(py * s) - vy
+        pygame.draw.rect(radar, (255, 255, 255), (x - 1, y - 1, 3, 3))
+
+        pygame.draw.rect(radar, (0, 200, 0), radar.get_rect(), 1)
+        surface.blit(radar, (surface.get_width() - W - self.RADAR_MARGIN, self.RADAR_MARGIN))
 
     def draw(self, surface):
         self.virtual_surface.fill((0, 0, 0))
@@ -930,8 +1037,8 @@ class Game:
         for bullet in self.bullets_group:
             bullet.draw_with_camera(self.virtual_surface, self.camera)
 
-        for enemy in self.enemies_group:
-            enemy.draw_vision(self.virtual_surface, self.camera)
+        # for enemy in self.enemies_group:
+        #     enemy.draw_vision(self.virtual_surface, self.camera)
         
         if self.map:
             self.map.render_roofs(
@@ -960,6 +1067,7 @@ class Game:
             self.inventory_menu.draw(surface, self.player, self.health_bar)
 
         self._draw_alert(surface)
+        self._draw_radar(surface)
 
         # RENDERIZAR PAUSA ENCIMA DE TODO SI ESTÁ ACTIVA
         if self.is_paused:

@@ -64,6 +64,12 @@ class Enemy(pygame.sprite.Sprite):
     ARRIVE_DIST = 4      # llegó si está a esta distancia (px) del destino
     FINISH_DIST = 16     # o si terminó su ruta y está a esta distancia (px)
 
+    SEPARATION = 28        # px mínimos entre guardias que van al mismo lugar
+    ALLY_WAIT_MAX = 1.2    # s máx. esperando a un compañero antes de seguir igual
+
+    NOISE_REACT_TIME = 0.9                          # segundos con el ícono antes de ir a investigar
+    SOUND_ICON_PATH = "assets/sprites/alerts/sound.png"
+    _sound_icon = None
     _alert_icon = None  
 
     def __init__(self, x, y, patrol_points, start_delay=0.0):
@@ -108,6 +114,8 @@ class Enemy(pygame.sprite.Sprite):
         self.last_known_pos = None   # ( x, y ) de la última vez que vio a Solid Python.
         self.path = []               # lista de ( x, y ) en píxeles ( Centros de celda. ).
         self.path_finished = False   # True si ya recorrió completa la última ruta calculada.
+        self.others = []          # Todos los guardias del nivel
+        self.ally_wait = 0.0
 
         self.current_walls = []
 
@@ -211,6 +219,8 @@ class Enemy(pygame.sprite.Sprite):
             moving = self._search(dt, grid)
         elif self.state == "RETURN":
             moving = self._return(dt, grid)
+        elif self.state == "NOISE":
+            self._heard(dt)
 
         self.is_moving = moving
 
@@ -374,7 +384,7 @@ class Enemy(pygame.sprite.Sprite):
         else:
             self.state_timer += dt
             if self.search_target is None and self.last_known_pos:
-                self.search_target = self._reachable_target(grid, *self.last_known_pos)
+                self.search_target = self._spread_target(grid, self._reachable_target(grid, *self.last_known_pos))
             tx, ty = self.search_target or player.rect.center
             moved, arrived = self._go_to(dt, grid, tx, ty, self.SEARCH_SPEED, self.ARRIVE_DIST, self.FINISH_DIST)
             if self.path_fail_count >= 3:
@@ -391,7 +401,7 @@ class Enemy(pygame.sprite.Sprite):
             return False
 
         if self.search_target is None:
-            self.search_target = self._reachable_target(grid, *self.last_known_pos)
+            self.search_target = self._spread_target(grid, self._reachable_target(grid, *self.last_known_pos))
         tx, ty = self.search_target
         moved, arrived = self._go_to(dt, grid, tx, ty, self.SEARCH_SPEED, self.ARRIVE_DIST, self.FINISH_DIST)
         if self.path_fail_count >= 3:
@@ -510,6 +520,13 @@ class Enemy(pygame.sprite.Sprite):
                 mx, my = math.copysign(min(step, abs(dx)), dx), 0.0
             else:
                 mx, my = 0.0, math.copysign(min(step, abs(dy)), dy)
+
+            if self._blocked_by_ally(mx, my):
+                self.ally_wait += dt
+                if self.ally_wait < self.ALLY_WAIT_MAX:
+                    return False              # espera a que el de adelante avance
+            else:
+                self.ally_wait = 0.0
 
             self._face_vector(mx, my)
             before = self.rect.center
@@ -686,6 +703,134 @@ class Enemy(pygame.sprite.Sprite):
             return (g[0] * ts + ts / 2, g[1] * ts + ts / 2)
         return (tx, ty)
 
+    def _strict_target(self, grid, tx, ty, max_path):
+        """Punto alcanzable cerca de (tx, ty), o None. NO usa el 'más cercano en toda la región':
+        si la fuente está en un hueco inaccesible, se ignora."""
+        if grid is None:
+            return (tx, ty)
+        ts = self.GRID_TILE
+        fx, fy = self._fcenter()
+        own = (int(fx // ts), int(fy // ts))
+        starts = self._cells_near(grid, own[0], own[1], fx, fy, max(2, 24 // ts), 4)
+        goals = self._cells_near(grid, int(tx // ts), int(ty // ts), tx, ty, max(2, 16 // ts), 6)
+        for s in starts:
+            for g in goals:
+                if grid.region[s[1]][s[0]] != grid.region[g[1]][g[0]]:
+                    continue
+                pts = self._astar(grid, s, g, own)
+                if pts is not None and len(pts) * ts <= max_path:
+                    return (g[0] * ts + ts / 2, g[1] * ts + ts / 2)
+        return None
+
+    def hear_noise(self, pos, radius, grid, origin=None):
+        """pos: a dónde ir. origin: desde dónde se mide el radio (por defecto, pos).
+        Devuelve True si decidió ir a investigar."""
+        if self.start_delay > 0 or self.state in ("ALERT", "CHASE"):
+            return False                      # ya está en lo suyo
+
+        ox, oy = origin if origin else pos
+        fx, fy = self._fcenter()
+        if math.hypot(ox - fx, oy - fy) > radius:
+            return False
+
+        target = self._strict_target(grid, pos[0], pos[1], max_path=radius * 2.5)
+        if target is None:
+            return False                      # inalcanzable o camino demasiado largo
+
+        self.last_known_pos = target
+        self.search_target = target
+        self._set_state("SEARCH")             # no borra search_target
+        self._face_towards(*target)
+        return True
+
+    def _heard(self, dt):
+        """Gesto de "escuché algo": se queda quieto mirando hacia la fuente y luego investiga."""
+        if self.search_target:
+            self._face_towards(*self.search_target)
+        self.state_timer += dt
+        if self.state_timer >= self.NOISE_REACT_TIME:
+            self._set_state("SEARCH")   # _set_state no borra search_target
+
+    def _taken_targets(self):
+        """Destinos que otros guardias ya están usando."""
+        return [o.search_target for o in self.others
+                if o is not self and o.search_target
+                and o.state in ("NOISE", "SEARCH", "CHASE")]
+
+    def _spread_target(self, grid, target):
+        """Si otro guardia ya va a ese punto, busca una celda libre cercana en la misma región."""
+        if grid is None or target is None:
+            return target
+        taken = self._taken_targets()
+        sep2 = self.SEPARATION ** 2
+
+        def free(p):
+            return all((p[0] - t[0]) ** 2 + (p[1] - t[1]) ** 2 >= sep2 for t in taken)
+
+        if free(target):
+            return target
+
+        ts = self.GRID_TILE
+        cx, cy = int(target[0] // ts), int(target[1] // ts)
+        if not grid.inside(cx, cy):
+            return target
+        rid = grid.region[cy][cx]
+        radius = int(self.SEPARATION * 3 // ts) + 1
+
+        best, best_d = None, None
+        for oy in range(-radius, radius + 1):
+            for ox in range(-radius, radius + 1):
+                x, y = cx + ox, cy + oy
+                if not grid.inside(x, y) or not grid.walkable(x, y):
+                    continue
+                if grid.region[y][x] != rid:
+                    continue
+                p = (x * ts + ts / 2, y * ts + ts / 2)
+                if not free(p):
+                    continue
+                d = (p[0] - target[0]) ** 2 + (p[1] - target[1]) ** 2
+                if best is None or d < best_d:
+                    best, best_d = p, d
+        return best or target
+
+    def _blocked_by_ally(self, mx, my):
+        """True si hay un compañero justo adelante y a este le toca ceder el paso."""
+        fx, fy = self._fcenter()
+        for o in self.others:
+            if o is self or o.start_delay > 0:
+                continue
+            ox, oy = o._fcenter()
+            dx, dy = ox - fx, oy - fy
+            if math.hypot(dx, dy) >= self.SEPARATION:
+                continue
+            if dx * mx + dy * my <= 0:        # no está adelante
+                continue
+            if id(self) > id(o):              # prioridad fija: solo uno cede
+                return True
+        return False
+
+    def hear_noise(self, pos, radius, grid, origin=None, gesture=True):
+        """gesture=True: hace la pausa con el ícono. gesture=False: va directo a investigar."""
+        if self.start_delay > 0 or self.state in ("ALERT", "CHASE", "NOISE"):
+            return False
+
+        ox, oy = origin if origin else pos
+        fx, fy = self._fcenter()
+        if math.hypot(ox - fx, oy - fy) > radius:
+            return False
+
+        target = self._strict_target(grid, pos[0], pos[1], max_path=radius * 2.5)
+        if target is None:
+            return False
+
+        target = self._spread_target(grid, target)
+
+        self.last_known_pos = target
+        self.search_target = target
+        self._set_state("NOISE" if gesture else "SEARCH")
+        self._face_towards(*target)
+        return True
+
     # DIBUJO
     @classmethod
     def _get_alert_icon(cls):
@@ -700,31 +845,44 @@ class Enemy(pygame.sprite.Sprite):
                 cls._alert_icon = pygame.Surface((1, 1), pygame.SRCALPHA)
         return cls._alert_icon
 
-    def draw_vision(self, surface, camera):
-        dir_x, dir_y = self.DIRS[self._vision_facing()]
-        start_x, start_y = self._eye_pos()
-        perp_x, perp_y = -dir_y, dir_x
+    @classmethod
+    def _get_sound_icon(cls):
+        if cls._sound_icon is None:
+            try:
+                img = pygame.image.load(cls.SOUND_ICON_PATH).convert_alpha()
+                s = cls.ALERT_ICON_SCALE
+                cls._sound_icon = pygame.transform.scale(
+                    img, (int(img.get_width() * s), int(img.get_height() * s))
+                )
+            except Exception:
+                cls._sound_icon = pygame.Surface((1, 1), pygame.SRCALPHA)
+        return cls._sound_icon
 
-        rng = self.VISION_RANGE
-        w = self.CONE_TAN
-        left = (start_x + (dir_x - perp_x * w) * rng, start_y + (dir_y - perp_y * w) * rng)
-        right = (start_x + (dir_x + perp_x * w) * rng, start_y + (dir_y + perp_y * w) * rng)
+    # def draw_vision(self, surface, camera):
+    #     dir_x, dir_y = self.DIRS[self._vision_facing()]
+    #     start_x, start_y = self._eye_pos()
+    #     perp_x, perp_y = -dir_y, dir_x
 
-        ox, oy = camera.camera_rect.x, camera.camera_rect.y
-        points = [(start_x + ox, start_y + oy), (left[0] + ox, left[1] + oy), (right[0] + ox, right[1] + oy)]
+    #     rng = self.VISION_RANGE
+    #     w = self.CONE_TAN
+    #     left = (start_x + (dir_x - perp_x * w) * rng, start_y + (dir_y - perp_y * w) * rng)
+    #     right = (start_x + (dir_x + perp_x * w) * rng, start_y + (dir_y + perp_y * w) * rng)
 
-        alerted = self.state in ("ALERT", "CHASE")
-        color = (255, 0, 0, 100) if alerted else (0, 255, 0, 100)
+    #     ox, oy = camera.camera_rect.x, camera.camera_rect.y
+    #     points = [(start_x + ox, start_y + oy), (left[0] + ox, left[1] + oy), (right[0] + ox, right[1] + oy)]
 
-        vision_surface = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
-        pygame.draw.polygon(vision_surface, color, points)
-        surface.blit(vision_surface, (0, 0))
+    #     alerted = self.state in ("ALERT", "CHASE")
+    #     color = (255, 0, 0, 100) if alerted else (0, 255, 0, 100)
 
-        if self.DEBUG_AI and self.path:
-            fx, fy = self._fcenter()
-            line = [(fx + ox, fy + oy)] + [(px + ox, py + oy) for px, py in self.path]
-            if len(line) > 1:
-                pygame.draw.lines(surface, (255, 255, 0), False, line, 1)
+    #     vision_surface = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+    #     pygame.draw.polygon(vision_surface, color, points)
+    #     surface.blit(vision_surface, (0, 0))
+
+    #     if self.DEBUG_AI and self.path:
+    #         fx, fy = self._fcenter()
+    #         line = [(fx + ox, fy + oy)] + [(px + ox, py + oy) for px, py in self.path]
+    #         if len(line) > 1:
+    #             pygame.draw.lines(surface, (255, 255, 0), False, line, 1)
 
     def draw_with_camera(self, surface, camera):
         if self.state == "LOOKING":
@@ -745,6 +903,10 @@ class Enemy(pygame.sprite.Sprite):
 
         if self.state == "ALERT":
             icon = self._get_alert_icon()
+            surface.blit(icon, (dest_rect.centerx - icon.get_width() // 2,
+                                draw_y - icon.get_height() - 2))
+        if self.state == "NOISE":
+            icon = self._get_sound_icon()
             surface.blit(icon, (dest_rect.centerx - icon.get_width() // 2,
                                 draw_y - icon.get_height() - 2))
 
