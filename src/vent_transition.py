@@ -24,7 +24,7 @@ class VentTransition:
 
     CRAWL_MAX = 1.2   # segundos máximos arrastrándose (evita que se trabe)
 
-    def __init__(self, screen_size, debug=False):
+    def __init__(self, screen_size, debug=True):
         self.debug = debug
         self.state = "idle"   # idle, go_prone, crawl, fade_out, fade_in
         self.timer = 0.0

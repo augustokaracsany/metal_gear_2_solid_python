@@ -268,12 +268,12 @@
     <property name="target_map" value="assets/sprites/maps/truck_interior_2.tmx"/>
    </properties>
   </object>
-  <object id="148" name="vent_trigger" x="488" y="56" width="16" height="8">
+  <object id="148" name="vent_trigger" x="488" y="0" width="16" height="8">
    <properties>
     <property name="prone" type="bool" value="true"/>
-    <property name="spawn_x" type="int" value="222"/>
-    <property name="spawn_y" type="int" value="160"/>
-    <property name="target_map" value="assets/sprites/maps/vents-304x192.tmx"/>
+    <property name="spawn_x" type="int" value="500"/>
+    <property name="spawn_y" type="int" value="180"/>
+    <property name="target_map" value="assets/sprites/maps/vents-576x192.tmx"/>
    </properties>
   </object>
  </objectgroup>

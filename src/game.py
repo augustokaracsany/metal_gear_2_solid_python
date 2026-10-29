@@ -1095,10 +1095,11 @@ class Game:
         scaled_surface = pygame.transform.scale(self.virtual_surface, (surface.get_width(), surface.get_height()))
         surface.blit(scaled_surface, (0, 0))
 
-        self.health_bar.draw(surface, self.player)
-        self._draw_alert(surface)
-        self._draw_radar(surface)
-        self.item_message.draw(surface)
+        if self.state == "PLAYING":
+            self.health_bar.draw(surface, self.player)
+            self._draw_alert(surface)
+            self._draw_radar(surface)
+            self.item_message.draw(surface)
 
         # DIBUJAR HUD DE INVENTARIO SOBRE LA PANTALLA PRINCIPAL
         self.hud_inventory.draw(surface, self.player)
