@@ -107,6 +107,28 @@ class TiledMap:
                             ))
         return rects
 
+    def load_codec_zones(self, layer_name="codec_trigger"):
+        codec_zones = []
+        for layer in self.tmx_data.layers:   # .layers incluye capas ocultas
+            if layer.name != layer_name or not isinstance(layer, pytmx.TiledObjectGroup):
+                continue
+            layer_props = dict(layer.properties) if layer.properties else {}
+            for obj in layer:
+                props = dict(layer_props)
+                if getattr(obj, "properties", None):
+                    props.update(obj.properties)
+                call_id = props.get("call_id") or getattr(obj, "call_id", None) or "default"
+                codec_zones.append({
+                    "rect": pygame.Rect(
+                        int(obj.x * self.scale),
+                        int(obj.y * self.scale),
+                        int(obj.width * self.scale),
+                        int(obj.height * self.scale),
+                    ),
+                    "call_id": call_id,
+                })
+        return codec_zones
+
     def get_spawn_point(self, name="player_spawn", default=(400, 350)):
         """Busca un objeto en el mapa de Tiled por su nombre y devuelve sus coordenadas escaladas."""
         for obj in self.tmx_data.objects:
@@ -117,9 +139,7 @@ class TiledMap:
     def get_patrol_path(self, layer_name="enemy_patrols"):
         patrol_paths = []
 
-
-
-# PATRULLA ENEMIGO. RUTA.
+        # PATRULLA ENEMIGO. RUTA.
         for layer in self.tmx_data.visible_layers:
             if layer.name == layer_name:
                 for obj in layer:

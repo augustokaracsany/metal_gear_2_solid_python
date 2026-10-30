@@ -98,10 +98,7 @@ class CodecManager:
 
         # 2. Controlar la transición de Fade Out al terminar la llamada
         if self.is_fading:
-            if self.has_skipped:
-                self.fade_duration = 500
-            else:
-                self.fade_duration = 2000
+            self.fade_duration = 500
             elapsed_fade = tiempo_actual - self.fade_start_time
             progress = min(1.0, elapsed_fade / self.fade_duration)
             self.fade_alpha = int(progress * 255)
@@ -189,12 +186,50 @@ class CodecManager:
                             self.fade_start_time = pygame.time.get_ticks()
         return False
 
+    def wrap_text(self, text, font, max_width):
+        """
+        Toma un texto (puede contener \n) y lo divide en una lista de strings 
+        de modo que ninguna línea supere el max_width en píxeles.
+        """
+        lines = []
+        # Primero separamos por los saltos de línea explícitos que ya tengas en el JSON
+        explicit_paragraphs = text.split('\n')
+        
+        for paragraph in explicit_paragraphs:
+            if not paragraph.strip():
+                lines.append("")  # Línea en blanco si hay un salto doble
+                continue
+                
+            words = paragraph.split(' ')
+            current_line = ""
+            
+            for word in words:
+                # Probamos cómo queda la línea actual agregando la siguiente palabra
+                test_line = current_line + (" " if current_line else "") + word
+                # Medimos el ancho en píxeles con la fuente de Pygame
+                width, _ = font.size(test_line)
+                
+                if width <= max_width:
+                    current_line = test_line
+                else:
+                    # Si se pasa del ancho, guardamos la línea actual y empezamos una nueva
+                    if current_line:
+                        lines.append(current_line)
+                    current_line = word
+                    
+            if current_line:
+                lines.append(current_line)
+                
+        return lines
+
     def draw(self, surface):
         if not self.active and not self.is_fading:
             return
 
         w = surface.get_width()
         h = surface.get_height()
+
+        surface.fill((0, 0, 0))
 
         # 1. Dibujar imagen del códec
         if hasattr(self, "current_image") and self.current_image:
@@ -211,12 +246,26 @@ class CodecManager:
         inner_rect = pygame.Rect(box_x + 3, box_y + 3, box_width - 6, box_height - 6)
         pygame.draw.rect(surface, (0, 0, 204), inner_rect)  
 
-        # 3. Renderizar Nombre y Texto con espaciado personalizado
+        # 3. Renderizar Nombre
         name_surf = self.font.render(f"{self.character_name}:", True, (255, 255, 100))
-        surface.blit(name_surf, (box_x + 25, box_y + 18))
+        surface.blit(name_surf, (box_x + 25, box_y + 12))
 
-        text_surf = self.font.render(self.displayed_text, True, (255, 255, 255))
-        surface.blit(text_surf, (box_x + 25, box_y + 50))
+        # --- CAMBIO AQUÍ: Renderizar texto con saltos de línea automáticos y manuales ---
+        # Ancho máximo disponible dentro de la caja (restando márgenes izquierdo y derecho)
+        max_text_width = box_width - 50 
+        
+        # Obtenemos la lista de líneas procesadas (respeta \n y corta si se pasa del ancho)
+        lineas_procesadas = self.wrap_text(self.displayed_text, self.font, max_text_width)
+
+        # Dibujamos cada línea renglón por renglón con su respectivo interlineado
+        y_offset = box_y + 42  # Posición inicial Y para el primer renglón del texto
+        line_spacing = 4       # Espacio extra entre líneas
+
+        for linea in lineas_procesadas:
+            text_surf = self.font.render(linea, True, (255, 255, 255))
+            surface.blit(text_surf, (box_x + 25, y_offset))
+            # Avanzamos el offset vertical según el alto de la fuente + espaciado
+            y_offset += self.font.get_linesize() + line_spacing
 
         # 1. Texto parpadeante "Enter" abajo del bloque azul
         if self.show_enter_prompt and self.is_text_finished and not self.is_fading:

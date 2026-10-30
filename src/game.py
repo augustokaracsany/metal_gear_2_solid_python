@@ -9,6 +9,7 @@ from src.tilemap import TiledMap  # Mapas TMX
 from src.settings import SCREEN_WIDTH, SCREEN_HEIGHT
 from src.items import Item  
 from src.hud import HealthBar
+from src.codec import CodecManager
 from src.settings import ENEMY_CONTACT_DAMAGE
 from src.pause import PauseMenu
 from src.settings import PUNCH_DAMAGE, PUNCH_HIT_PADDING, PUNCH_STUN_TIME
@@ -61,6 +62,10 @@ class Game:
         # Puedes cambiar la posición a: 'bottom-right', 'bottom-left', 'top-right' o 'top-left'
         self.hud_inventory = HUDInventory(position="bottom-right")
 
+        # --- CODEC ---
+
+        self.codec_manager = CodecManager()
+
         # --- MÚSICA DE FONDO (solo misión 1: Entry Point) ---
         self.start_level_music()
         
@@ -102,6 +107,7 @@ class Game:
         self.map_states = {}
         self.current_map_key = None
         self.current_route_count = 0
+        self.codec_zones = []
 
         self.alert_level = 0.0
         self.chase_music_active = False   # True si la música de persecución tomó el control
@@ -224,6 +230,7 @@ class Game:
             self.hidden_zones_bottom = self.map.get_hidden_zones_bottom() or []
             self.top_barriers = self.map.get_top_barriers("limites_top") or []
             self.walls = self.map.get_collision_rects()   # cacheadas una sola vez
+            self.codec_zones = self.map.load_codec_zones()
 
             self._build_radar_map()
 
@@ -317,6 +324,7 @@ class Game:
             self.walls = []
             self.pathfinding_grid = None
             self.radar_map = None
+            self.codec_zones = None
 
     def check_map_transitions(self):
         if not self.map:
@@ -564,6 +572,18 @@ class Game:
                         self.confirm_game_over_option()
                 continue
 
+            if self.state == "RADIO_MENU":
+                if event.type == pygame.KEYDOWN:
+                    if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                        self.execute_radio_call()
+                    elif event.key in (pygame.K_ESCAPE, pygame.K_TAB):
+                        self.state = "PLAYING"
+                continue
+
+            if self.state == "CODEC":
+                self.codec_manager.handle_input([event])
+                continue
+
             # Inventario: se abre con la tecla I y mientras está abierto el juego queda pausado.
             if self.inventory_open:
                 if self.inventory_menu.handle_input(event, self.player) == "CLOSE":
@@ -611,8 +631,40 @@ class Game:
                         self.player.heal(10)
                     elif event.key == pygame.K_SPACE:
                         self.player_shoot()
+                    elif event.key == pygame.K_TAB:
+                        self.state = "RADIO_MENU"
                 self.player.punch_self_event(event)
         return None
+
+    def trigger_contextual_codec(self):
+        # 1. Buscamos por defecto la llamada "default"
+        chosen_call_id = "default"
+        
+        # 2. Comprobamos si el rect del jugador colisiona con alguna zona de Tiled
+        for zone in self.codec_zones:
+            if self.player.rect.colliderect(zone["rect"]):
+                chosen_call_id = zone["call_id"]
+                break # Encontró una zona, nos quedamos con su ID
+                
+        # 3. Cambiamos al estado de Códec y le pasamos el ID correspondiente
+        self.state = "CODEC"
+        self.codec_manager.start_call(chosen_call_id)
+
+    def execute_radio_call(self):
+        # Por defecto, si no está en ninguna zona especial, llamamos al "default"
+        target_call_id = "default"
+        
+        # Comprobamos si el rect del jugador colisiona con alguna zona de Tiled
+        for zone in self.codec_zones:
+            if self.player.rect.colliderect(zone["rect"]):
+                target_call_id = zone["call_id"]
+                break # Encontró la zona, nos quedamos con ese ID y salimos del bucle
+                
+        # Cambiamos el estado del juego a CODEC
+        self.state = "CODEC"
+        
+        # Llamamos a tu método que ya tienes hecho pasándole el ID correspondiente
+        self.codec_manager.start_call(target_call_id)
 
     def player_shoot(self):
         if self.state != "PLAYING":
@@ -658,7 +710,7 @@ class Game:
             self.pending_action = None
             self.return_to_menu = True
 
-    def update(self, dt):
+    def update(self, dt, surface):
         if self.pending_action:
             self._update_exit_fade()
             return
@@ -668,7 +720,7 @@ class Game:
             if self.fade_alpha == 0:
                 self.fading_in = False
 
-        if self.is_paused or self.inventory_open:
+        if self.is_paused or self.inventory_open or self.state == "RADIO_MENU":
             return
 
         if self.state == "DYING":
@@ -689,6 +741,12 @@ class Game:
             return
 
         if self.state == "GAME_OVER" or self.state == "VICTORY":
+            return
+
+        if self.state == "CODEC":
+            self.codec_manager.update(dt)
+            if self.codec_manager.finished:
+                self.state = "PLAYING"
             return
 
         walls = self.walls
@@ -1116,3 +1174,35 @@ class Game:
             for enemy in self.enemies_group:
                 enemy.draw_regions_debug(self.virtual_surface, self.camera, self.pathfinding_grid)
                 break
+
+        if self.state == "RADIO_MENU":
+            w, h = surface.get_width(), surface.get_height()
+            
+            # Fondo negro semitransparente
+            overlay = pygame.Surface((w, h))
+            overlay.fill((0, 0, 0))
+            overlay.set_alpha(180)
+            surface.blit(overlay, (0, 0))
+
+            font_large = pygame.font.Font("assets/fonts/PixelOperator8-Bold.ttf", 28)
+            font_small = pygame.font.Font("assets/fonts/PixelOperator8.ttf", 16)
+            font_medium = pygame.font.Font("assets/fonts/PixelOperator8-bold.ttf", 16)
+
+            # Título "Codec" centrado arriba
+            title_surf = font_large.render("CODEC", True, (32, 179, 84))
+            title_rect = title_surf.get_rect(center=(w // 2, 80))
+            surface.blit(title_surf, title_rect)
+
+            # Opción de llamar al Cuartel General (resaltada)
+            option_text = "> Cuartel General (CQ) <"
+            opt_surf = font_medium.render(option_text, True, (38, 212, 99))
+            opt_rect = opt_surf.get_rect(center=(w // 2, h // 2))
+            surface.blit(opt_surf, opt_rect)
+
+            # Instrucción abajo
+            hint_surf = font_small.render("ENTER - Llamar | ESC - Salir", True, (180, 180, 180))
+            hint_rect = hint_surf.get_rect(center=(w // 2, h - 80))
+            surface.blit(hint_surf, hint_rect)
+
+        elif self.state == "CODEC":
+            self.codec_manager.draw(surface)

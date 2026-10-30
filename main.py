@@ -113,7 +113,7 @@ def main():
                     running = False
 
             if isinstance(current_state, Game): 
-                current_state.update(dt)
+                current_state.update(dt, screen)
 
         elif isinstance(current_state, PrologueState):
             current_state.handle_events(events)

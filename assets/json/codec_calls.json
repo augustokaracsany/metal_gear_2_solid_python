@@ -28,7 +28,7 @@
                 },
                 {
                     "habla": "Snake",
-                    "texto": "Un tanque esta siendo desarrollado acá \nque amenaza con tomar el control de todo un continente..."
+                    "texto": "Un tanque esta siendo desarrollado acá que amenaza con tomar el control de todo un continente..."
                 },
                 {
                     "habla": "Snake",
@@ -36,19 +36,19 @@
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Por eso necesitamos que te infiltres en el \nlaboratorio y sabotees el avance de este proyecto."
+                    "texto": "Por eso necesitamos que te infiltres en el laboratorio y sabotees el avance de este proyecto."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Quien esta detras de todo este plan y su proposito \nno es información del cual tengamos conocimiento."
+                    "texto": "Quien esta detras de todo este plan y su proposito no es información del cual tengamos conocimiento."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Puede ser por venganza, por ego, por recursos, territorio... \nen fin, muchas posibilidades."
+                    "texto": "Puede ser por venganza, por ego, por recursos, territorio... en fin, muchas posibilidades."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Lo que si ideamos es un plan a llevar a cabo \npara cumplir nuestro objetivo."
+                    "texto": "Lo que si ideamos es un plan a llevar a cabo para cumplir nuestro objetivo."
                 },
                 {
                     "habla": "Snake",
@@ -56,59 +56,59 @@
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "El plan consiste en una serie de pasos, debido a \nque no será posible cumplir con la misión..."
+                    "texto": "El plan consiste en una serie de pasos, debido a que no será posible cumplir con la misión..."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "de forma directa. Por lo que será necesario \nir por partes."
+                    "texto": "de forma directa. Por lo que será necesario ir por partes."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Tu primer objetivo va a ser relativamente sencillo. \nVeras, hay un gran ingeniero detras de toda esta... \nbueno... obra de la ingeniería."
+                    "texto": "Tu primer objetivo va a ser relativamente sencillo. Veras, hay un gran ingeniero detras de toda esta... bueno... obra de la ingeniería."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Estamos hablando del Ingeniero Modnar. Modnar es un \ningeniero electrónico con 35 años de experiencia."
+                    "texto": "Estamos hablando del Ingeniero Modnar. Modnar es un ingeniero electrónico con 35 años de experiencia."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Solía dedicarse a realizar encargos a empresas \nimportantes, no fue hasta 5 años atras que se especializo \nen maquinaria."
+                    "texto": "Solía dedicarse a realizar encargos a empresas importantes, no fue hasta 5 años atras que se especializo en maquinaria."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Dicha maquinaria contempla no solamente maquinas de \nautomatización industrial, sino también armas vendidas \nal ejercito."
+                    "texto": "Dicha maquinaria contempla no solamente maquinas de automatización industrial, sino también armas vendidas al ejercito."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Sin embargo, el ejercito dejó de comprar su maquinaria \ndebido a que frecuentemente encontraban problemas de \nseguridad en sus dispositivos."
+                    "texto": "Sin embargo, el ejercito dejó de comprar su maquinaria debido a que frecuentemente encontraban problemas de seguridad en sus dispositivos."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Esto hizo que su reputación cayese, y no iba a \nvolver a realizar encargos a empresas. Sería un \nreves para su situación económica."
+                    "texto": "Esto hizo que su reputación cayese, y no iba a volver a realizar encargos a empresas. Sería un reves para su situación económica."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Parece que un ejercito privado cuyo nombre \nclave es CAPM, notó la situación de Modnar, \ny lo reclutaron para este proyecto."
+                    "texto": "Parece que un ejercito privado cuyo nombre clave es CAPM, notó la situación de Modnar, y lo reclutaron para este proyecto."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Nada de esto esta totalmente clarificado, va a \nser tu misión conseguir información extra al respecto."
+                    "texto": "Nada de esto esta totalmente clarificado, va a ser tu misión conseguir información extra al respecto."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Dicha información podrían estar en documentos, o \nalgún guardia podría saber al respecto. \nPodrías interrogarlos si tenes tiempo."
+                    "texto": "Dicha información podrían estar en documentos, o algún guardia podría saber al respecto. Podrías interrogarlos si tenes tiempo."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Volviendo a la misión, extraer al Ingeniero Modnar \nes fundamental para frenar temporalmente el \ndesarrollo del Metal Gear."
+                    "texto": "Volviendo a la misión, extraer al Ingeniero Modnar es fundamental para frenar temporalmente el desarrollo del Metal Gear."
                 },
                 {
                     "habla": "Snake",
-                    "texto": "Entendido. Voy a necesitar una descripción \nfísica del Ingeniero Modnar."
+                    "texto": "Entendido. Voy a necesitar una descripción física del Ingeniero Modnar."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Tiene 55 años, pelo y barba blanca, calvicie \ntotal en la parte superior de su cabeza..."
+                    "texto": "Tiene 55 años, pelo y barba blanca, calvicie total en la parte superior de su cabeza..."
                 },
                 {
                     "habla": "Campbell",
@@ -116,15 +116,15 @@
                 },
                 {
                     "habla": "Snake",
-                    "texto": "Recibido. Esto me será de gran importancia. \n¿Qué sigue despues de esto?"
+                    "texto": "Recibido. Esto me será de gran importancia. ¿Qué sigue despues de esto?"
                 },
                 {
                     "habla": "Snake",
-                    "texto": "Es decir... extraigo a Modnar de forma exitosa, \n¿Cuál sería el siguiente objetivo?"
+                    "texto": "Es decir... extraigo a Modnar de forma exitosa, ¿Cuál sería el siguiente objetivo?"
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Creo que es mejor no adelantarnos. Enfocate en \ntu primer objetivo. Apenas termines, te diremos \ncual es el siguiente."
+                    "texto": "Creo que es mejor no adelantarnos. Enfocate en tu primer objetivo. Apenas termines, te diremos cual es el siguiente."
                 },
                 {
                     "habla": "Snake",
@@ -136,15 +136,15 @@
                 },
                 {
                     "habla": "Snake",
-                    "texto": "Detalles... Creo que sera hora de moverme, \nno hay tiempo que perder."
+                    "texto": "Detalles... Creo que sera hora de moverme, no hay tiempo que perder."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Espera, una cosa mas. Si necesitas información adicional, \npuedes llamar en cualquier momento al cuartel general..."
+                    "texto": "Espera, una cosa mas. Si necesitas información adicional, puedes llamar en cualquier momento al cuartel general..."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "es decir, a nosotros, para recibir información o consejos \npara tu misión."
+                    "texto": "es decir, a nosotros, para recibir información o consejos para tu misión."
                 },
                 {
                     "habla": "Campbell",
@@ -152,27 +152,77 @@
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Aparte de recordarte que es una misión de infiltración. \nEsto quiere decir que no podes ser visto bajo \nninguna circunstacia."
+                    "texto": "Aparte de recordarte que es una misión de infiltración. Esto quiere decir que no podes ser visto bajo ninguna circunstacia."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Utiliza lo que encuentres para esconderte o pasar \ndesapercibido."
+                    "texto": "Utiliza lo que encuentres para esconderte o pasar desapercibido."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Vas a encontrar varios enemigos patrullando en \nesa zona, puedes noquearlos o matarlos con \nun arma de fuego."
+                    "texto": "Vas a encontrar varios enemigos patrullando en esa zona, puedes noquearlos o matarlos con un arma de fuego."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Es tu elección. Recuerda que dichos \nsoldados tienen familia y estan ahi por obligación."
+                    "texto": "Es tu elección. Recuerda que dichos soldados tienen familia y estan ahi por obligación."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Para mas información sobre los controles, puedes \npresionar el botón de menú (ESC) y consultarlos."
+                    "texto": "Para mas información sobre los controles, puedes presionar el botón de menú (ESC) y consultarlos."
                 },
                 {
                     "habla": "Campbell",
                     "texto": "Suerte, Snake. El éxito de la misión depende de vos."
+                }
+            ]
+        },
+        "default": {
+            "frecuencia": "140.83",
+            "nombre_contacto": "Roy Campbell",
+            "codec_background": "assets/codec/codec1.png",
+            "dialogo": [
+                {
+                    "habla": "Campbell",
+                    "texto": "Snake, tu objetivo es frenar el avance del \nMetal Gear DOW. Para eso, vas a tener que extraer \nal Ingeniero Modnar."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Ten mucho cuidado, el lugar esta altamente \ncustodiado. Tendras que ser sigiloso."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Si te descubren, no vamos a poder enviar refuerzos."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "Entendido, coronel."
+                }
+            ]
+        },
+        "enemy_call": {
+            "frecuencia": "140.83",
+            "nombre_contacto": "Roy Campbell",
+            "codec_background": "assets/codec/codec1.png",
+            "dialogo": [
+                {
+                    "habla": "Campbell",
+                    "texto": "Un soldado enemigo. Son obligados a patrullar una \nzona específica. Procura que no te vean."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Hay varias formas para lograr esto: podrias ingeniartelas \npara pasar sin que te vean..."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "o generar una distracción, como un ruido, para que \nvayan a revisar y vos poder continuar."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Tambien podrías noquearlo usando técnicas de CQC o \nusar armas letales para que no obstruyan el camino."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Eso depende de vos."
                 }
             ]
         }
