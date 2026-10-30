@@ -14,6 +14,7 @@ from src.pause import PauseMenu
 from src.settings import PUNCH_DAMAGE, PUNCH_HIT_PADDING, PUNCH_STUN_TIME
 from src.inventory import InventoryMenu
 from src.item_message import ItemMessage
+from src.rain import Rain
 
 class Game:
     ALERT_MAX = 99
@@ -108,6 +109,8 @@ class Game:
         self.virtual_height = SCREEN_HEIGHT // 2
         self.virtual_surface = pygame.Surface((self.virtual_width, self.virtual_height))
 
+        self.rain = Rain(self.virtual_width, self.virtual_height)
+
         if self.map:
             map_width = self.map.width
             map_height = self.map.height
@@ -188,6 +191,9 @@ class Game:
                 self.raw_map = pygame.Surface((576, 768))
             self.map_scale = 2 
             self.map_image = pygame.transform.scale(self.raw_map, (self.raw_map.get_width() * self.map_scale, self.raw_map.get_height() * self.map_scale))
+
+        # La lluvia solo se activa en el mapa exterior de la misión 1 (no en el camión).
+        self.rain_active = (os.path.normpath(tmx_path) == os.path.normpath(self.levels_data[1]["tmx"]))
 
         self.current_map_key = tmx_path
         self.enemies_group.empty()
@@ -638,6 +644,9 @@ class Game:
 
         walls = self.walls
 
+        if self.rain_active:
+            self.rain.update(dt)
+
         self.player.update(
             dt,
             walls,
@@ -925,6 +934,9 @@ class Game:
                 self.camera,
                 render_condition=self.player.is_hidden or self.player.is_near_hidden_zone(margin=15),
             )
+
+        if self.rain_active:
+            self.rain.draw(self.virtual_surface)
 
         if self.state == "DYING" or self.fading_in:
             fade_surface = pygame.Surface((self.virtual_surface.get_width(), self.virtual_surface.get_height()))
