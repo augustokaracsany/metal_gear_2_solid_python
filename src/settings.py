@@ -74,3 +74,14 @@ PUNCH_STUN_TIME = 1.5   # Segundos que el enemigo queda quieto después de recib
 # Sonido del golpe.
 PUNCH_SOUND_PATH = "assets/audio/sfx/punch.wav"   # CAMBIAR si el archivo tiene otro nombre o extensión.
 PUNCH_SOUND_VOLUME = 0.5                          # De 0.0 (mudo) a 1.0 (volumen máximo).
+
+# Lluvia (misión 1).
+RAIN_DROPS = 170                  # Cantidad de gotas en pantalla.
+RAIN_SPEED_MIN = 280              # Velocidad de caída (px/seg en la pantalla virtual).
+RAIN_SPEED_MAX = 420
+RAIN_LENGTH_MIN = 4               # Largo de cada gota.
+RAIN_LENGTH_MAX = 9
+RAIN_WIND = -70                   # Inclinación: negativo = cae hacia la izquierda, positivo = derecha, 0 = vertical.
+RAIN_COLOR = (140, 175, 235)
+RAIN_TINT_COLOR = (25, 55, 110)    # Color del velo oscuro que da clima de tormenta.
+RAIN_TINT_ALPHA = 55              # Intensidad del velo (0 = sin velo, 100 = muy oscuro).
