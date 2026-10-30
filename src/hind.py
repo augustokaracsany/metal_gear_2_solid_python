@@ -1,14 +1,14 @@
 """
 src/hind.py  --  Jefe HIND-D
 
-  * HindD          -> el helicóptero (su sprite de combate ya es una sombra en el suelo).
-  * BossHealthBar  -> barra de vida del jefe.
+  * HindD: El helicóptero
+  * BossHealthBar: Barra de vida del jefe.
 
 Ciclo:
-  [TAKEOFF: cinemática de despegue, opcional]
-  ENTER -> ORBIT (ventana donde se le puede pegar) -> WARN (se frena y marca la franja)
-        -> PASS (pasada con ráfaga de impactos POR DELANTE del Hind)
-        -> [GAP -> WARN -> PASS ...]  -> ENTER (vuelve a la órbita) -> ...
+    TAKEOFF: cinemática de despegue, opcional ( Salteable con ESPACIO. )
+    ENTER pasa a ORBIT ( La ventana donde se le puede pegar. ) pasa a WARN ( Se frena y marca la franja 
+    en la que va a disparar. ) pasa a PASS ( La Pasada en sí, con ráfaga de impactos POR DELANTE del Hind. )
+    GAP -> WARN -> PASS ... -> ENTER ( Vuelve a la órbita. ) -> ...
 """
 import math
 import os
@@ -17,50 +17,73 @@ import random
 import pygame
 
 from src.hud import draw_text_shadow
-from src.settings import COLOR_TEXT, COLOR_HEALTH_SHADOW
-
-# =============================================================== AJUSTES
-HIND_DEBUG = False            # Dibuja el círculo de órbita y el estado.
-HIND_NAME = "HIND-D"
-HIND_MAX_HEALTH = 180        # 18 impactos de 10.
-HIT_DAMAGE = 10
-
-# =============================================================== DEBUG (nuevo)
-# Cada opción se puede cambiar acá o en pleno juego (ver teclas en game.py):
-#   F3 -> strip_box       F4 -> impact_hitbox     F5 -> hind_hitbox
-#   F6 -> HIND_DEBUG (órbita + estado)            F7 -> sprite_rect / player_hitbox
-DEBUG = dict(
-    strip_box=True,         # Caja roja de la franja de muerte (donde caen los tiros) + ruta tenue.
-                            # True = como estaba antes. False = la franja no se dibuja.
-    impact_hitbox=False,    # Hitbox real de cada impacto (cuadrado amarillo).
-    hind_hitbox=False,      # self.rect del Hind (cuadrado verde, 96x96).
-    sprite_rect=False,      # Rectángulo real del sprite que se está dibujando (magenta).
-    player_hitbox=False,    # Hitbox de Snake contra la que se chequean los impactos (celeste).
+from src.settings import (
+    COLOR_TEXT, COLOR_HEALTH_SHADOW,
+    HEALTH_BAR_X, HEALTH_BAR_Y, HEALTH_BAR_WIDTH, HEALTH_BAR_HEIGHT,
+    HEALTH_LABEL_SIZE, HEALTH_NUMBER_SIZE, HEALTH_NUMBER_GAP,
+    HEALTH_NUMBER_RESERVED, HEALTH_TICKS,
+    COLOR_HEALTH_FILL, COLOR_HEALTH_HIGHLIGHT, COLOR_HEALTH_LOW, COLOR_HEALTH_LINE,
 )
 
-# =============================================================== AUDIO (nuevo)
+# AJUSTES
+HIND_DEBUG = False # Dibuja el círculo de órbita y el estado.
+HIND_NAME = "HIND-D"
+HIND_MAX_HEALTH = 180 # 18 impactos de 10.
+HIT_DAMAGE = 10
+
+# Barra de vida del HIND-D.
+# PARA TEST Con 1360 px de pantalla, hasta ~580 de largo no pisa el número de la barra de Snake.
+BOSS_BAR_ANCHOR = "center" # "center" | "right" | "left".
+BOSS_BAR_OFFSET = (0, 0) # Desplazamiento extra ( x, y ) en px.
+BOSS_BAR_WIDTH = 560 # Largo de la barra.
+BOSS_BAR_HEIGHT = 24 # Grosor.
+BOSS_BAR_LABEL_SIZE = 36 # Tamaño del nombre / fase.
+BOSS_BAR_SHOW_NUMBER = True # Número grande a la derecha de la barra.
+BOSS_BAR_SHOW_PHASE = True # "FASE n" arriba, a la derecha de la barra.
+BOSS_BAR_TRAIL = True # Estela clara que baja con retraso al recibir daño.
+BOSS_BAR_TRAIL_COLOR = (255, 190, 170)
+BOSS_BAR_FILL = (200, 25, 25) # Rojo de la barra.
+BOSS_BAR_HIGHLIGHT = (245, 85, 75) # Brillo de la mitad de arriba.
+BOSS_BAR_EMPTY = (45, 10, 10) # Fondo de la parte vacía.
+BOSS_BAR_FRAME = (150, 25, 25) # Marco rojo oscuro.
+BOSS_BAR_LINE = (200, 70, 70) # Línea fina y marcas de abajo.
+
+# DEBUG:
+# F3 -> strip_box       
+# F4 -> impact_hitbox     
+# F5 -> hind_hitbox
+# F6 -> HIND_DEBUG (órbita + estado)            
+# F7 -> sprite_rect / player_hitbox
+DEBUG = dict(
+    strip_box=True, # Caja roja de la franja de muerte ( Donde caen los tiros. ) + ruta tenue.
+    impact_hitbox=False, # Hitbox real de cada impacto ( Cuadrado amarillo. ).
+    hind_hitbox=False, # self.rect del Hind ( Cuadrado verde, 96x96. ).
+    sprite_rect=False, # Rectángulo real del sprite que se está dibujando ( Magenta. ).
+    player_hitbox=False, # Hitbox de Snake contra la que se chequean los impactos ( Celeste. ).
+)
+
+# AUDIO:
 # Todo el sonido del jefe se controla desde acá. Las rutas son relativas a AUDIO_DIR.
-#   file     : archivo (None o "" = silencio / no hace nada). Si el archivo no existe,
-#              avisa una vez por consola y sigue sin sonido.
-#   volume   : 0.0 a 1.0 (se multiplica por SFX_MASTER / MUSIC_MASTER).
-#   loop     : True = suena en bucle mientras dure la acción; False = una sola vez.
-#   fade_ms  : fundido al empezar / cortar (solo para loops de efectos).
+# file: archivo ( None o "" = silencio / no hace nada. ). Si el archivo no existe, avisa una vez por consola y sigue sin sonido.
+# volume: 0.0 a 1.0 ( Se multiplica por SFX_MASTER / MUSIC_MASTER. ).
+# loop: True = Suena en bucle mientras dure la acción; False = una sola vez.
+# fade_ms: Fundido al empezar / cortar ( Solo para loops de efectos. ).
 AUDIO_DIR = "assets/audio/hind-d"
 SFX_MASTER = 1.0
 MUSIC_MASTER = 1.0
-MUSIC_FADE_MS = 800          # Fundido de entrada al cambiar de música.
+MUSIC_FADE_MS = 800 # Fundido de entrada al cambiar de música.
 
 SFX = {
-    # Cinemática: hélices girando y ascenso (fases SPIN y RISE del despegue).
+    # Cinemática: Hélices girando y ascenso ( Fases SPIN y RISE del despegue. ).
     "takeoff": dict(file="helicopter-starting-exterior-01.wav", volume=4, loop=True,  fade_ms=200),
-    # VOLAR: viajando (ENTER, GAP y mientras hace la pasada).
+    # VOLAR: Viajando ( ENTER, GAP y mientras hace la pasada. ).
     "fly":     dict(file="helicopter-fly-over-01.wav",     volume=4, loop=True,  fade_ms=300),
-    # ORBITAR: dando vueltas alrededor de Snake (ventana donde se le puede pegar).
+    # ORBITAR: Dando vueltitas alrededor de Snake ( Ventana donde se le puede pegar con los Stinger. ).
     "orbit":   dict(file="helicopter-hovering-01.wav",   volume=4, loop=True,  fade_ms=300),
-    # DISPARAR: loop=True -> suena continuo mientras caen los tiros;
-    #           loop=False -> un sonido por cada tanda de impactos (FIRE_INTERVAL).
+    # DISPARAR: loop=True: Suena continuo mientras caen los tiros:
+    #           loop=False: Un sonido por cada tanda de impactos ( FIRE_INTERVAL ).
     "fire":    dict(file="cannon-30mm-hispano-suiza-loop.wav",    volume=1, loop=True,  fade_ms=50),
-    # Aviso: una vez al frenar y marcar la franja.
+    # Aviso: Una vez al frenar y marcar la franja.
     "warn":    dict(file="helicopter-fly-over-04.wav",    volume=0.8, loop=False),
     # Cuando Snake le pega al Hind.
     "hit":     dict(file="sfx/hind_hit.mp3",     volume=0.9, loop=False),
@@ -69,9 +92,9 @@ SFX = {
 }
 
 # Música de la misión del jefe. La maneja game.py según la etapa:
-#   level    -> el nivel antes de la cinemática (incluye esperar a pisar el trigger)
-#   cutscene -> durante la cinemática de despegue
-#   boss     -> durante la pelea
+# level: El nivel antes de la cinemática ( Incluye esperar a pisar el trigger. ).
+# cutscene: Durante la cinemática de despegue.
+# boss: Durante la pelea.
 # file=None deja lo que ya estuviera sonando sin tocarlo.
 MUSIC = {
     "level":    dict(file="music/mission3_infiltration.mp3", volume=0.6, loop=True),
@@ -80,97 +103,85 @@ MUSIC = {
 }
 
 SPRITE_DIR = "assets/sprites/hind-d"
-SPRITE_SCALE = 2             # Igual que Snake.
-SHOT_EXTRA_SCALE = 1       # Tamaño extra de los impactos.
-PROP_FRAME_MS = 50          # Hélices del sprite de combate (frame 1 <-> 2).
+SPRITE_SCALE = 2 # Igual que todo LO DEMAS.
+SHOT_EXTRA_SCALE = 1 # Tamaño extra de los impactos.
+PROP_FRAME_MS = 50 # Hélices del sprite de combate ( Frame 1 <-> 2 ).
 
-# --- Giro del sprite (nuevo) -------------------------------------------------
-# El sprite solo puede girar de a UNA dirección contigua por paso (45°), nunca saltea:
-# right > downright > down > downleft > left (aunque sea rápido).
-TURN_STEP_TIME = 0.10        # Segundos por cada paso de 45°. Menos = giro más rápido.
+# Giro del sprite: 
+# El sprite solo puede girar de a UNA dirección contigua por paso ( 45° ), nunca saltea:
+# right > downright > down > downleft > left ( Aunque sea rápido. ).
+TURN_STEP_TIME = 0.10 # Segundos por cada paso de 45°. Menos = Giro más rápido.
 
-# =========================== CINEMÁTICA DE DESPEGUE ===========================
-# Línea de tiempo (todo en segundos salvo que diga otra cosa):
-#
-#   Snake pisa trigger_cutscene
-#     -> CINE_START_DELAY    espera con la cámara todavía en Snake
-#     -> CINE_PAN_IN_TIME    la cámara viaja hasta la pista
-#     -> TAKEOFF_HOLD        Hind_D1 quieto
-#     -> TAKEOFF_SPIN        hélices girando (D2-D7) en el suelo
-#     -> ascenso (TAKEOFF_ACCEL / TAKEOFF_MAX_SPEED hasta TAKEOFF_RISE_DISTANCE)
-#     -> TAKEOFF_AFTER       la sombra sola en la pista
-#     -> CINE_PAN_OUT_TIME   la cámara vuelve a Snake y se libera el control
-#
-CINE_START_DELAY = 0.5
-CINE_PAN_IN_TIME = 1.2
-CINE_PAN_OUT_TIME = 1.0
-TAKEOFF_HOLD = 5
-TAKEOFF_SPIN = 10
+# LA CINEMÁTICA DE DESPEGUE 
+# Línea de tiempo ( Todo en segundos salvo que diga otra cosa. OJO ):
+
+#   Snake pisa trigger_cutscene:
+CINE_START_DELAY = 0.5 # CINE_START_DELAY: espera con la cámara todavía en Snake.
+CINE_PAN_IN_TIME = 1.2 # CINE_PAN_IN_TIME: La cámara viaja hasta la pista.
+CINE_PAN_OUT_TIME = 1.0 # CINE_PAN_OUT_TIME: La cámara vuelve a Snake y se libera el control
+TAKEOFF_HOLD = 5 # TAKEOFF_HOLD: Hind_D1 quieto.
+TAKEOFF_SPIN = 10 # TAKEOFF_SPIN: Hélices girando ( D2-D7 ) en el suelo.
 TAKEOFF_AFTER = 0.8
 
-# Cámara durante la cinemática: desplazamiento (x, y) en px respecto al centro de la pista
-# (boss_spawn). Es el punto que queda en el CENTRO de la pantalla.
-#   y negativo = la cámara se corre hacia ARRIBA (el Hind queda más abajo en pantalla y
-#                hay más lugar para verlo irse volando).  Ej: (0, -80)
-#   y positivo = la cámara se corre hacia abajo.  x positivo = hacia la derecha.
-# Ojo: la cámara no se sale de los bordes del mapa, así que cerca de un borde el
-# desplazamiento puede no notarse.
+# Cámara durante la cinemática: Desplazamiento ( Ejes x, y) en px respecto al centro de la pista.
+
 CINE_CAM_OFFSET = (0, 120)
 
-# Despegue (animación).
-TAKEOFF_PREFIX = "Hind_D"    # Hind_D1.png ... Hind_D7.png
-TAKEOFF_FRAME_MS = 70        # Velocidad de giro de hélices (menos = más rápido).
-TAKEOFF_ACCEL = 120          # px/s² de aceleración vertical.
-TAKEOFF_MAX_SPEED = 260      # px/s máxima de ascenso.
-TAKEOFF_RISE_DISTANCE = 520  # px que sube antes de darse por "fuera de pantalla" (vista = 384 px de alto).
-TAKEOFF_SHADOW_DIR = "down"  # Sprite de la sombra que aparece al elevarse: hindd-<dir>1/2.png
+# Despegue ( CINEMÁTICA. ).
+TAKEOFF_PREFIX = "Hind_D" # Hind_D1.png ... Hind_D7.png
+TAKEOFF_FRAME_MS = 70 # Velocidad de giro de hélices ( Menos = Más rápido. ).
+# Ascenso ( TAKEOFF_ACCEL / TAKEOFF_MAX_SPEED hasta TAKEOFF_RISE_DISTANCE, )
+TAKEOFF_ACCEL = 120 # px/s² de aceleración vertical.
+TAKEOFF_MAX_SPEED = 260 # px/s máxima de ascenso.
+TAKEOFF_RISE_DISTANCE = 520 # px que sube antes de darse por "fuera de pantalla" ( Vista = 384 px de alto. ).
+TAKEOFF_SHADOW_DIR = "down" # Sprite de la sombra que aparece al elevarse: hindd-<dir>1/2.png.
 
-# --- Seguimiento: el centro de la órbita persigue a Snake -------------------
-FOLLOW_SPEED = 70            # px/s (Snake camina a 100). 0 = órbita fija en el centro del mapa.
+# Seguimiento: el centro de la órbita persigue a Snake
+FOLLOW_SPEED = 70 # px/s ( Snake camina a 100 ). 0 = órbita fija en el centro del mapa.
 
-# --- Movimiento general -----------------------------------------------------
-ENTER_DISTANCE = 450         # Si no hay pista (sin boss_spawn): desde qué distancia entra.
-ENTER_TIME = 3.0             # Mínimo de segundos para llegar a la órbita.
-ENTER_AVG_SPEED = 180        # px/s promedio al viajar a la órbita (alarga el tiempo si está lejos).
-GAP_PAUSE_EXTRA = 0.0        # Pausa extra entre pasadas encadenadas.
-DOWN_TIME = 3.0              # Duración de la caída/explosión al morir.
+# Movimiento.
+ENTER_DISTANCE = 450 # Si no hay pista ( Sin boss_spawn. ): desde qué distancia entra.
+ENTER_TIME = 3.0 # Mínimo de segundos para llegar a la órbita.
+ENTER_AVG_SPEED = 180 # px/s promedio al viajar a la órbita ( Alarga el tiempo si está lejos. ).
+GAP_PAUSE_EXTRA = 0.0 # Pausa extra entre pasadas encadenadas.
+DOWN_TIME = 3.0 # Duración de la caída/explosión al morir.
 
-# --- Pasada y franja de impactos ---------------------------------------------
-STRIP_WIDTH = 16             # ANCHO de la franja mortal (px).
-#  (el LARGO de la franja se ajusta por fase con "strip_length" en PHASES)
-IMPACT_LEAD = 200            # Mínimo de px POR DELANTE del Hind donde caen los tiros.
-                             # Se alarga solo si hace falta: nunca menos que pass_speed*IMPACT_LIFE+20.
-PASS_AFTER = 250             # Cuánto sigue de largo después de terminar la franja (px).
-FIRE_INTERVAL = 0.1         # Segundos entre tandas de impactos.
-IMPACTS_PER_TICK = 1         # Impactos por tanda (más = ráfaga más densa).
-IMPACT_LIFE = 0.30           # Cuánto dura cada impacto dibujado.
-IMPACT_HITBOX = 0.6          # Tamaño del hitbox respecto al sprite del impacto.
-IMPACT_DAMAGE = 12           # Daño a Snake (100 de vida, 1 s de invulnerabilidad).
+# Pasada y FRANJA.
+STRIP_WIDTH = 16 # ANCHO de la franja mortal ( px ).
+#  ( El LARGO de la franja se ajusta por fase con "strip_length" en PHASES. )
+IMPACT_LEAD = 200 # Mínimo de px POR DELANTE del Hind donde caen los tiros.
+# Se alarga solo si hace falta: nunca menos que pass_speed*IMPACT_LIFE+20.
+PASS_AFTER = 250 # Cuánto sigue de largo después de terminar la franja ( px ).
+FIRE_INTERVAL = 0.1 # Segundos entre tandas de impactos.
+IMPACTS_PER_TICK = 1 # Impactos por tanda ( Más = ráfaga más densa. ).
+IMPACT_LIFE = 0.30 # Cuánto dura cada impacto dibujado.
+IMPACT_HITBOX = 0.6 # Tamaño del hitbox respecto al sprite del impacto.
+IMPACT_DAMAGE = 12 # Daño a Snake ( 100 de vida, 1 s de invulnerabilidad. ).
 
-# --- Parámetros por fase ---------------------------------------------------
-#  window       : segundos de órbita (ventana para pegarle)
-#  passes       : pasadas seguidas por ataque
-#  warn         : segundos que se frena marcando la franja antes de atacar
-#  strip_length : LARGO de la franja donde caen los tiros (px)
-#  gap          : pausa entre pasadas encadenadas
-#  radius       : radio de la órbita en px
-#  orbit_speed  : velocidad en la órbita (px/s)
-#  pass_speed   : velocidad de la pasada (px/s)
+# Parámetros por fase:
+#  window: Segundos de órbita ( La ventana para pegarle. ).
+#  passes: Pasadas seguidas por ataque.
+#  warn: Segundos que se frena marcando la franja antes de atacar.
+#  strip_length: LARGO de la franja donde caen los tiros ( px ).
+#  gap: Pausa entre pasadas encadenadas.
+#  radius: Radio de la órbita en px.
+#  orbit_speed: Velocidad en la órbita ( px/s ).
+#  pass_speed: Velocidad de la pasada ( px/s ).
 PHASES = {
     1: dict(window=6.0, passes=5, warn=1.3, strip_length=900, gap=0.0, radius=300, orbit_speed=80,  pass_speed=380),
     2: dict(window=5.0, passes=2, warn=1.1, strip_length=520, gap=0.5, radius=150, orbit_speed=100, pass_speed=440),
     3: dict(window=4.0, passes=3, warn=0.9, strip_length=640, gap=0.4, radius=130, orbit_speed=120, pass_speed=500),
 }
 
-# Orden por ángulo en pantalla (y hacia abajo): 0° = derecha, 90° = abajo...
+# Orden por ángulo en pantalla ( y hacia abajo ): 0° = derecha, 90° = abajo...
 # Los índices son contiguos en círculo: 0 y 7 también son vecinos.
 DIR_NAMES = ["right", "downright", "down", "downleft",
-             "left", "upleft", "up", "upright"]
+                "left", "upleft", "up", "upright"]
 DOWN_IDX = DIR_NAMES.index("down")
 
 
 class _HindAudio:
-    """Carga los SFX de SFX{} y maneja los loops (volar / orbitar / disparar / despegue)."""
+    """Carga los SFX de SFX{} y maneja los loops ( volar / orbitar / disparar / despegue )."""
     def __init__(self):
         self.enabled = pygame.mixer.get_init() is not None
         self.sounds = {}
@@ -205,13 +216,13 @@ class _HindAudio:
         return bool(SFX.get(name, {}).get("loop", False))
 
     def play(self, name):
-        """One-shot (también sirve para tandas de disparo con loop=False)."""
+        """One-shot ( También sirve para tandas de disparo con loop=False. )."""
         snd = self.sounds.get(name)
         if snd:
             snd.play()
 
     def set_loops(self, wanted):
-        """Deja sonando exactamente los loops de `wanted` (set de nombres)."""
+        """Deja sonando exactamente los loops de `wanted` ( Set de nombres. )."""
         if not self.enabled:
             return
         for name in list(self.active - wanted):
@@ -234,7 +245,7 @@ class _HindAudio:
 
 
 class _Impact:
-    """Marca de impacto de bala en el suelo (no es un proyectil que viaja)."""
+    """Marca de impacto de bala en el suelo."""
     def __init__(self, x, y, size):
         self.x, self.y = x, y
         self.life = IMPACT_LIFE
@@ -245,13 +256,16 @@ class _Impact:
 
 class HindD:
     def __init__(self, arena_w, arena_h, attacks_enabled=True, pad_pos=None):
-        """pad_pos: (x, y) CENTRO de la pista (objeto boss_spawn). Si se da, hay cinemática de despegue."""
+        """pad_pos: ( x, y ) CENTRO de la pista ( objeto boss_spawn ). Cuando la haga habrá cinemática de despegue."""
         self.arena_w, self.arena_h = arena_w, arena_h
-        self.cx, self.cy = arena_w / 2, arena_h / 2     # Centro de la órbita (persigue a Snake).
+        self.cx, self.cy = arena_w / 2, arena_h / 2 # Centro de la órbita ( Persigue a Snake ).
         self._centered = False
         self.radius = PHASES[1]["radius"]
+        # RADIUS DETERMINA EL RADIO DE LA ORBITA, NO EL RADIO DE LA FRANJA. 
+        # La franja se ajusta con strip_length.
 
         self.max_health = HIND_MAX_HEALTH
+        # La vida se mide en "impactos" de 10 de daño ( 18 impactos = 180 de vida ).
         self.health = self.max_health
         self.phase = 1
         self._pending_phase = None
@@ -259,15 +273,17 @@ class HindD:
 
         self.angle = random.uniform(0, math.tau)
         self.state = "ENTER"
+        # La primera vez que se dibuja el sprite, se coloca en la órbita a la altura de Snake ( Si no hay cinemática de despegue. ).
         self.timer = 0.0
         self.x = self.y = 0.0
         self._heading = 0.0
-        self._dir_idx = 0            # Dirección que MUESTRA el sprite (gira de a un paso).
+        self._dir_idx = 0 # Dirección que MUESTRA el sprite ( Gira de pasos. ).
+        # Me pasé con la explicación borro todo mejor.
         self._turn_timer = 0.0
         self.rect = pygame.Rect(0, 0, 96, 96)
 
         self.impacts = []
-        self.hit_this_window = False   # Un impacto por ventana como máximo.
+        self.hit_this_window = False # Un impacto por ventana como máximo.
         self.hit_flash = 0.0
         self.dead_done = False
 
@@ -829,12 +845,11 @@ class HindD:
 
 
 class BossHealthBar:
-    WIDTH = 560
-    HEIGHT = 16
-    TOP = 44
+    """Barra de jefe: misma estructura que la de Solid Python, pero centrada, larga y roja."""
 
     def __init__(self):
-        self.font = pygame.font.Font(None, 32)
+        self.label_font = pygame.font.Font(None, BOSS_BAR_LABEL_SIZE)
+        self.number_font = pygame.font.Font(None, HEALTH_NUMBER_SIZE)
         self.trail = 1.0
         self.trail_delay = 0.0
         self.last_ratio = 1.0
@@ -851,27 +866,57 @@ class BossHealthBar:
             self.trail = ratio
 
     def draw(self, surface, boss):
-        W, H = self.WIDTH, self.HEIGHT
-        ratio = boss.health / boss.max_health
-        x = (surface.get_width() - W) // 2
-        y = self.TOP
+        W = BOSS_BAR_WIDTH
+        H = BOSS_BAR_HEIGHT
+        ratio = max(0.0, min(1.0, boss.health / boss.max_health))
 
-        label_h = self.font.get_height()
-        draw_text_shadow(surface, self.font, HIND_NAME, COLOR_TEXT, x, y - label_h - 3)
-        draw_text_shadow(surface, self.font, f"FASE {boss.phase}", (200, 200, 200),
-                        x + W, y - label_h - 3, align_right=True)
+        sw = surface.get_width()
+        if BOSS_BAR_ANCHOR == "center":
+            x = (sw - W) // 2                       # La BARRA queda centrada; el número va afuera, a la derecha.
+        elif BOSS_BAR_ANCHOR == "left":
+            x = HEALTH_BAR_X
+        else:
+            group_w = W + (HEALTH_NUMBER_GAP + HEALTH_NUMBER_RESERVED if BOSS_BAR_SHOW_NUMBER else 0)
+            x = sw - HEALTH_BAR_X - group_w
+        x += BOSS_BAR_OFFSET[0]
+        y = HEALTH_BAR_Y + BOSS_BAR_OFFSET[1]
 
-        pygame.draw.rect(surface, COLOR_HEALTH_SHADOW, (x - 2, y - 2, W + 4, H + 4))
-        pygame.draw.rect(surface, (45, 15, 15), (x, y, W, H))
+        # 1. Nombre arriba a la izquierda (y la fase a la derecha).
+        label_y = y - self.label_font.get_height() - 5
+        draw_text_shadow(surface, self.label_font, HIND_NAME, COLOR_TEXT, x, label_y)
+        if BOSS_BAR_SHOW_PHASE:
+            draw_text_shadow(surface, self.label_font, f"FASE {boss.phase}", BOSS_BAR_LINE,
+                             x + W, label_y, align_right=True)
 
-        trail_w = int(W * self.trail)
-        if trail_w > 0:
-            pygame.draw.rect(surface, (235, 170, 110), (x, y, trail_w, H))
-        fill_w = int(W * ratio)
-        if fill_w > 0:
-            pygame.draw.rect(surface, (205, 45, 40), (x, y, fill_w, H))
-            pygame.draw.rect(surface, (235, 90, 80), (x, y, fill_w, H // 2))
+        # 2. Marco + fondo + estela + parte llena + brillo.
+        pygame.draw.rect(surface, COLOR_HEALTH_SHADOW, (x - 4, y - 4, W + 8, H + 8))
+        pygame.draw.rect(surface, BOSS_BAR_FRAME, (x - 3, y - 3, W + 6, H + 6), 2)
+        pygame.draw.rect(surface, BOSS_BAR_EMPTY, (x, y, W, H))
+        fill_width = int(W * ratio)
+        if BOSS_BAR_TRAIL:
+            trail_width = int(W * self.trail)
+            if trail_width > fill_width:
+                pygame.draw.rect(surface, BOSS_BAR_TRAIL_COLOR, (x, y, trail_width, H))
+        if fill_width > 0:
+            pygame.draw.rect(surface, BOSS_BAR_FILL, (x, y, fill_width, H))
+            pygame.draw.rect(surface, BOSS_BAR_HIGHLIGHT, (x, y, fill_width, H // 2))
 
-        for frac in (1 / 3, 2 / 3):          # Marcas de cambio de fase.
-            tx = x + int(W * frac)
-            pygame.draw.line(surface, (255, 255, 255), (tx, y - 4), (tx, y + H + 3), 2)
+        # 3. Línea fina de capacidad máxima con marcas ( Más altas en 1/3 y 2/3 = Cambio de fase. ).
+        line_y = y + H + 8
+        pygame.draw.line(surface, COLOR_HEALTH_SHADOW, (x, line_y + 1), (x + W, line_y + 1), 2)
+        pygame.draw.line(surface, BOSS_BAR_LINE, (x, line_y), (x + W, line_y), 1)
+        for i in range(HEALTH_TICKS + 1):
+            tick_x = x + int(W * i / HEALTH_TICKS)
+            pygame.draw.line(surface, BOSS_BAR_LINE, (tick_x, line_y - 3), (tick_x, line_y), 1)
+        for frac in (1 / 3, 2 / 3):
+            tick_x = x + int(W * frac)
+            pygame.draw.line(surface, COLOR_HEALTH_SHADOW, (tick_x + 1, line_y - 7), (tick_x + 1, line_y + 1), 2)
+            pygame.draw.line(surface, BOSS_BAR_LINE, (tick_x, line_y - 7), (tick_x, line_y), 2)
+
+        # 4. Número grande a la derecha de la barra.
+        if BOSS_BAR_SHOW_NUMBER:
+            number_right = x + W + HEALTH_NUMBER_GAP + HEALTH_NUMBER_RESERVED
+            number_h = self.number_font.get_height()
+            number_y = y + (H + 8) // 2 - number_h // 2
+            draw_text_shadow(surface, self.number_font, str(boss.health), COLOR_TEXT,
+                            number_right, number_y, align_right=True)
