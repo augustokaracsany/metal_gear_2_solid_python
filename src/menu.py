@@ -82,7 +82,7 @@ class RetroButton:
         if hover:
             cut = max(6, h // 4)
             pts = [(r.x, r.y), (r.right, r.y), (r.right, r.bottom - cut),
-                   (r.right - cut, r.bottom), (r.x, r.bottom)]
+                    (r.right - cut, r.bottom), (r.x, r.bottom)]
             glow = pygame.Surface((r.w + 24, h + 24), pygame.SRCALPHA)
             pygame.draw.rect(glow, (0, 255, 128, 40), glow.get_rect(), border_radius=10)
             surface.blit(glow, (r.x - 12, r.y - 12))
@@ -191,7 +191,7 @@ def _r_plate(surface, rect):
     pygame.draw.rect(surface, _R_BORDER, rect, 2)
     c = max(14, rect.w // 30)
     for (px, py, dx, dy) in ((rect.left, rect.top, 1, 1), (rect.right - 1, rect.top, -1, 1),
-                             (rect.left, rect.bottom - 1, 1, -1), (rect.right - 1, rect.bottom - 1, -1, -1)):
+                            (rect.left, rect.bottom - 1, 1, -1), (rect.right - 1, rect.bottom - 1, -1, -1)):
         pygame.draw.line(surface, _R_ACCENT, (px, py), (px + dx * c, py), 3)
         pygame.draw.line(surface, _R_ACCENT, (px, py), (px, py + dy * c), 3)
 

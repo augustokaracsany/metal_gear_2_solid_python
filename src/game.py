@@ -16,6 +16,7 @@ from src.settings import PUNCH_DAMAGE, PUNCH_HIT_PADDING, PUNCH_STUN_TIME
 from src.inventory import InventoryMenu
 from src.item_message import ItemMessage
 from src.hud_inventory import HUDInventory  # <--- HUD de inventario equipado activo
+import numpy as np
 
 class Game:
     ALERT_MAX = 99
@@ -32,9 +33,12 @@ class Game:
     RADAR_SCALE = 0.1       # 1 px del radar = 10 px del mapa
     RADAR_MARGIN = 20
     EXIT_FADE_MS = 700
+    DEATH_MUSIC_DELAY_MS = 1500
+    DEATH_FADE_DELAY_MS = 1000
     def __init__(self, mission_number=1):
         self.mission_number = mission_number
         self.pending_action = None   # ("restart", n) o ("menu", None)
+        self.death_music_started = False
         self.exit_fade_start = 0
         self.exit_fade_volume = 1.0
         # "PLAYING" -> Jugador con vida
@@ -381,6 +385,8 @@ class Game:
             self.death_timer = pygame.time.get_ticks()
             self.fade_alpha = 0
 
+            pygame.mixer.music.stop()
+
             self.player.start_death_animation()
             
             try:
@@ -725,19 +731,23 @@ class Game:
 
         if self.state == "DYING":
             elapsed_death = pygame.time.get_ticks() - self.death_timer
-            self.fade_alpha = min(255, int(elapsed_death * 0.1))
+            fade_elapsed = max(0, elapsed_death - self.DEATH_FADE_DELAY_MS)
+            self.fade_alpha = min(255, int(fade_elapsed * 0.1))
 
             self.player.update_death(dt)
             
+            if not self.death_music_started and elapsed_death >= self.DEATH_MUSIC_DELAY_MS:
+                self.death_music_started = True
+                
+                try:
+                    pygame.mixer.music.load("assets/audio/music/game_over.mp3")
+                    pygame.mixer.music.play()
+                except Exception as e:
+                    print(f"No se pudo cargar la música game_over.mp3: {e}")
+
             if elapsed_death >= 4500:
                 self.state = "GAME_OVER"
                 self.game_over_timer = pygame.time.get_ticks()
-                
-                try:
-                    pygame.mixer.music.load("assets/audio/music/Snake_is_dead.mp3")
-                    pygame.mixer.music.play()
-                except Exception as e:
-                    print(f"No se pudo cargar la música Snake_is_dead.mp3: {e}")
             return
 
         if self.state == "GAME_OVER" or self.state == "VICTORY":
@@ -1027,14 +1037,25 @@ class Game:
             return
 
         if self.state == "GAME_OVER":
-            surface.fill((42, 20, 15)) 
-            
             w = surface.get_width()
             h = surface.get_height()
             
+            porcentajes = np.random.rand(w, h)
+            
+            # 2. Crear la matriz RGB final vacía
+            ruido_rgb = np.zeros((w, h, 3), dtype=np.uint8)
+            
+            # 3. Escalar cada canal multiplicando el porcentaje por el valor máximo de tu color
+            ruido_rgb[:, :, 0] = (porcentajes * 42).astype(np.uint8)  # Canal Rojo
+            ruido_rgb[:, :, 1] = (porcentajes * 20).astype(np.uint8)  # Canal Verde
+            ruido_rgb[:, :, 2] = (porcentajes * 15).astype(np.uint8)  # Canal Azul
+            
+            # 4. Dibujar la estática en la pantalla
+            pygame.surfarray.blit_array(surface, ruido_rgb)
+
             bar_height = int(h * 0.22)  
             
-            color_center = (42, 20, 15)
+            color_center = (26, 13, 9)
             color_edge = (15, 7, 5)     
             gradient_size = 75          
             
@@ -1068,10 +1089,10 @@ class Game:
             current_time = pygame.time.get_ticks()
             elapsed = current_time - self.game_over_timer
             
-            paradox_delay = 12500 
+            paradox_delay = 6500 
             
             if elapsed < paradox_delay:
-                target_text = "S N A K E  I S  D E A D"
+                target_text = "M I S S I O N  F A I L E D"
                 chars_to_show = min(len(target_text), int(elapsed / 80))
             else:
                 target_text = "T I M E  P A R A D O X"
@@ -1194,7 +1215,7 @@ class Game:
             surface.blit(title_surf, title_rect)
 
             # Opción de llamar al Cuartel General (resaltada)
-            option_text = "> Cuartel General (CQ) <"
+            option_text = "> Cuartel General <"
             opt_surf = font_medium.render(option_text, True, (38, 212, 99))
             opt_rect = opt_surf.get_rect(center=(w // 2, h // 2))
             surface.blit(opt_surf, opt_rect)

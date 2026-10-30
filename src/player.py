@@ -22,7 +22,7 @@ class Player(pygame.sprite.Sprite):
         self.is_dying = False
         self.death_frame_index = 0
         self.death_timer = 0.0
-        self.death_animation_speed = 0.6
+        self.death_animation_speed = 0.5
         self.death_finished = False
         self.death_anim_timer = 0.0
         
@@ -265,9 +265,11 @@ class Player(pygame.sprite.Sprite):
                 "RIGHT": cs("assets/sprites/solid_python/punch_right.png"),
             },
             "DIE": [
-                cs("assets/sprites/solid_python/crouch_down1.png"),
-                cs("assets/sprites/solid_python/crawl_down1.png"),
-                cs("assets/sprites/solid_python/crawl_down2.png")
+                cs("assets/sprites/solid_python/stand_right.png"),
+                cs("assets/sprites/solid_python/stand_up.png"),
+                cs("assets/sprites/solid_python/stand_left.png"),
+                cs("assets/sprites/solid_python/stand_down.png"),
+                cs("assets/sprites/solid_python/crawl_down1.png")
             ]
         }
 

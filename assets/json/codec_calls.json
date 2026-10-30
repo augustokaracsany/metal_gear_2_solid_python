@@ -108,35 +108,35 @@
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Tiene 55 años, pelo y barba blanca, calvicie total en la parte superior de su cabeza..."
+                    "texto": "El ingeniero Modnar tiene un aspecto bastante distintivo. Lo vas a reconocer al instante. Voy a pasarte una foto de el por el Codec."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Ojos marrones, piel trigueña, mide 5 pies y 9 pulgadas."
+                    "texto": "Te sugiero verla con atención antes de empezar."
                 },
                 {
                     "habla": "Snake",
-                    "texto": "Recibido. Esto me será de gran importancia. ¿Qué sigue despues de esto?"
+                    "texto": "Ahi recibí la imágen."
                 },
                 {
                     "habla": "Snake",
-                    "texto": "Es decir... extraigo a Modnar de forma exitosa, ¿Cuál sería el siguiente objetivo?"
+                    "texto": "¿Por qué lugares suele moverse habitualmente?"
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Creo que es mejor no adelantarnos. Enfocate en tu primer objetivo. Apenas termines, te diremos cual es el siguiente."
-                },
-                {
-                    "habla": "Snake",
-                    "texto": "No lo tienen definido, ¿verdad?"
+                    "texto": "A pesar de no tener mucha información al respecto, el departamento de ingeniería se encuentra en el ala derecha del laboratorio."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "No."
+                    "texto": "Hay altas chances de que este ahi. Sin embargo, nadie puede garantizar de que realmente este ahi."
                 },
                 {
                     "habla": "Snake",
-                    "texto": "Detalles... Creo que sera hora de moverme, no hay tiempo que perder."
+                    "texto": "¿Ala derecha? Entendido."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "Creo que sera hora de moverme, no hay tiempo que perder."
                 },
                 {
                     "habla": "Campbell",
@@ -160,15 +160,19 @@
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Vas a encontrar varios enemigos patrullando en esa zona, puedes noquearlos o matarlos con un arma de fuego."
+                    "texto": "El laboratorio esta altamente patrullado por todo tipo de soldados y elementos tecnológicos capaces de detectar cualquier intruso."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Es tu elección. Recuerda que dichos soldados tienen familia y estan ahi por obligación."
+                    "texto": "Es importante que te muevas con especial cuidado en esta misión. De lo contrario, no se si vas a salir con vida."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Para mas información sobre los controles, puedes presionar el botón de menú (ESC) y consultarlos."
+                    "texto": "¿Recordas como jugar? Si no tuviste la oportunidad de ver los controles, presiona ESC para abrir el menú y, posteriormente, el apartado de controles."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Recuerda, frecuencia 140.83."
                 },
                 {
                     "habla": "Campbell",
@@ -183,11 +187,11 @@
             "dialogo": [
                 {
                     "habla": "Campbell",
-                    "texto": "Snake, tu objetivo es frenar el avance del \nMetal Gear DOW. Para eso, vas a tener que extraer \nal Ingeniero Modnar."
+                    "texto": "Snake, tu objetivo es frenar el avance del Metal Gear DOW. Para eso, vas a tener que extraer al Ingeniero Modnar."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Ten mucho cuidado, el lugar esta altamente \ncustodiado. Tendras que ser sigiloso."
+                    "texto": "Ten mucho cuidado, el lugar esta altamente custodiado. Tendras que ser sigiloso."
                 },
                 {
                     "habla": "Campbell",
@@ -206,19 +210,19 @@
             "dialogo": [
                 {
                     "habla": "Campbell",
-                    "texto": "Un soldado enemigo. Son obligados a patrullar una \nzona específica. Procura que no te vean."
+                    "texto": "Esa base esta lleno de soldados enemigos. Son obligados a patrullar una zona específica. Tenes que evitar que te vean."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Hay varias formas para lograr esto: podrias ingeniartelas \npara pasar sin que te vean..."
+                    "texto": "Hay varias formas para lograr esto: una de ellas es moviendote por fuera de su rango de vision..."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "o generar una distracción, como un ruido, para que \nvayan a revisar y vos poder continuar."
+                    "texto": "o podrias generar una distracción, como un ruido, para que vayan a revisar y vos poder continuar."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Tambien podrías noquearlo usando técnicas de CQC o \nusar armas letales para que no obstruyan el camino."
+                    "texto": "Tambien podrías noquearlo usando técnicas de CQC o usar armas letales para que no obstruyan el camino."
                 },
                 {
                     "habla": "Campbell",

@@ -21,8 +21,8 @@ def draw_text_shadow(surface, font, text, color, x, y, align_right=False):
 
 class HealthBar:
     def __init__(self):
-        self.label_font = pygame.font.Font(None, HEALTH_LABEL_SIZE)
-        self.number_font = pygame.font.Font(None, HEALTH_NUMBER_SIZE)
+        self.label_font = pygame.font.Font("assets/fonts/PixelOperator8-Bold.ttf", HEALTH_LABEL_SIZE)
+        self.number_font = pygame.font.Font("assets/fonts/PixelOperator8.ttf", HEALTH_NUMBER_SIZE)
 
     def draw(self, surface, player):
         x = HEALTH_BAR_X
@@ -32,11 +32,11 @@ class HealthBar:
         # 1. Nombre chiquito arriba a la izquierda.
         label = self.label_font.render(HEALTH_LABEL_TEXT, True, COLOR_TEXT)
         draw_text_shadow(surface, self.label_font, HEALTH_LABEL_TEXT, COLOR_TEXT,
-                         x, y - label.get_height() - 3)
+                        x, y - label.get_height() - 3)
 
         # 2. Barra gruesa: sombra + parte llena + brillo arriba.
         pygame.draw.rect(surface, COLOR_HEALTH_SHADOW,
-                         (x - 1, y - 1, HEALTH_BAR_WIDTH + 2, HEALTH_BAR_HEIGHT + 2))
+                        (x - 1, y - 1, HEALTH_BAR_WIDTH + 2, HEALTH_BAR_HEIGHT + 2))
         fill_width = int(HEALTH_BAR_WIDTH * ratio)
         if fill_width > 0:
             color = COLOR_HEALTH_LOW if ratio <= 0.3 else COLOR_HEALTH_FILL
