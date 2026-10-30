@@ -266,6 +266,20 @@ class MenuManager:
                     "Encontrar la tarjeta de acceso de nivel superior.",
                     "Localizar al Dr. Kio Marv."
                 ]
+            },
+            3: {
+                "id": "003",
+                "title": "HIND-D",
+                "difficulty": 4,
+                "map_file": "assets/sprites/maps/hind-d_boss_fight-576x1344.tmx",
+                "unlocked": True,
+                "objective": "Destruir el helicóptero de ataque Hind-D.",
+                "situation": "Zanzibar Land despliega su arma aérea. Sin cobertura, no hay salida.",
+                "tasks": [
+                    "Mantenerse con vida bajo el fuego aéreo.",
+                    "Usar la cobertura para evitar las ráfagas.",
+                    "Derribar el Hind-D."
+                ]
             }
         }
 

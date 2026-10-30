@@ -2,6 +2,8 @@ import os
 import pygame
 import sys
 import math
+import pytmx
+import numpy as np
 from src.enemy import Enemy
 from src.player import Player
 from src.camera import Camera
@@ -15,9 +17,30 @@ from src.pause import PauseMenu
 from src.settings import PUNCH_DAMAGE, PUNCH_HIT_PADDING, PUNCH_STUN_TIME
 from src.inventory import InventoryMenu
 from src.item_message import ItemMessage
-from src.hud_inventory import HUDInventory  # <--- HUD de inventario equipado activo
-import numpy as np
+from src.hud_inventory import HUDInventory  # HUD de inventario equipado activo
 from src.rain import Rain
+
+import src.hind as hind_mod
+from src.hind import (
+    HindD, BossHealthBar, HIT_DAMAGE,
+    CINE_START_DELAY, CINE_PAN_IN_TIME, CINE_PAN_OUT_TIME, CINE_CAM_OFFSET,
+    MUSIC, MUSIC_MASTER, MUSIC_FADE_MS, AUDIO_DIR,
+)
+from src import weapon_settings as WS
+from src.weapons import WeaponManager, collect_pickups, make_pickup, PICKUPS
+from src.weapon_hud import WeaponHUD
+from src.fire_fx import FireFX
+
+
+# Misión (clave de levels_data) donde pelea el jefe HIND-D.
+BOSS_MISSION = 3
+
+
+class _CamTarget:
+    """Objeto con rect para que Camera.update() lo siga durante la cinemática (y al apuntar el Stinger)."""
+    def __init__(self):
+        self.rect = pygame.Rect(0, 0, 1, 1)
+
 
 class Game:
     ALERT_MAX = 99
@@ -36,7 +59,12 @@ class Game:
     EXIT_FADE_MS = 700
     DEATH_MUSIC_DELAY_MS = 1500
     DEATH_FADE_DELAY_MS = 1000
-    def __init__(self, mission_number=1):
+
+    def __init__(self, mission_number=1, skip_boss_intro=False):
+        # Por si venimos de una partida anterior con el Stinger apuntando: mouse normal.
+        pygame.mouse.set_visible(True)
+        pygame.event.set_grab(False)
+
         self.mission_number = mission_number
         self.pending_action = None   # ("restart", n) o ("menu", None)
         self.death_music_started = False
@@ -55,6 +83,9 @@ class Game:
         self.game_over_selected_option = 0
         self.return_to_menu = False
 
+        # Música de la misión del jefe ("level" | "cutscene" | "boss"); None = todavía ninguna.
+        self._music_key = None
+
         # --- SISTEMA DE PAUSA ---
         self.is_paused = False
         self.pause_menu = PauseMenu(SCREEN_WIDTH, SCREEN_HEIGHT)
@@ -64,11 +95,9 @@ class Game:
         self.inventory_menu = InventoryMenu(SCREEN_WIDTH, SCREEN_HEIGHT)
 
         # --- HUD EQUIPAMIENTO ACTIVO (PANTALLA PRINCIPAL) ---
-        # Puedes cambiar la posición a: 'bottom-right', 'bottom-left', 'top-right' o 'top-left'
         self.hud_inventory = HUDInventory(position="bottom-right")
 
         # --- CODEC ---
-
         self.codec_manager = CodecManager()
 
         # --- MÚSICA DE FONDO (solo misión 1: Entry Point) ---
@@ -85,8 +114,8 @@ class Game:
                 "png": "assets/sprites/maps/building1_floor1-960x960.png"
             },
             3: {
-                "tmx": "assets/sprites/maps/mission3_map.tmx",
-                "png": "assets/sprites/maps/mission3_map.png"
+                "tmx": "assets/sprites/maps/hind-d_boss_fight-576x1344.tmx",
+                "png": "assets/sprites/maps/hind-d_boss_fight-576x1344.png"
             },
             4: {
                 "tmx": "assets/sprites/maps/mission4_map.tmx",
@@ -105,6 +134,10 @@ class Game:
         self.enemies_group = pygame.sprite.Group()
         self.items_group = pygame.sprite.Group()
         self.bullets_group = pygame.sprite.Group()
+        self.missiles_group = pygame.sprite.Group()    # Misiles Stinger y sus explosiones (capa aérea).
+
+        # Armas/munición del mapa ya recogidas (para que no reaparezcan al recargar el mapa).
+        self.picked_pickups = set()
         
         self.enemy_bullets = pygame.sprite.Group()
 
@@ -148,7 +181,7 @@ class Game:
 
         self.camera = Camera(map_width, map_height, self.virtual_width, self.virtual_height)
         
-        spawn_x, spawn_y = self.map.get_spawn_point("player_spawn", (400, 350)) if self.map else (400, 350)
+        spawn_x, spawn_y = self.get_player_spawn()
         self.player = Player(spawn_x, spawn_y)
         self.all_sprites.add(self.player)
 
@@ -206,6 +239,43 @@ class Game:
         dead = set(range(self.current_route_count)) - set(snapshots.keys())
         self.map_states[key] = {"dead": dead, "snapshots": snapshots}
 
+        # --- ARMAS (Beretta / M16 / UZI / Stinger) ---
+        self.reset_weapons()
+        self.weapon_hud = WeaponHUD()
+        self.fire_fx = FireFX("assets/sprites/solid_python", scale=2)
+        # self.fire_fx.DEBUG_MUZZLE = True  # Descomentá para ver el punto celeste y ajustar offsets
+        self.player.fire_fx = self.fire_fx
+
+        # --- JEFE (HIND-D) ---
+        self.skip_boss_intro = skip_boss_intro
+        self.boss = None
+        self.boss_mode = None      # None | "WAITING" | "CUTSCENE" | "FIGHT" | "DEFEATED"
+        self.boss_bar = BossHealthBar()
+        self.boss_trigger = None
+        self.cine_phase = None     # "DELAY" | "PAN_IN" | "TAKEOFF" | "PAN_OUT"
+        self.cine_timer = 0.0
+        self.cine_from = (0, 0)
+        self.cine_focus = (0, 0)
+        self._cam_target = _CamTarget()
+        if self.mission_number == BOSS_MISSION:
+            self.setup_boss()
+
+    # ===================== ARMAS =====================
+    def reset_weapons(self):
+        """Crea un WeaponManager nuevo (y deja el mouse normal si había uno anterior)."""
+        if hasattr(self, "weapons"):
+            self.weapons.shutdown()
+        self.weapons = WeaponManager(self.player)
+        self.player.weapon_manager = self.weapons
+        self.player.weapons = self.weapons.owned      # La lista que lee el inventario.
+        self.player.weapon_locked = False
+
+    def shoot_bullet(self, damage_mult):
+        """Callback del WeaponManager: crea la bala de las armas de fuego."""
+        muzzle = self.fire_fx.muzzle_pos(self.player, self.weapons.current_id)
+        self.bullets_group.add(self.player.fire_bullet(damage_mult, muzzle=muzzle))
+        self.fire_fx.on_shot(self.player, self.weapons.current_id)
+        
     def load_level(self, tmx_or_key):
 
         # Antes de dejar el mapa actual, guardamos cómo quedó.
@@ -251,83 +321,91 @@ class Game:
             self.codec_zones = self.map.load_codec_zones()
 
             self._build_radar_map()
+        self.enemies_group.empty()
+        self.items_group.empty()
+        self.bullets_group.empty()
+        self.missiles_group.empty()
 
-            patrol_routes = self.map.get_patrol_path("enemy_patrols")
-            self.current_route_count = len(patrol_routes)
+        patrol_routes = self.map.get_patrol_path("enemy_patrols")
+        self.current_route_count = len(patrol_routes)
 
-            # Si ya visitaste este mapa: guardias muertos y posiciones de los vivos.
-            saved = self.map_states.get(tmx_path, {"dead": set(), "snapshots": {}})
+        # Si ya visitaste este mapa: guardias muertos y posiciones de los vivos.
+        saved = self.map_states.get(tmx_path, {"dead": set(), "snapshots": {}})
 
-            for i, ruta in enumerate(patrol_routes):
-                if i in saved["dead"]:
-                    continue   # Este guardia ya murió: no reaparece.
+        for i, ruta in enumerate(patrol_routes):
+            if i in saved["dead"]:
+                continue   # Este guardia ya murió: no reaparece.
 
-                snap = saved["snapshots"].get(i)
-                if snap:
-                    # Vuelve exactamente donde estaba cuando saliste del mapa.
-                    guardia = Enemy(snap["x"], snap["y"], ruta, start_delay=0.0)
-                    guardia.facing = snap["facing"]
-                    guardia.current_target_index = snap["target_index"]
-                    guardia.health = snap["health"]
-                    if snap["state"] not in ("WALKING", "LOOKING") and hasattr(guardia, "_set_state"):
-                        guardia._set_state("RETURN")   # Si estaba persiguiendo, vuelve a su patrulla.
-                else:
-                    guardia = Enemy(ruta[0][0], ruta[0][1], ruta, start_delay=i * 1.0)
+            snap = saved["snapshots"].get(i)
+            if snap:
+                # Vuelve exactamente donde estaba cuando saliste del mapa.
+                guardia = Enemy(snap["x"], snap["y"], ruta, start_delay=0.0)
+                guardia.facing = snap["facing"]
+                guardia.current_target_index = snap["target_index"]
+                guardia.health = snap["health"]
+                if snap["state"] not in ("WALKING", "LOOKING") and hasattr(guardia, "_set_state"):
+                    guardia._set_state("RETURN")   # Si estaba persiguiendo, vuelve a su patrulla.
+            else:
+                guardia = Enemy(ruta[0][0], ruta[0][1], ruta, start_delay=i * 1.0)
 
-                guardia.route_index = i
-                self.enemies_group.add(guardia)
+            guardia.route_index = i
+            self.enemies_group.add(guardia)
 
-            for g in self.enemies_group:
-                g.others = list(self.enemies_group)
+        for g in self.enemies_group:
+            g.others = list(self.enemies_group)
 
-            if hasattr(self.map.tmx_data, 'objects'):
-                for obj in self.map.tmx_data.objects:
-                    if obj.name == "cardboard_box" and hasattr(self, 'player') and "cardboard_box" not in self.player.inventory:
-                        scale = self.map.scale
-                        try:
-                            box_item = Item("cardboard_box", 0, 0, "assets/sprites/solid_python/box2.png", scale=2)
-                            box_item.rect.center = (int((obj.x + obj.width / 2) * scale), int((obj.y + obj.height / 2) * scale))
-                            self.items_group.add(box_item)
-                        except Exception as e:
-                            print(f"Error cargando sprite de la caja: {e}")
+        if hasattr(self.map.tmx_data, 'objects'):
+            for obj in self.map.tmx_data.objects:
+                if obj.name == "cardboard_box" and hasattr(self, 'player') and "cardboard_box" not in self.player.inventory:
+                    scale = self.map.scale
+                    try:
+                        box_item = Item("cardboard_box", 0, 0, "assets/sprites/solid_python/box2.png", scale=2)
+                        box_item.rect.center = (int((obj.x + obj.width / 2) * scale), int((obj.y + obj.height / 2) * scale))
+                        self.items_group.add(box_item)
+                    except Exception as e:
+                        print(f"Error cargando sprite de la caja: {e}")
 
-            # Ración de comida (camión de truck_interior_2). Se agrega aparte, igual que la caja.
-            if hasattr(self.map.tmx_data, 'objects'):
-                for obj in self.map.tmx_data.objects:
-                    if obj.name == "food_ration" and hasattr(self, 'player') and "food_ration" not in self.player.inventory:
-                        scale = self.map.scale
-                        try:
-                            ration_item = Item("food_ration", 0, 0, "assets/sprites/items/racion_roja.png", scale=1.7)
-                            ration_item.rect.center = (int((obj.x + obj.width / 2) * scale), int((obj.y + obj.height / 2) * scale))
-                            self.items_group.add(ration_item)
-                        except Exception as e:
-                            print(f"Error cargando sprite de la ración: {e}")
+                # Ración de comida (camión de truck_interior_2)
+                elif obj.name == "food_ration" and hasattr(self, 'player') and "food_ration" not in self.player.inventory:
+                    scale = self.map.scale
+                    try:
+                        ration_item = Item("food_ration", 0, 0, "assets/sprites/items/racion_roja.png", scale=1.7)
+                        ration_item.rect.center = (int((obj.x + obj.width / 2) * scale), int((obj.y + obj.height / 2) * scale))
+                        self.items_group.add(ration_item)
+                    except Exception as e:
+                        print(f"Error cargando sprite de la ración: {e}")
 
-            # Pistola (Entry Point). Se agrega aparte, igual que la caja y la ración.
-            if hasattr(self.map.tmx_data, 'objects'):
-                for obj in self.map.tmx_data.objects:
-                    if obj.name == "pistola" and (not hasattr(self, 'player') or "pistola" not in self.player.inventory):
-                        scale = self.map.scale
-                        try:
-                            pistol_item = Item("pistola", 0, 0, "assets/sprites/weapons/pistola.png", scale=1.2)
-                            pistol_item.rect.center = (int((obj.x + obj.width / 2) * scale), int((obj.y + obj.height / 2) * scale))
-                            self.items_group.add(pistol_item)
-                        except Exception as e:
-                            print(f"Error cargando sprite de la pistola: {e}")
+                # Pistola (Entry Point)
+                elif obj.name == "pistola" and (not hasattr(self, 'player') or "pistola" not in self.player.inventory):
+                    scale = self.map.scale
+                    try:
+                        pistol_item = Item("pistola", 0, 0, "assets/sprites/weapons/pistola.png", scale=1.2)
+                        pistol_item.rect.center = (int((obj.x + obj.width / 2) * scale), int((obj.y + obj.height / 2) * scale))
+                        self.items_group.add(pistol_item)
+                    except Exception as e:
+                        print(f"Error cargando sprite de la pistola: {e}")
 
-            # Municiones (ductos). Se agrega aparte, igual que la caja, la ración y la pistola.
-            if hasattr(self.map.tmx_data, 'objects'):
-                for obj in self.map.tmx_data.objects:
-                    if obj.name == "ammo" and (not hasattr(self, 'player') or "ammo" not in self.player.inventory):
-                        scale = self.map.scale
-                        try:
-                            ammo_item = Item("ammo", 0, 0, "assets/sprites/items/municiones.png", scale=1.5)
-                            ammo_item.rect.center = (int((obj.x + obj.width / 2) * scale), int((obj.y + obj.height / 2) * scale))
-                            self.items_group.add(ammo_item)
-                        except Exception as e:
-                            print(f"Error cargando sprite de las municiones: {e}")
+                # Municiones (ductos)
+                elif obj.name == "ammo" and (not hasattr(self, 'player') or "ammo" not in self.player.inventory):
+                    scale = self.map.scale
+                    try:
+                        ammo_item = Item("ammo", 0, 0, "assets/sprites/items/municiones.png", scale=1.5)
+                        ammo_item.rect.center = (int((obj.x + obj.width / 2) * scale), int((obj.y + obj.height / 2) * scale))
+                        self.items_group.add(ammo_item)
+                    except Exception as e:
+                        print(f"Error cargando sprite de las municiones: {e}")
 
-            # Grilla: DESPUÉS de crear los enemigos, con el hitbox real del guardia
+                # Armas y munición del equipo (PICKUPS: stinger_launcher, stinger_missiles, etc.)
+                elif obj.name in PICKUPS:
+                    uid = (obj.name, getattr(obj, "id", None))
+                    if uid in self.picked_pickups:
+                        continue
+                    scale = self.map.scale
+                    center = (int((obj.x + (obj.width or 0) / 2) * scale),
+                              int((obj.y + (obj.height or 0) / 2) * scale))
+                    self.items_group.add(make_pickup(obj.name, center, uid))
+
+            # C. GRILLA DE PATHFINDING (después de crear los enemigos: usa el tamaño de su hitbox)
             if self.enemies_group:
                 actor_size = self.enemies_group.sprites()[0].rect.size
                 self.pathfinding_grid = self.map.create_pathfinding_grid(
@@ -343,6 +421,220 @@ class Game:
             self.pathfinding_grid = None
             self.radar_map = None
             self.codec_zones = None
+
+    # ===================== MAPA: objetos de Tiled =====================
+    def find_objects(self, name):
+        """Objetos de Tiled cuyo NOMBRE, CLASE o CAPA coincida con `name`."""
+        found = []
+        if not self.map:
+            return found
+        for layer in self.map.tmx_data.layers:
+            if not isinstance(layer, pytmx.TiledObjectGroup):
+                continue
+            for obj in layer:
+                if (layer.name == name
+                        or getattr(obj, "name", None) == name
+                        or getattr(obj, "type", None) == name
+                        or getattr(obj, "class_", None) == name):
+                    found.append(obj)
+        return found
+
+    def find_rect(self, name):
+        objs = self.find_objects(name)
+        if not objs:
+            return None
+        o, s = objs[0], self.map.scale
+        return pygame.Rect(int(o.x * s), int(o.y * s), int(o.width * s), int(o.height * s))
+
+    def find_point(self, name, center=False):
+        objs = self.find_objects(name)
+        if not objs:
+            return None
+        o, s = objs[0], self.map.scale
+        if center and getattr(o, "width", 0):
+            return ((o.x + o.width / 2) * s, (o.y + o.height / 2) * s)
+        return (o.x * s, o.y * s)
+
+    def get_player_spawn(self, default=(400, 350)):
+        """player_spawn por capa, nombre o clase; si no aparece, cae al método viejo del TiledMap."""
+        pt = self.find_point("player_spawn")
+        if pt is not None:
+            return pt
+        if self.map:
+            return self.map.get_spawn_point("player_spawn", default)
+        return default
+
+    # ===================== AUDIO / MÚSICA / PAUSA =====================
+    def play_music(self, key):
+        """Música de la misión del jefe: key = "level" | "cutscene" | "boss" (ver MUSIC en hind.py).
+        Solo actúa en BOSS_MISSION y no reinicia la pista si ya es la que suena."""
+        if self.mission_number != BOSS_MISSION or key == self._music_key:
+            return
+        self._music_key = key
+        cfg = MUSIC.get(key)
+        if not cfg or not cfg.get("file"):
+            return                                  # Sin archivo: no toca lo que ya suena.
+        path = os.path.join(AUDIO_DIR, cfg["file"])
+        if not os.path.exists(path):
+            print(f"Aviso: música '{key}' no encontrada: {path}")
+            return
+        try:
+            pygame.mixer.music.load(path)
+            pygame.mixer.music.set_volume(max(0.0, min(1.0, cfg.get("volume", 1.0) * MUSIC_MASTER)))
+            pygame.mixer.music.play(loops=-1 if cfg.get("loop", True) else 0, fade_ms=MUSIC_FADE_MS)
+        except Exception as e:
+            print(f"Aviso música '{key}': {e}")
+
+    def stop_boss_audio(self):
+        if self.boss:
+            self.boss.stop_audio()
+
+    def stop_all_audio(self):
+        """Corta TODO el sonido del nivel (música + efectos + loops del jefe).
+        Se usa al salir al menú, para que la música no se traslade."""
+        self.stop_boss_audio()
+        try:
+            pygame.mixer.music.stop()
+            pygame.mixer.stop()
+        except pygame.error:
+            pass
+        self._music_key = None
+        # Al salir al menú el mouse tiene que volver a ser el normal (el Stinger lo oculta).
+        if hasattr(self, "weapons"):
+            self.weapons.shutdown()
+
+    def set_paused(self, value):
+        """Pausa/reanuda el juego y también los sonidos y la música."""
+        self.is_paused = value
+        try:
+            if value:
+                pygame.mixer.pause()
+                pygame.mixer.music.pause()
+            else:
+                pygame.mixer.unpause()
+                pygame.mixer.music.unpause()
+        except pygame.error:
+            pass
+        # El menú de pausa se maneja con mouse: lo liberamos mientras dura la pausa.
+        if value:
+            self.weapons.suspend()
+        else:
+            self.weapons.resume()
+
+    # ===================== JEFE (HIND-D) =====================
+    def setup_boss(self):
+        """Crea el jefe según los objetos del mapa:
+             boss_spawn        (punto, centro de la pista)  -> habilita la cinemática de despegue
+             trigger_cutscene  (rectángulo, opcional)       -> la cinemática arranca al pisarlo
+        Sin boss_spawn: el Hind entra desde lejos, sin cinemática.
+        Con skip_boss_intro: directo a la pelea."""
+        if self.map:
+            w, h = self.map.width, self.map.height
+        else:
+            w, h = self.map_image.get_width(), self.map_image.get_height()
+
+        pad = self.find_point("boss_spawn", center=True)
+        self.boss_trigger = self.find_rect("trigger_cutscene")
+
+        if self.skip_boss_intro or pad is None:
+            self.boss = HindD(w, h, attacks_enabled=True)
+            if self.skip_boss_intro:
+                self.boss.skip_to_orbit()
+            self.boss_mode = "FIGHT"
+            self.play_music("boss")
+            return
+
+        self.boss = HindD(w, h, attacks_enabled=False, pad_pos=pad)
+        if self.boss_trigger is None:
+            self.begin_cutscene()
+        else:
+            self.boss_mode = "WAITING"      # El Hind espera en la pista hasta que Snake pise el trigger.
+            self.play_music("level")        # Música del nivel, antes de la cinemática.
+
+    def debug_start_boss(self):
+        """F1: crea el jefe (si no existe) o dispara la cinemática ignorando el trigger."""
+        if self.boss_mode == "WAITING":
+            self.begin_cutscene()
+        elif not self.boss:
+            self.setup_boss()
+
+    def begin_cutscene(self):
+        self.boss_mode = "CUTSCENE"
+        self.cine_phase = "DELAY"           # DELAY -> PAN_IN -> TAKEOFF -> PAN_OUT
+        self.cine_timer = 0.0
+        self.cine_from = self.player.rect.center
+        self.cine_focus = (self.boss.x + CINE_CAM_OFFSET[0], self.boss.y + CINE_CAM_OFFSET[1])
+        self.player.input_locked = True
+        self.play_music("cutscene")
+
+    def camera_target(self):
+        """Durante la cinemática la cámara sigue un punto que va a la pista, se queda ahí
+        mientras el Hind despega (así se ve cómo sale volando por arriba) y vuelve a Snake.
+        Con el Stinger equipado sigue a Snake desplazada hacia donde apunta la mira."""
+        if self.boss_mode != "CUTSCENE":
+            offset = self.weapons.camera_offset()
+            if offset is not None:
+                cx, cy = self.player.rect.center
+                self._cam_target.rect.center = (int(cx + offset.x), int(cy + offset.y))
+                return self._cam_target
+        if self.boss_mode != "CUTSCENE" or self.cine_phase == "DELAY":
+            return self.player
+        fx, fy = self.cine_focus
+        if self.cine_phase == "PAN_IN":
+            t = min(1.0, self.cine_timer / max(0.01, CINE_PAN_IN_TIME))
+            ax, ay = self.cine_from
+            bx, by = fx, fy
+        elif self.cine_phase == "TAKEOFF":
+            t, ax, ay, bx, by = 1.0, fx, fy, fx, fy
+        else:  # PAN_OUT
+            t = min(1.0, self.cine_timer / max(0.01, CINE_PAN_OUT_TIME))
+            ax, ay = fx, fy
+            bx, by = self.player.rect.center
+        s = t * t * (3 - 2 * t)
+        self._cam_target.rect.center = (int(ax + (bx - ax) * s), int(ay + (by - ay) * s))
+        return self._cam_target
+
+    def update_boss(self, dt):
+        if not self.boss:
+            return
+        self.boss.update(dt, self.player, self.hidden_zones)
+        self.boss_bar.update(dt, self.boss.health / self.boss.max_health)
+
+        if self.boss_mode == "WAITING":
+            if self.boss_trigger and self.player.rect.colliderect(self.boss_trigger):
+                self.begin_cutscene()
+
+        elif self.boss_mode == "CUTSCENE":
+            self.cine_timer += dt
+            if self.cine_phase == "DELAY":
+                if self.cine_timer >= CINE_START_DELAY:
+                    self.cine_phase, self.cine_timer = "PAN_IN", 0.0
+                    self.cine_from = self.player.rect.center
+            elif self.cine_phase == "PAN_IN":
+                if self.cine_timer >= CINE_PAN_IN_TIME:
+                    self.cine_phase, self.cine_timer = "TAKEOFF", 0.0
+                    self.boss.cutscene_go = True
+            elif self.cine_phase == "TAKEOFF":
+                if self.boss.takeoff_done:
+                    self.cine_phase, self.cine_timer = "PAN_OUT", 0.0
+            elif self.cine_phase == "PAN_OUT":
+                if self.cine_timer >= CINE_PAN_OUT_TIME:
+                    self.boss_mode = "FIGHT"
+                    self.boss.attacks_enabled = True
+                    self.player.input_locked = False
+                    self.play_music("boss")
+
+        elif self.boss_mode == "FIGHT":
+            self.boss.consume_phase_change()   # acá va la ración del paso 3
+            if self.boss.is_defeated:
+                self.boss_mode = "DEFEATED"
+                self.player.input_locked = True
+
+        elif self.boss_mode == "DEFEATED":
+            if self.boss.dead_done:
+                self.player.input_locked = False
+                self.boss_mode = None
+                self.trigger_victory_sequence()   # mismo camino que ya tenés
 
     def check_map_transitions(self):
         if not self.map:
@@ -378,6 +670,8 @@ class Game:
 
     def trigger_victory_sequence(self):
         if self.state == "PLAYING":
+            self.stop_boss_audio()
+            self.weapons.suspend()      # Mouse normal para el menú de victoria.
             self.state = "VICTORY"
             self.victory_timer = pygame.time.get_ticks()
             self.fade_alpha = 0
@@ -395,6 +689,8 @@ class Game:
         self.player.anim_timer = 0.0
 
         if self.state == "PLAYING":
+            self.stop_boss_audio()
+            self.weapons.suspend()      # Mouse normal para el menú de game over.
             self.state = "DYING"
             self.death_timer = pygame.time.get_ticks()
             self.fade_alpha = 0
@@ -490,7 +786,19 @@ class Game:
         surface.blit(label, rect)
         
     def restart_mission(self):
-        """Reinicia la misión completa: mapa, enemigos, ítems y estado de Snake."""
+        
+        """Reinicia la misión completa: mapa, enemigos, ítems, jefe (CON su cinemática de inicio),
+        música y estado de Snake."""
+        # 0) Cortar los sonidos y la música del intento anterior.
+        self.stop_boss_audio()
+        try:
+            pygame.mixer.music.stop()
+            pygame.mixer.stop()
+        except pygame.error:
+            pass
+
+        # 1) Estado del jugador (ANTES de cargar el nivel: la caja solo reaparece
+        #    si Snake no la tiene en el inventario).
         p = self.player
         p.inventory = []
         p.equipped_item = None      # si no, el HUD sigue mostrando lo que tenía equipado
@@ -509,22 +817,45 @@ class Game:
         p.facing = "DOWN"
         p.frame_index = 0
         p.anim_timer = 0.0
+        p.input_locked = False
+        p.health = p.max_health
+        p.is_dead = False
         p.update_offsets_for_stance()
 
-        self.map_states = {}
-
+        # 1b) Armas de cero (sin Stinger, munición inicial) y pickups del mapa disponibles otra vez.
+        self.reset_weapons()
+        self.picked_pickups = set()
+        
+        # 2) Mapa de la misión desde cero (enemigos + ítems como la caja del camión).
+        #    Si Snake estaba dentro del camión, esto también lo devuelve al mapa principal.
         self.load_level(self.mission_number)
 
+        # 3) Cámara con las medidas del mapa recargado.
         if self.map:
             map_width, map_height = self.map.width, self.map.height
         else:
             map_width, map_height = self.map_image.get_width(), self.map_image.get_height()
         self.camera = Camera(map_width, map_height, self.virtual_width, self.virtual_height)
 
-        spawn_x, spawn_y = self.map.get_spawn_point("player_spawn", (400, 350)) if self.map else (400, 350)
+        # 4) Snake de vuelta al spawn.
+        spawn_x, spawn_y = self.get_player_spawn()
         p.x, p.y = float(spawn_x), float(spawn_y)
         p.rect.x, p.rect.y = int(spawn_x), int(spawn_y)
         self.camera.update(p)
+
+        # 5) Jefe de cero: vuelve a empezar TODO, cinemática incluida.
+        self.boss = None
+        self.boss_mode = None
+        self.boss_trigger = None
+        self.cine_phase = None
+        self.cine_timer = 0.0
+        self.cine_from = (0, 0)
+        self.cine_focus = (0, 0)
+        self.boss_bar = BossHealthBar()
+        self._music_key = None              # Para que la música vuelva a arrancar.
+        if self.mission_number == BOSS_MISSION:
+            self.skip_boss_intro = False    # Cinemática de inicio otra vez.
+            self.setup_boss()
 
     def handle_events(self, events):
         for event in events:
@@ -545,6 +876,7 @@ class Game:
                         self.victory_selected_option = (self.victory_selected_option + 1) % max_options
                     elif event.key in (pygame.K_RETURN,):
                         self.confirm_victory_option()
+                   
 
                 elif event.type == pygame.MOUSEMOTION:
                     mx, my = event.pos
@@ -605,10 +937,16 @@ class Game:
                 self.codec_manager.handle_input([event])
                 continue
 
+            # Abrir Pausa con la tecla ESC (cerrar / volver lo maneja el propio menú de pausa)
+            if (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE
+                    and not self.is_paused and not self.inventory_open):
+                self.set_paused(True)
+                continue        # Sin esto, el MISMO ESC le llega al menú de pausa y la cierra al instante.
             # Inventario: se abre con la tecla I y mientras está abierto el juego queda pausado.
             if self.inventory_open:
                 if self.inventory_menu.handle_input(event, self.player) == "CLOSE":
                     self.inventory_open = False
+                    self.weapons.resume()       # Si quedó equipado el Stinger, vuelve la mira.
                 continue
             if (event.type == pygame.KEYDOWN and event.key == pygame.K_i
                     and not self.is_paused and self.state == "PLAYING"):
@@ -620,23 +958,28 @@ class Game:
             if (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE
                     and not self.is_paused and self.state == "PLAYING"):
                 self.is_paused = True
+                self.weapons.suspend()          # Mouse normal mientras está el inventario.
                 continue
 
             # Si el juego está en pausa, la navegación y selección las procesa la pausa
             if self.is_paused:
                 action = self.pause_menu.handle_input(event)
                 if action == "CONTINUAR":
-                    self.is_paused = False
+                    self.set_paused(False)
                 elif action == "PUNTO DE CONTROL":
                     self.pause_menu.trigger_feedback("No se encontró ningún punto de guardado previo.")
                 elif action == "REINICIAR MISIÓN":
                     self.restart_mission()
-                    self.is_paused = False
+                    self.set_paused(False)
                 elif action == "VOLVER AL MENÚ":
-                    self.is_paused = False
-                    pygame.mixer.music.stop()  # corta la música de la misión al volver al menú principal
+                    self.stop_all_audio()          # Música + efectos fuera: no se trasladan al menú.
+                    self.set_paused(False)
                     return "GOTO_MENU"
             else:
+                # Armas: disparo (ESPACIO), recarga (R), modo de tiro (F), cambio de arma (1) y mouse del Stinger.
+                if self.state == "PLAYING" and not self.player.input_locked:
+                    self.weapons.handle_event(event)
+
                 # Si el juego NO está en pausa, responde a las acciones del jugador
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_k:  # Tecla de prueba de muerte
@@ -653,6 +996,32 @@ class Game:
                         self.player_shoot()
                     elif event.key == pygame.K_TAB:
                         self.state = "RADIO_MENU"
+                    elif event.key == pygame.K_F1:
+                        self.debug_start_boss()
+                    elif event.key == pygame.K_F2 and self.boss:
+                        self.boss.take_hit(HIT_DAMAGE)          # respeta "un impacto por ventana"
+                    # --- Debug del jefe (flags en hind.DEBUG) ---
+                    elif event.key == pygame.K_F3:
+                        hind_mod.DEBUG["strip_box"] = not hind_mod.DEBUG["strip_box"]
+                    elif event.key == pygame.K_F4:
+                        hind_mod.DEBUG["impact_hitbox"] = not hind_mod.DEBUG["impact_hitbox"]
+                    elif event.key == pygame.K_F5:
+                        hind_mod.DEBUG["hind_hitbox"] = not hind_mod.DEBUG["hind_hitbox"]
+                    elif event.key == pygame.K_F6:
+                        hind_mod.HIND_DEBUG = not hind_mod.HIND_DEBUG
+                    elif event.key == pygame.K_F7:
+                        on = not hind_mod.DEBUG["sprite_rect"]
+                        hind_mod.DEBUG["sprite_rect"] = on
+                        hind_mod.DEBUG["player_hitbox"] = on
+                    elif event.key == pygame.K_F8:
+                        # Debug: Stinger + misiles al instante (sin ir a los camiones).
+                        self.weapons.add_weapon("stinger")
+                        self.weapons.add_ammo("stinger", WS.STINGER_MISSILES_PER_PICKUP)
+                        self.weapons.notify("DEBUG: STINGER + MISILES")
+                    elif event.key in (pygame.K_RETURN, pygame.K_SPACE) and self.boss_mode == "CUTSCENE":
+                        self.boss.skip_takeoff()                # saltear cinemática
+                        if self.cine_phase in ("DELAY", "PAN_IN"):
+                            self.cine_phase = "TAKEOFF"
                 self.player.punch_self_event(event)
         return None
 
@@ -702,17 +1071,15 @@ class Game:
         self.exit_fade_volume = pygame.mixer.music.get_volume()
 
     def confirm_victory_option(self):
+        """Ejecuta la acción seleccionada en el menú de Victoria"""
+        pygame.mixer.music.fadeout(1000)
+        self.stop_boss_audio()
         has_next = self.has_next_mission()
         if self.victory_selected_option == 0:
-            self._begin_exit_fade("restart", self.mission_number)
+            # Reintentar: la misión arranca de cero, con su cinemática de inicio.
+            self.__init__(self.mission_number, skip_boss_intro=False)
         elif self.victory_selected_option == 1 and has_next:
             self._begin_exit_fade("restart", self.mission_number + 1)
-        else:
-            self._begin_exit_fade("menu")
-
-    def confirm_game_over_option(self):
-        if self.game_over_selected_option == 0:
-            self._begin_exit_fade("restart", self.mission_number)
         else:
             self._begin_exit_fade("menu")
 
@@ -725,10 +1092,22 @@ class Game:
         pygame.mixer.music.stop()
         pygame.mixer.music.set_volume(self.pause_menu.music_volume)
         if action == "restart":
-            self.__init__(mission)     # __init__ pone pending_action = None
+            self.__init__(mission)    # __init__ pone pending_action = None
         else:
             self.pending_action = None
             self.return_to_menu = True
+            self.stop_all_audio()       # Salir: nada de música colgada en el menú.
+            self.return_to_menu = True  # Activamos la bandera
+            
+    def confirm_game_over_option(self):
+        pygame.mixer.music.fadeout(1000)
+        self.stop_boss_audio()
+        if self.game_over_selected_option == 0:
+            # Reintentar: la misión arranca de cero, con su cinemática de inicio.
+            self.__init__(self.mission_number, skip_boss_intro=False)
+        else:
+            self.stop_all_audio()       # Salir: nada de música colgada en el menú.
+            self.return_to_menu = True  # Activamos la bandera
 
     def update(self, dt, surface):
         if self.pending_action:
@@ -778,6 +1157,12 @@ class Game:
         if self.rain_active:
             self.rain.update(dt)
 
+        # Con el Stinger equipado Snake queda quieto y mira hacia donde apunta la mira.
+        self.player.weapon_locked = self.weapons.blocks_movement
+        forced_facing = self.weapons.facing_override
+        if forced_facing:
+            self.player.facing = forced_facing
+
         self.player.update(
             dt,
             walls,
@@ -796,6 +1181,23 @@ class Game:
 
         self._check_punch_noise()
 
+        # Armas y munición del mapa (camiones del Stinger).
+        got = collect_pickups(self.player.rect, self.items_group, self.weapons)
+        self.picked_pickups.update(uid for uid in got if uid is not None)
+
+        # Armas: cadencia, balas, recarga, Stinger (lock-on / misiles) y auto-desequipado.
+        boss_target = self.boss if (self.boss and self.boss_mode == "FIGHT") else None
+        self.weapons.update(
+            dt,
+            self.shoot_bullet,
+            can_fire=self.player.can_use_weapon(),
+            target=boss_target,
+            projectiles=self.missiles_group,
+        )
+        self.fire_fx.update(dt)
+        if not self.weapons.blocks_movement:
+            self.player.weapon_locked = False
+
         self.check_map_transitions()
 
         alerted = self.alert_level > 0
@@ -804,6 +1206,14 @@ class Game:
             enemy.update(dt, walls, self.player, self.pathfinding_grid, self.enemy_bullets)
 
         self._update_alert(dt)
+
+        self.update_boss(dt)
+        if self.player.is_dead:
+            self.trigger_death_sequence()
+
+        # La cámara sigue a Snake, o al punto de la cinemática / de la mira del Stinger.
+        self.camera.update(self.camera_target())
+        self.weapons.constrain_aim(self.camera, self.virtual_width, self.virtual_height)
 
         # Golpe: mientras dura, daña al primer enemigo que tenga delante (una vez por golpe).
         if self.player.is_punching and not self.player.punch_hit_done:
@@ -830,6 +1240,8 @@ class Game:
                 self.trigger_death_sequence()
                 
         self.camera.update(self.player)
+        # Misiles del Stinger (vuelan por el aire: no chocan con paredes).
+        self.missiles_group.update(dt, walls, self.enemies_group, bounds)
 
         if self.state == "PLAYING":
             # Si el jugador se queda sin vida
@@ -1162,6 +1574,9 @@ class Game:
 
         for bullet in self.enemy_bullets:
             bullet.draw_with_camera(self.virtual_surface, self.camera)
+        # Jefe, capa de suelo: franja de aviso, impactos y sombra del Hind (debajo de las entidades).
+        if self.boss:
+            self.boss.draw_ground(self.virtual_surface, self.camera)
         
         entities_to_draw = [self.player] + list(self.enemies_group)
         entities_to_draw.sort(key=lambda entity: entity.rect.bottom)
@@ -1172,6 +1587,10 @@ class Game:
         for bullet in self.bullets_group:
             bullet.draw_with_camera(self.virtual_surface, self.camera)
 
+        for enemy in self.enemies_group:
+            enemy.draw_vision(self.virtual_surface, self.camera)
+        self.fire_fx.draw(self.virtual_surface, self.camera)
+        
         if self.map:
             self.map.render_roofs(
                 self.virtual_surface,
@@ -1181,6 +1600,13 @@ class Game:
 
         if self.rain_active:
             self.rain.draw(self.virtual_surface)
+        # Jefe, capa aérea: helicóptero elevándose, explosiones y debug (sobre los techos).
+        if self.boss:
+            self.boss.draw_air(self.virtual_surface, self.camera)
+
+        # Misiles Stinger y sus explosiones: también son aéreos, van sobre los techos.
+        for missile in self.missiles_group:
+            missile.draw_with_camera(self.virtual_surface, self.camera)
 
         if self.state == "DYING" or self.fading_in:
             fade_surface = pygame.Surface((self.virtual_surface.get_width(), self.virtual_surface.get_height()))
@@ -1200,6 +1626,15 @@ class Game:
         # DIBUJAR HUD DE INVENTARIO SOBRE LA PANTALLA PRINCIPAL
         self.hud_inventory.draw(surface, self.player)
 
+        # Mira del Stinger (se dibuja sobre la pantalla real, así queda nítida) y HUD del arma equipada.
+        if self.state == "PLAYING" and self.boss_mode != "CUTSCENE":
+            scale = surface.get_width() / self.virtual_width
+            self.weapons.draw_overlay(surface, self.camera, scale)
+            self.weapon_hud.draw(surface, self.weapons)
+
+        # Barra del jefe: después del escalado, sobre la pantalla real.
+        if self.boss and self.boss_mode in ("FIGHT", "DEFEATED"):
+            self.boss_bar.draw(surface, self.boss)
         # INVENTARIO ENCIMA DE TODO SI ESTÁ ABIERTO
         if self.inventory_open:
             self.inventory_menu.draw(surface, self.player, self.health_bar)
