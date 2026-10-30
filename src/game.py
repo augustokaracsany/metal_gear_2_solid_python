@@ -160,19 +160,27 @@ class Game:
         self.fade_in_timer = pygame.time.get_ticks()
 
     def start_level_music(self):
-        """Música de fondo en bucle del mapa Entry Point (misión 1).
+        """Música de fondo en bucle según la misión actual.
 
         Usa el volumen actual del slider de OPCIONES de la pausa, así lo que se ve
         en pantalla coincide con lo que suena. Si el archivo no está, el juego sigue
         sin música (solo avisa por consola)."""
-        if self.mission_number != 1:
-            return
+        
+        # 1. Determinamos qué canción cargar según la misión actual
+        if self.mission_number == 1:
+            music_path = "assets/audio/music/musica_entry_point.mp3"
+        elif self.mission_number == 2:
+            music_path = "assets/audio/music/Advance Immediately.mp3"
+        else:
+            return  # Si hay otra misión que aún no tiene canción, no hace nada
+
+        # 2. Cargar y reproducir la pista seleccionada
         try:
-            pygame.mixer.music.load("assets/audio/music/musica_entry_point.mp3")
+            pygame.mixer.music.load(music_path)
             pygame.mixer.music.set_volume(self.pause_menu.music_volume)
             pygame.mixer.music.play(-1)  # -1 = bucle infinito
         except Exception as e:
-            print(f"Aviso música de Entry Point: {e}")
+            print(f"Aviso música (Misión {self.mission_number}): {e}")
 
     def _save_map_state(self):
         """Guarda qué guardias siguen vivos en el mapa actual y dónde estaban."""
@@ -455,8 +463,9 @@ class Game:
     def _on_alert_end(self):
         self.music_delay = None
         if self.chase_music_active:
-            pygame.mixer.music.fadeout(1500)
             self.chase_music_active = False
+            # Reiniciar la música del nivel actual (Misión 1 o Misión 2)
+            self.start_level_music()
 
     def _reset_alert(self):
         """Apaga todo de golpe (cambio de nivel, muerte)."""
@@ -610,7 +619,6 @@ class Game:
             # Abrir la pausa con ESC (cerrar / volver lo maneja el propio menú de pausa)
             if (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE
                     and not self.is_paused and self.state == "PLAYING"):
-                self.cleanup()
                 self.is_paused = True
                 continue
 
@@ -1164,9 +1172,6 @@ class Game:
         for bullet in self.bullets_group:
             bullet.draw_with_camera(self.virtual_surface, self.camera)
 
-        # for enemy in self.enemies_group:
-        #     enemy.draw_vision(self.virtual_surface, self.camera)
-        
         if self.map:
             self.map.render_roofs(
                 self.virtual_surface,

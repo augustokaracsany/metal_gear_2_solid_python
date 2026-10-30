@@ -1,8 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="60" height="60" tilewidth="16" tileheight="16" infinite="0" nextlayerid="15" nextobjectid="279">
- <editorsettings>
-  <export target="building1_floor1.tmx" format="tmx"/>
- </editorsettings>
+<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="60" height="60" tilewidth="16" tileheight="16" infinite="0" nextlayerid="17" nextobjectid="297">
  <tileset firstgid="1" source="colisiones.tsx"/>
  <tileset firstgid="2" source="hidden_roofs.tsx"/>
  <imagelayer id="14" name="building1_floor1-960x960">
@@ -330,6 +327,57 @@
   <object id="244" x="416" y="688" width="96" height="4"/>
   <object id="270" x="440" y="240" width="72" height="4"/>
  </objectgroup>
+ <objectgroup color="#ff5500" id="15" name="enemy_patrols">
+  <object id="279" name="Soldier1_Waypoint" x="374" y="774">
+   <point/>
+  </object>
+  <object id="280" name="FirstZone_Path" x="374" y="774">
+   <polygon points="0,0 229,0 229,17 0,17"/>
+  </object>
+  <object id="281" name="Soldier2_Waypoint" x="330" y="894">
+   <point/>
+  </object>
+  <object id="282" name="SecondZone_Path" x="330" y="894">
+   <polygon points="0,0 141,0 0,0"/>
+  </object>
+  <object id="283" name="Soldier3_Waypoint" x="748" y="831">
+   <point/>
+  </object>
+  <object id="284" name="ThirdZone_Path" x="748" y="831">
+   <polygon points="0,0 114,0 114,64 0,64"/>
+  </object>
+  <object id="285" name="Soldier4_Waypoint" x="712" y="359">
+   <point/>
+  </object>
+  <object id="286" name="FourthZone_Path" x="712" y="359">
+   <polygon points="0,0 -50,0 -50,132 0,132"/>
+  </object>
+  <object id="287" name="Soldier5_Waypoint" x="246" y="302">
+   <point/>
+  </object>
+  <object id="288" name="FifthZone_Path" x="246" y="302">
+   <polygon points="0,0 122,0 122,36 314,36 122,36 122,0"/>
+  </object>
+  <object id="289" name="Soldier6_Waypoint" x="235" y="377">
+   <point/>
+  </object>
+  <object id="290" name="SixthZone_Path" x="235" y="377">
+   <polygon points="0,0 0,255 0,0"/>
+  </object>
+  <object id="291" name="Soldier7_Waypoint" x="220" y="755">
+   <point/>
+  </object>
+  <object id="292" name="SeventhZone_Path" x="220" y="755">
+   <polygon points="0,0 0,132 0,0"/>
+  </object>
+  <object id="293" name="Soldier8_Waypoint" x="400" y="432">
+   <point/>
+  </object>
+  <object id="294" name="EighthZone_Path" x="400" y="432">
+   <polygon points="0,0 160,0 160,124 0,124"/>
+  </object>
+ </objectgroup>
+ <objectgroup color="#55aa00" id="16" name="items"/>
  <layer id="10" name="techos" width="60" height="60">
   <data encoding="csv">
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
