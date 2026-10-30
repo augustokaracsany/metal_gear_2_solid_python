@@ -10,6 +10,7 @@ from src.game import Game  # Clase principal de juego ( El game.py. )
 def main():
     pygame.init()
     pygame.mixer.init()
+    pygame.mixer.set_num_channels(32)
     
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption("Metal Gear 2: Solid Python")
