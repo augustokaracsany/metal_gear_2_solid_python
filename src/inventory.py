@@ -27,12 +27,28 @@ ITEM_INFO = {
     },
 }
 
-# Descripciones de cada arma.
+# Descripciones de cada arma (la clave es el id del arma en weapons.py).
 WEAPON_INFO = {
-    "pistol": {
-        "name": "PISTOLA",
-        "desc": "Se dispara con ESPACIO hacia donde mira Snake. "
-                "Solo se puede usar de pie. Un tiro elimina a un guardia.",
+    "beretta": {
+        "name": "BERETTA M92FS",
+        "desc": "Pistola semiautomática. ESPACIO dispara hacia donde mira Snake, R recarga. "
+                "Solo se puede usar de pie. ENTER para equiparla.",
+    },
+    "m16": {
+        "name": "M16",
+        "desc": "Fusil de asalto. ESPACIO dispara, R recarga y F cambia entre AUTO, SEMI y RÁFAGA. "
+                "ENTER para equiparlo.",
+    },
+    "uzi": {
+        "name": "MICRO UZI",
+        "desc": "Subfusil automático de altísima cadencia. Mantené ESPACIO para disparar, R recarga. "
+                "ENTER para equiparla.",
+    },
+    "stinger": {
+        "name": "FIM-92 STINGER",
+        "desc": "Lanzamisiles guiado. Snake queda quieto: mové el mouse para apuntar, "
+                "fijá al helicóptero hasta READY TO FIRE y disparás con clic o ESPACIO. "
+                "ENTER para equiparlo.",
     },
 }
 
@@ -77,6 +93,9 @@ class InventoryMenu:
         self.in_entries = False
         self._refresh_entries(player)
 
+    def _weapon_manager(self, player):
+        return getattr(player, "weapon_manager", None)
+
     def _refresh_entries(self, player):
         self.entries = []
         if self.category_index == 0:
@@ -84,7 +103,7 @@ class InventoryMenu:
                 info = ITEM_INFO.get(key, {"name": key.upper(), "desc": "Sin descripción."})
                 self.entries.append({"key": key, "kind": "item", "name": info["name"], "desc": info["desc"]})
         else:
-            for key in getattr(player, "weapons", ["pistol"]):
+            for key in getattr(player, "weapons", ["beretta"]):
                 info = WEAPON_INFO.get(key, {"name": key.upper(), "desc": "Sin descripción."})
                 self.entries.append({"key": key, "kind": "weapon", "name": info["name"], "desc": info["desc"]})
 
@@ -92,7 +111,9 @@ class InventoryMenu:
         if entry["key"] == "cardboard_box" and player.is_disguised:
             return "PUESTA"
         if entry["kind"] == "weapon":
-            return "EQUIPADA"
+            manager = self._weapon_manager(player)
+            if manager is not None and manager.current_id == entry["key"]:
+                return "EQUIPADA"
         return None
 
     # -------------------------------------------------------------- CONTROLES
@@ -122,13 +143,24 @@ class InventoryMenu:
             elif key in (pygame.K_LEFT, pygame.K_a, pygame.K_BACKSPACE):
                 self.in_entries = False
             elif key == pygame.K_RETURN and self.entries:
-                self._use_entry(player)
+                # Equipar un arma cierra el inventario para volver directo al juego.
+                if self._use_entry(player):
+                    return "CLOSE"
         return None
 
     def _use_entry(self, player):
+        """Devuelve True si hay que cerrar el inventario después de usar la entrada."""
         entry = self.entries[self.entry_index]
         if entry["key"] == "cardboard_box":
             player.toggle_box_disguise()
+        elif entry["kind"] == "weapon":
+            manager = self._weapon_manager(player)
+            if manager is None:
+                return False
+            if manager.current_id == entry["key"]:
+                return True             # Ya la tenía equipada: solo cierra.
+            return manager.equip(entry["key"])
+        return False
 
     # -------------------------------------------------------------- DIBUJO
     def _wrap(self, text, font, max_width):
@@ -144,7 +176,15 @@ class InventoryMenu:
             lines.append(line)
         return lines
 
-    def _draw_row(self, surface, rect, text, font, state, tag=None):
+    def _entry_icon(self, entry, player):
+        if entry["kind"] != "weapon":
+            return None
+        manager = self._weapon_manager(player)
+        if manager is None or entry["key"] not in manager.weapons:
+            return None
+        return manager.weapons[entry["key"]].icon
+
+    def _draw_row(self, surface, rect, text, font, state, tag=None, icon=None):
         """state: "normal", "outline" (categoría activa mientras elegís un elemento) o "selected"."""
         if state == "selected":
             pygame.draw.rect(surface, COLOR_ROW_SELECTED, rect)
@@ -155,9 +195,16 @@ class InventoryMenu:
             pygame.draw.rect(surface, border, rect, 2 if state == "outline" else 1)
             text_color = COLOR_ROW_TEXT
 
-        icon = pygame.Rect(rect.x + 14, rect.centery - 7, 34, 14)
-        pygame.draw.rect(surface, COLOR_ICON, icon)
-        pygame.draw.rect(surface, COLOR_ROW_BORDER, icon, 1)
+        icon_box = pygame.Rect(rect.x + 14, rect.centery - 7, 34, 14)
+        if icon is not None:
+            # Ícono del arma ajustado a la cajita, sin deformarlo.
+            scale = min(icon_box.w / icon.get_width(), icon_box.h / icon.get_height())
+            size = (max(1, int(icon.get_width() * scale)), max(1, int(icon.get_height() * scale)))
+            small = pygame.transform.scale(icon, size)
+            surface.blit(small, small.get_rect(center=icon_box.center))
+        else:
+            pygame.draw.rect(surface, COLOR_ICON, icon_box)
+            pygame.draw.rect(surface, COLOR_ROW_BORDER, icon_box, 1)
 
         label = font.render(text, True, text_color)
         surface.blit(label, (rect.x + 62, rect.centery - label.get_height() // 2))
@@ -171,8 +218,16 @@ class InventoryMenu:
         entry = self.entries[self.entry_index] if (self.in_entries and self.entries) else None
         if entry and entry["key"] == "cardboard_box" and getattr(player, "box_sprite", None):
             return player.box_sprite
-        if entry and entry["kind"] == "weapon" and getattr(player, "gun_animations", None):
-            return player.gun_animations["RIGHT"][0]
+        if entry and entry["kind"] == "weapon":
+            # Snake con el arma elegida (m16, stinger, etc.); si no hay sprites, el de pistola.
+            manager = self._weapon_manager(player)
+            anims = getattr(player, "weapon_animations", {})
+            if manager is not None and entry["key"] in manager.weapons:
+                frames = anims.get(manager.weapons[entry["key"]].sprite_set)
+                if frames:
+                    return frames["RIGHT"][0]
+            if getattr(player, "gun_animations", None):
+                return player.gun_animations["RIGHT"][0]
         return player.animations["IDLE"]["DOWN"]
 
     def draw(self, surface, player, health_bar):
@@ -212,7 +267,8 @@ class InventoryMenu:
                     rect = pygame.Rect(x0 + 30, y, row_w - 30, 46)
                     state = "selected" if i == self.entry_index else "normal"
                     self._draw_row(surface, rect, entry["name"], self.font_row, state,
-                                   tag=self._entry_tag(entry, player))
+                                   tag=self._entry_tag(entry, player),
+                                   icon=self._entry_icon(entry, player))
                     y += 54
             else:
                 empty = self.font_row.render("- VACÍO -", True, COLOR_ROW_DISABLED)
