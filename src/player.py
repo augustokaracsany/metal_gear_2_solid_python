@@ -1,48 +1,44 @@
+import os
 import pygame
 from src.settings import PLAYER_SPEED, PLAYER_MAX_HEALTH, PLAYER_INVULNERABLE_TIME, PLAYER_SHOOT_COOLDOWN, PLAYER_GUN_SPRITES_PATH, PLAYER_GUN_SHOW_TIME
 from src.bullet import Bullet
 from src.settings import SHOOT_SOUND_PATH, SHOOT_SOUND_VOLUME
 from src.settings import PUNCH_RANGE
 from src.settings import PUNCH_SOUND_PATH, PUNCH_SOUND_VOLUME
+from src.settings import BULLET_DAMAGE
+from src import weapon_settings as WS
+from src.weapons import PICKUPS
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, x, y):
         super().__init__()
         
-        # Posición exacta en decimales para que el movimiento sea fluido.
         self.x = float(x)
         self.y = float(y)
-
-        # Variables iniciales de muerte
 
         self.is_dying = False
         self.death_frame_index = 0
         self.death_timer = 0.0
         self.death_animation_speed = 0.6
         
-        # Variables para golpear
         self.is_punching = False
         self.init_time_punch = 0
         self.punch_length = 500
         self.last_punch = 0
         self.cooldown_punch = 600
-        self.punch_hit_done = False   # True cuando el golpe actual ya le pegó a un enemigo.
+        self.punch_hit_done = False
         
-        # Estados de postura: "STAND", "CROUCH", "CRAWL"
         self.stance = "STAND"
 
-        # Bandera para saber si se agachó automáticamente por chocar o no tener espacio
         self.forced_crouch = False
         self.crouch_hold_timer = 0.0
-        self.crouch_hold_duration = 1.5  # Tiempo mínimo en segundos que se quedará agachado.
+        self.crouch_hold_duration = 1.5
 
-        # Control de transición de posturas
         self.is_transitioning = False
         self.transition_timer = 0.0
         self.transition_duration = 0.18
         self.target_stance = None
         
-        # Dirección actual ("UP", "DOWN", "LEFT", "RIGHT")
         self.facing = "DOWN"
         self.is_moving = False
         self.is_hidden = False
@@ -53,18 +49,19 @@ class Player(pygame.sprite.Sprite):
         self.active_hidden_top_zone = None
         self.active_hidden_bottom_marker = None
 
-        # Vida del jugador.
         self.max_health = PLAYER_MAX_HEALTH
         self.health = self.max_health
         self.is_dead = False
-        self.last_hit_time = -PLAYER_INVULNERABLE_TIME  # Para que el primer golpe sí cuente.
-        
+        self.last_hit_time = -PLAYER_INVULNERABLE_TIME
 
-        # Disparo.
         self.last_shot_time = -PLAYER_SHOOT_COOLDOWN
-        self.gun_until = 0   # Hasta qué momento (ms) se muestra la pose con arma.
+        self.gun_until = 0
 
-        # Sonido del disparo (si no se encuentra el archivo, el juego sigue sin sonido).
+        self.weapon_manager = None
+        self.weapons = ["beretta"]
+        self.weapon_locked = False
+        self.weapon_animations = {}
+
         self.shoot_sound = None
         try:
             self.shoot_sound = pygame.mixer.Sound(SHOOT_SOUND_PATH)
@@ -72,29 +69,23 @@ class Player(pygame.sprite.Sprite):
         except Exception as e:
             print(f"AVISO: no se pudo cargar el sonido del disparo ({e}).")
 
-        # Sonido del golpe (si no se encuentra el archivo, el juego sigue sin sonido).
         self.punch_sound = None
         try:
             self.punch_sound = pygame.mixer.Sound(PUNCH_SOUND_PATH)
             self.punch_sound.set_volume(PUNCH_SOUND_VOLUME)
         except Exception as e:
             print(f"AVISO: no se pudo cargar el sonido del golpe ({e}).")
-        
 
-        # Control de animación y carga de sprites
         self.anim_timer = 0.0
         self.frame_index = 0
-        self.animation_speed = 0.15  # Segundos por CADA frame.
+        self.animation_speed = 0.15
 
-        # --- SISTEMA DE INVENTARIO Y DISFRAZ (CAJA DE CARTÓN) ---
-        self.inventory = []          # Guardará ítems como "cardboard_box"
-        self.is_disguised = False    # True cuando Snake tiene puesta la caja
-        self.input_locked = False   # True durante intro/derrota del jefe
+        self.inventory = []
+        self.is_disguised = False
+        self.input_locked = False
 
-        # CARGAR SPRITES.
         self.load_sprites_data()
 
-        # Instancia el rect de colisión base ( Basado pero en STAND_DOWN. )
         stand_img = self.animations["IDLE"]["DOWN"]
         stand_w, stand_h = stand_img.get_size()
         col_width = int(stand_w * 0.6)
@@ -103,22 +94,20 @@ class Player(pygame.sprite.Sprite):
         
         self.update_offsets_for_stance()
 
-    #CAJA
-
     def collect_items(self, items_group):
-        """Mecánica para recoger ítems del piso (como la caja dentro del camión)."""
-        hits = pygame.sprite.spritecollide(self, items_group, True)
+        hits = pygame.sprite.spritecollide(self, items_group, False)
         for item in hits:
+            if item.name in PICKUPS:
+                continue
+            item.kill()
             if item.name not in self.inventory:
                 self.inventory.append(item.name)
                 print(f"¡Conseguido ítem: {item.name}!")
 
     def toggle_box_disguise(self):
-        """Alterna el uso de la caja si está en el inventario."""
         if "cardboard_box" in self.inventory:
             self.is_disguised = not self.is_disguised
             if self.is_disguised:
-                # Forzamos postura erguida al ponerse la caja y cancelamos transiciones pendientes.
                 self.is_transitioning = False
                 self.target_stance = None
                 self.forced_crouch = False
@@ -126,28 +115,25 @@ class Player(pygame.sprite.Sprite):
             print("Disfraz:", "Caja equipada" if self.is_disguised else "Sin caja")
 
     def punch_self_event(self, event):
-        if self.input_locked:
+        if self.input_locked or self.weapon_locked:
             return
         current_time = pygame.time.get_ticks()
         if event.type == pygame.KEYDOWN:
-            # === AGREGADO: TECLA 'B' PARA EQUIPAR/DESEQUIPAR LA CAJA ===
             if event.key == pygame.K_b:
                 if "cardboard_box" in self.inventory:
                     self.toggle_box_disguise()
 
             if event.key == pygame.K_e:
-                # Solo golpea si está erguido y no lleva la caja puesta
                 if self.stance == "STAND" and not self.is_disguised:
                     if current_time - self.last_punch >= self.cooldown_punch:
                         self.is_punching = True
                         self.init_time_punch = current_time
                         self.last_punch = current_time
-                        self.punch_hit_done = False   # NUEVO: cada golpe nuevo puede pegar una vez.
+                        self.punch_hit_done = False
                         if self.punch_sound:
-                            self.punch_sound.play()   # NUEVO
+                            self.punch_sound.play()
             
             elif event.key == pygame.K_c:
-                # 'C' solo sirve para agacharse (la caja se equipa con 'B'). Con la caja puesta no se agacha.
                 if not self.is_disguised:
                     if self.stance == "STAND":
                         self.set_stance("CROUCH")
@@ -167,7 +153,6 @@ class Player(pygame.sprite.Sprite):
     def set_stance(self, new_stance):
         if new_stance != "CRAWL" and self._is_inside_hidden_zone(self.rect):
             return
-
         if new_stance != self.stance:
             self.stance = new_stance
             self.frame_index = 0 
@@ -184,7 +169,6 @@ class Player(pygame.sprite.Sprite):
             h = int(img.get_height() * SCALE_FACTOR)
             return pygame.transform.scale(img, (w, h))
 
-    # Cargar sprite de la Caja de Cartón
         try:
             raw_box = pygame.image.load("assets/sprites/solid_python/cardboard_box.png").convert_alpha()
             w = int(raw_box.get_width() * SCALE_FACTOR)
@@ -194,7 +178,6 @@ class Player(pygame.sprite.Sprite):
             print(f"Error cargando sprite de la caja: {e}")
             self.box_sprite = None
 
-        # Snake quieto, 4 dir.
         self.animations = {
             "IDLE": {
                 "DOWN": cs("assets/sprites/solid_python/stand_down.png"),
@@ -202,7 +185,6 @@ class Player(pygame.sprite.Sprite):
                 "LEFT": cs("assets/sprites/solid_python/stand_left.png"),
                 "RIGHT": cs("assets/sprites/solid_python/stand_right.png"),
             },
-            # Snake caminando, 4 dir. ( En bucle: quieto_dir -> caminar_dir1 -> quieto_dir -> caminar_dir2 )
             "WALK": {
                 "DOWN": [
                     cs("assets/sprites/solid_python/stand_down.png"), cs("assets/sprites/solid_python/walk_down1.png"),
@@ -221,14 +203,12 @@ class Player(pygame.sprite.Sprite):
                     cs("assets/sprites/solid_python/stand_right.png"), cs("assets/sprites/solid_python/walk_right2.png")
                 ]
             },
-            # Para la mecánica de agacharse hay solo dos sprites por dir.
             "CROUCH": {
                 "DOWN": [cs("assets/sprites/solid_python/crouch_down1.png"), cs("assets/sprites/solid_python/crouch_down2.png")],
                 "UP": [cs("assets/sprites/solid_python/crouch_up1.png"), cs("assets/sprites/solid_python/crouch_up2.png")],
                 "LEFT": [cs("assets/sprites/solid_python/crouch_left1.png"), cs("assets/sprites/solid_python/crouch_left2.png")],
                 "RIGHT": [cs("assets/sprites/solid_python/crouch_right1.png"), cs("assets/sprites/solid_python/crouch_right2.png")]
             },
-            # Misma lógica que en el bucle de caminar.
             "CRAWL": {
                 "DOWN": [
                     cs("assets/sprites/solid_python/crawl_down.png"), 
@@ -268,14 +248,12 @@ class Player(pygame.sprite.Sprite):
             ]
         }
 
-        # Sprites de Snake con arma (si no los encuentra, usa los normales).
         self.gun_animations = None
         try:
             gun_animations = {}
             for direction in ("DOWN", "UP", "LEFT", "RIGHT"):
                 d = direction.lower()
                 stand = cs(f"{PLAYER_GUN_SPRITES_PATH}armed_stand_{d}.png")
-                # Mismo ciclo que el caminar normal: quieto -> paso 1 -> quieto -> paso 2.
                 gun_animations[direction] = [
                     stand,
                     cs(f"{PLAYER_GUN_SPRITES_PATH}armed_walk_{d}1.png"),
@@ -287,13 +265,58 @@ class Player(pygame.sprite.Sprite):
             print(f"AVISO: no se pudieron cargar los sprites con arma ({e}). Se usan los normales.")
             self.gun_animations = None
 
+        self.weapon_animations = {}
+        if self.gun_animations:
+            self.weapon_animations["gun"] = self.gun_animations
+        for set_name in ("m16", "stinger"):
+            anims = self._load_weapon_animations(cs, set_name)
+            if anims:
+                self.weapon_animations[set_name] = anims
+            else:
+                print(f"AVISO: no se encontraron sprites de Snake para '{set_name}' en {WS.SOLID_SPRITE_DIR}.")
+
+    def _load_weapon_animations(self, cs, keyword):
+        folder = WS.SOLID_SPRITE_DIR
+        try:
+            names = sorted(os.listdir(folder))
+        except OSError:
+            return None
+        keyword = keyword.lower()
+
+        def find(kind, d, suffix=""):
+            for name in names:
+                low = name.lower()
+                if not low.endswith(".png"):
+                    continue
+                stem = low[:-4]
+                if keyword in stem and kind in stem and stem.endswith(d + suffix):
+                    return os.path.join(folder, name)
+            return None
+
+        anims = {}
+        for direction in ("DOWN", "UP", "LEFT", "RIGHT"):
+            d = direction.lower()
+            stand_path = find("stand", d)
+            if not stand_path:
+                return None
+            try:
+                stand = cs(stand_path)
+                walk1, walk2 = find("walk", d, "1"), find("walk", d, "2")
+                if walk1 and walk2:
+                    anims[direction] = [stand, cs(walk1), stand, cs(walk2)]
+                else:
+                    anims[direction] = [stand]
+            except Exception as e:
+                print(f"AVISO: error cargando sprites '{keyword}' ({e}).")
+                return None
+        return anims
+
     def update_offsets_for_stance(self):
         stand_img = self.animations["IDLE"]["DOWN"]
         stand_w, stand_h = stand_img.get_size()
         col_width = int(stand_w * 0.6)
         col_height = int(stand_h * 0.3)
 
-        # Identificamos qué imagen se está usando.
         if self.is_disguised and self.box_sprite:
             ref_img = self.box_sprite
         elif self.stance == "STAND":
@@ -304,7 +327,6 @@ class Player(pygame.sprite.Sprite):
             ref_img = self.animations["CRAWL"][self.facing][0]
 
         img_width, img_height = ref_img.get_size()
-
         self.offset_x = (img_width - col_width) // 2
         
         if self.stance == "CRAWL" and self.facing in ("UP", "DOWN"):
@@ -324,7 +346,7 @@ class Player(pygame.sprite.Sprite):
             self.update_offsets_for_stance()
 
     def handle_input(self):
-        if self.input_locked:
+        if self.input_locked or self.weapon_locked:
             return 0, 0
         keys = pygame.key.get_pressed()
         dx = 0
@@ -375,7 +397,6 @@ class Player(pygame.sprite.Sprite):
 
         facing_before_input = self.facing
         dx, dy = self.handle_input()
-
         self.update_offsets_for_stance()
 
         if self.stance == "STAND":
@@ -404,7 +425,6 @@ class Player(pygame.sprite.Sprite):
                 self.facing = facing_before_input if facing_before_input in ("UP", "DOWN") else "UP"
             self.update_offsets_for_stance()
 
-        # Descontar temporizador de retención si está agachado forzosamente
         if self.forced_crouch:
             if self.crouch_hold_timer > 0:
                 self.crouch_hold_timer -= dt
@@ -412,25 +432,21 @@ class Player(pygame.sprite.Sprite):
         if (dx != 0 or dy != 0) and not self.is_punching:
             self.is_moving = True
 
-            # AUTOMATIZACIÓN 1: Anticipación frontal.
             if self.stance == "CRAWL" and not was_inside_hidden_zone and self.check_upcoming_obstacle():
                 self.set_stance("CROUCH")
                 self.forced_crouch = True
                 self.crouch_hold_timer = self.crouch_hold_duration
 
-            # AUTOMATIZACIÓN 2: Recuperación trasera/lateral con temporizador.
             if self.stance == "CROUCH" and self.forced_crouch:
                 if self.crouch_hold_timer <= 0 and self.can_crawl() and self.has_space_behind():
                     self.set_stance("CRAWL")
                     self.forced_crouch = False
 
-            # Movimiento en Eje X
             vel_x = dx * current_speed * dt
             self.x += vel_x
             self.rect.x = round(self.x)
             self.check_collisions_x(walls_group, vel_x)
 
-            # Movimiento en Eje Y
             vel_y = dy * current_speed * dt
             previous_rect = self.rect.copy()
             self.y += vel_y
@@ -439,7 +455,6 @@ class Player(pygame.sprite.Sprite):
         else:
             self.is_moving = False
 
-        # GESTIÓN DE ANIMACIÓN
         if self.is_moving:
             self.anim_timer += dt
             if self.anim_timer >= self.animation_speed:
@@ -476,14 +491,12 @@ class Player(pygame.sprite.Sprite):
                 is_crawl_passage_wall = self._wall_is_in_crawlable_zone(wall)
                 if self.stance == "CRAWL" and is_crawl_passage_wall:
                     continue
-
                 collided = True
                 if dx > 0:
                     self.rect.right = wall.left
                 elif dx < 0:
                     self.rect.left = wall.right
                 self.x = float(self.rect.x)
-
                 if not is_crawl_passage_wall:
                     collided_with_normal_wall = True
 
@@ -497,20 +510,17 @@ class Player(pygame.sprite.Sprite):
         collided_with_normal_wall = False
         previous_rect = previous_rect if previous_rect is not None else self.rect.copy()
 
-        # 1. Comprobamos colisión con paredes normales
         for wall in walls:
             if self.rect.colliderect(wall):
                 is_crawl_passage_wall = self._wall_is_in_crawlable_zone(wall)
                 if self.stance == "CRAWL" and is_crawl_passage_wall:
                     continue
-
                 collided = True
                 if dy > 0:
                     self.rect.bottom = wall.top
                 elif dy < 0:
                     self.rect.top = wall.bottom
                 self.y = float(self.rect.y)
-
                 if not is_crawl_passage_wall:
                     collided_with_normal_wall = True
 
@@ -518,13 +528,11 @@ class Player(pygame.sprite.Sprite):
             for barrier in self.top_barriers:
                 if not self.rect.colliderect(barrier):
                     continue
-
                 for zone in self.hidden_zones_top:
                     if not self._barrier_belongs_to_top_zone(barrier, zone):
                         continue
                     if not zone.left <= previous_rect.centerx < zone.right:
                         continue
-
                     if dy > 0 and previous_rect.bottom <= barrier.top:
                         self.rect.bottom = barrier.top
                     elif (
@@ -535,7 +543,6 @@ class Player(pygame.sprite.Sprite):
                         self.rect.top = barrier.bottom
                     else:
                         continue
-
                     self.y = float(self.rect.y)
                     break
 
@@ -569,7 +576,6 @@ class Player(pygame.sprite.Sprite):
         for marker in self.hidden_zones_bottom:
             if not proposed_rect.colliderect(marker) or previous_rect.centery < marker.bottom:
                 continue
-
             zone = next(
                 (
                     zone for zone in self.hidden_zones_top
@@ -611,11 +617,9 @@ class Player(pygame.sprite.Sprite):
     def _wall_is_ahead_of_bottom_entry(self, wall, player_rect):
         if self.stance != "CRAWL" or self.facing != "UP" or self.active_hidden_top_zone is not None:
             return False
-
         for marker in self.hidden_zones_bottom:
             if not marker.left <= player_rect.centerx < marker.right or player_rect.top < marker.top:
                 continue
-
             zone = next(
                 (
                     zone for zone in self.hidden_zones_top
@@ -632,10 +636,8 @@ class Player(pygame.sprite.Sprite):
     def can_crawl(self):
         if not hasattr(self, 'current_walls') or not self.current_walls:
             return True
-
         test_rect = self.rect.copy()
         check_distance = 6
-
         if self.facing == "UP":
             test_rect.y -= check_distance
         elif self.facing == "DOWN":
@@ -644,7 +646,6 @@ class Player(pygame.sprite.Sprite):
             test_rect.x -= check_distance
         elif self.facing == "RIGHT":
             test_rect.x += check_distance
-
         for wall in self.current_walls:
             if test_rect.colliderect(wall):
                 if (
@@ -657,10 +658,8 @@ class Player(pygame.sprite.Sprite):
     def check_upcoming_obstacle(self):
         if not hasattr(self, 'current_walls') or not self.current_walls:
             return False
-
         test_rect = self.rect.copy()
-        look_ahead = 30  # Píxeles de anticipación hacia adelante. Ajustar variable en testing.
-
+        look_ahead = 30
         if self.facing == "UP":
             test_rect.y -= look_ahead
         elif self.facing == "DOWN":
@@ -669,7 +668,6 @@ class Player(pygame.sprite.Sprite):
             test_rect.x -= look_ahead
         elif self.facing == "RIGHT":
             test_rect.x += look_ahead
-
         for wall in self.current_walls:
             if test_rect.colliderect(wall):
                 if (
@@ -683,10 +681,8 @@ class Player(pygame.sprite.Sprite):
     def has_space_behind(self):
         if not hasattr(self, 'current_walls') or not self.current_walls:
             return True
-
         body_length = 26 
         test_rect = self.rect.copy()
-
         if self.facing == "UP":
             test_rect.height += body_length
         elif self.facing == "DOWN":
@@ -697,18 +693,15 @@ class Player(pygame.sprite.Sprite):
         elif self.facing == "RIGHT":
             test_rect.x -= body_length
             test_rect.width += body_length
-
         for wall in self.current_walls:
             if test_rect.colliderect(wall):
                 if not self._wall_is_in_crawlable_zone(wall, test_rect):
                     return False
         return True
-#NUEVO
+
     def is_near_hidden_zone(self, margin=15):
-        # Solo aplica el margen anticipado si Snake está efectivamente en postura CRAWL
         if self.stance != "CRAWL":
             return False
-            
         test_rect = self.rect.copy()
         test_rect.inflate_ip(margin, margin)
         return self._is_inside_hidden_zone(test_rect)
@@ -721,31 +714,45 @@ class Player(pygame.sprite.Sprite):
     def update_death(self, dt):
         if not self.is_dying:
             return
-            
         self.death_timer += dt
         if self.death_timer >= self.death_animation_speed:
             self.death_timer = 0.0
-            # Si aún hay frames en la animación de muerte, avanzamos
             if self.death_frame_index < len(self.animations["DIE"]) - 1:
                 self.death_frame_index += 1
-    
+
+    def _weapon_pose_frames(self):
+        """Frames de Snake con el arma equipada, o None si hay que usar los sprites normales."""
+        if self.stance != "STAND" or self.is_transitioning:
+            return None
+        manager = self.weapon_manager
+        if manager is None:
+            if self.is_aiming() and self.gun_animations:
+                return self.gun_animations[self.facing]
+            return None
+        set_name = manager.current.sprite_set
+        anims = self.weapon_animations.get(set_name)
+        if not anims:
+            return None
+        if set_name == "gun" and not self.is_aiming():
+            return None
+        return anims[self.facing]
+
     def draw_with_camera(self, surface, camera):
         current_image = None
-        gun_pose = False  # NUEVO
-
-        # === AGREGADO: MOSTRAR SPRITE DE LA CAJA SI ESTÁ DISFRAZADO ===
+        gun_pose = False
 
         if self.is_dying:
             current_image = self.animations["DIE"][self.death_frame_index]
         else:
+            pose_frames = self._weapon_pose_frames()
             if self.is_disguised and self.box_sprite:
                 current_image = self.box_sprite
             elif self.is_punching:
                 current_image = self.animations["PUNCH"][self.facing]
-            elif self.is_aiming() and self.stance == "STAND" and self.gun_animations:  # NUEVO
-                frames = self.gun_animations[self.facing]  # NUEVO
-                current_image = frames[self.frame_index % 4] if self.is_moving else frames[0]  # NUEVO
-                gun_pose = True  # NUEVO
+            elif pose_frames is not None:
+                # fire_fx sobreescribe esto más abajo si está disparando
+                current_image = pose_frames[self.frame_index % len(pose_frames)] if self.is_moving else pose_frames[0]
+                gun_pose = True
             elif self.is_moving:
                 if self.stance == "CROUCH":
                     current_image = self.animations["CROUCH"][self.facing][self.frame_index]
@@ -760,38 +767,40 @@ class Player(pygame.sprite.Sprite):
                     current_image = self.animations["CRAWL"][self.facing][0]
                 else:
                     current_image = self.animations["IDLE"][self.facing]
-            
-            
+
+        # Sprite de disparo del M16: sobreescribe el sprite normal mientras está disparando.
+        # Pasa is_moving y frame_index para que el ciclo de pasos esté sincronizado.
+        fire_fx = getattr(self, "fire_fx", None)
+        if fire_fx and self.weapon_manager and not self.is_dying:
+            fire_img = fire_fx.get_fire_image(
+                self.weapon_manager.current_id,
+                self.facing,
+                is_moving=self.is_moving,
+                frame_index=self.frame_index,
+            )
+            if fire_img:
+                current_image = fire_img
+                gun_pose = True   # usa el mismo centrado que los sprites con arma
+
         dest_rect = camera.apply(self)
-        
         draw_x = dest_rect.x - self.offset_x
         draw_y = dest_rect.y - self.offset_y
 
-        if gun_pose:  # NUEVO
-            # Si el sprite con arma tiene otro tamaño, lo centra sobre el hitbox de los pies.
+        if gun_pose:
             draw_x = dest_rect.centerx - current_image.get_width() // 2
             draw_y = dest_rect.bottom - current_image.get_height()
-        
-        surface.blit(current_image, (draw_x, draw_y))
-        pygame.draw.rect(surface, (255, 0, 0), dest_rect, 2)
 
-        # Parpadeo mientras es invulnerable (se salta un frame de cada dos).
+        # Parpadeo mientras es invulnerable
         if self.is_invulnerable() and not self.is_dead and (pygame.time.get_ticks() // 100) % 2 == 0:
             return
-        
-        surface.blit(current_image, (draw_x, draw_y))
 
-        # Para DEBUG: DIBUJA LA COLISIÓN EN TIEMPO REAL COMO UN CUADRADO ROJO.
-        # Debería mostrarse a los pies de Snake, estando de pie, agachado,
-        # y en el centro de su cuerpo ( Aprox. ) al estar cuerpo a tierra.
-        # Descomentar para que funcione: 
-        # pygame.draw.rect(surface, (255, 0, 0), dest_rect, 2)
+        surface.blit(current_image, (draw_x, draw_y))
+        # pygame.draw.rect(surface, (255, 0, 0), dest_rect, 2)  # debug hitbox
 
     def is_aiming(self):
         return pygame.time.get_ticks() < self.gun_until
 
     def get_punch_rect(self):
-        #Zona delante de Snake que alcanza el puño (en el mismo plano que los pies).
         r = self.rect
         if self.facing == "UP":
             return pygame.Rect(r.x, r.top - PUNCH_RANGE, r.width, PUNCH_RANGE)
@@ -802,23 +811,30 @@ class Player(pygame.sprite.Sprite):
         else:
             return pygame.Rect(r.right, r.y, PUNCH_RANGE, r.height)
 
-    def can_shoot(self):
-        if self.is_dying or self.is_dead:
+    def can_use_weapon(self):
+        if self.is_dying or self.is_dead or self.input_locked:
             return False
-        # Solo de pie, y no durante la transición de postura.
         if self.stance != "STAND" or self.is_transitioning:
             return False
-        # No mientras golpea ni con la caja puesta.
         if self.is_punching or self.is_disguised:
+            return False
+        return True
+
+    def fire_bullet(self, damage_mult=1.0, muzzle=None):
+        self.last_shot_time = pygame.time.get_ticks()
+        self.gun_until = self.last_shot_time + PLAYER_GUN_SHOW_TIME
+        return Bullet(self.rect, self.facing, damage=BULLET_DAMAGE * damage_mult, muzzle=muzzle)
+    
+    def can_shoot(self):
+        if not self.can_use_weapon():
             return False
         return pygame.time.get_ticks() - self.last_shot_time >= PLAYER_SHOOT_COOLDOWN
 
     def shoot(self):
-        #Devuelve una Bala hacia donde mira Snake, o None si no puede disparar.
         if not self.can_shoot():
             return None
         self.last_shot_time = pygame.time.get_ticks()
-        self.gun_until = self.last_shot_time + PLAYER_GUN_SHOW_TIME   # NUEVO
+        self.gun_until = self.last_shot_time + PLAYER_GUN_SHOW_TIME
         if self.shoot_sound:
             self.shoot_sound.play()
         return Bullet(self.rect, self.facing)
@@ -827,9 +843,6 @@ class Player(pygame.sprite.Sprite):
         return pygame.time.get_ticks() - self.last_hit_time < PLAYER_INVULNERABLE_TIME
 
     def take_damage(self, amount):
-
-        #Resta vida. Ignora el golpe si todavía está en el tiempo de invulnerabilidad.
-        
         if self.is_dead or self.is_invulnerable():
             return
         self.health = max(0, self.health - amount)
