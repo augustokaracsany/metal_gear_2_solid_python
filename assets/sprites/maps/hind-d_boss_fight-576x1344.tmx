@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="36" height="84" tilewidth="16" tileheight="16" infinite="0" nextlayerid="11" nextobjectid="109">
+<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="36" height="84" tilewidth="16" tileheight="16" infinite="0" nextlayerid="12" nextobjectid="121">
  <tileset firstgid="1" source="colisiones.tsx"/>
  <imagelayer id="2" name="hind-d_boss_fight-576x1344">
   <image source="hind-d_boss_fight-576x1344.png" width="576" height="1344"/>
@@ -88,12 +88,50 @@
 1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,
 1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,
 1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,
-1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
 </data>
  </layer>
  <objectgroup color="#aa55ff" id="4" name="player_spawn">
-  <object id="102" name="player_spawn" x="292" y="596">
+  <object id="102" name="player_spawn" x="300" y="500">
+   <point/>
+  </object>
+ </objectgroup>
+ <objectgroup color="#ff0000" id="11" name="pickups">
+  <object id="109" name="ammo_m16" x="428" y="460">
+   <point/>
+  </object>
+  <object id="110" name="ammo_uzi" x="428" y="440">
+   <point/>
+  </object>
+  <object id="111" name="ammo_beretta" x="428" y="420">
+   <point/>
+  </object>
+  <object id="112" name="stinger_launcher" x="428" y="492">
+   <point/>
+  </object>
+  <object id="113" name="stinger_missiles" x="300" y="452">
+   <point/>
+  </object>
+  <object id="114" name="stinger_missiles" x="336" y="452">
+   <point/>
+  </object>
+  <object id="115" name="stinger_missiles" x="168" y="424">
+   <point/>
+  </object>
+  <object id="116" name="stinger_missiles" x="204" y="424">
+   <point/>
+  </object>
+  <object id="117" name="stinger_missiles" x="164" y="472">
+   <point/>
+  </object>
+  <object id="118" name="stinger_missiles" x="200" y="472">
+   <point/>
+  </object>
+  <object id="119" name="stinger_missiles" x="240" y="404">
+   <point/>
+  </object>
+  <object id="120" name="stinger_missiles" x="276" y="404">
    <point/>
   </object>
  </objectgroup>
@@ -118,7 +156,7 @@
     <property name="target_map" value="assets/sprites/maps/truck_interior_3.tmx"/>
    </properties>
   </object>
-  <object id="106" name="trigger_cutscene" x="160" y="216" width="256" height="132"/>
+  <object id="106" name="trigger_cutscene" x="12" y="288" width="552" height="64"/>
  </objectgroup>
  <objectgroup color="#aa00ff" id="8" name="zonas_oculto">
   <object id="37" x="344" y="728" width="16" height="72"/>
