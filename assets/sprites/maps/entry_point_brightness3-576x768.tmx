@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="36" height="48" tilewidth="16" tileheight="16" infinite="0" nextlayerid="13" nextobjectid="150">
+<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="36" height="48" tilewidth="16" tileheight="16" infinite="0" nextlayerid="13" nextobjectid="151">
  <editorsettings>
   <export target="entry_point_brightness3-576x768.tmx" format="tmx"/>
  </editorsettings>
@@ -60,12 +60,19 @@
 0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0
 </data>
  </layer>
+ <objectgroup id="12" name="codec_trigger">
+  <object id="149" name="enemy_call" x="0" y="0" width="576" height="496">
+   <properties>
+    <property name="call_id" value="enemy_call"/>
+   </properties>
+  </object>
+ </objectgroup>
  <objectgroup color="#aa55ff" id="6" name="player_spawn" class="spawn">
   <object id="105" name="player_spawn" x="288" y="624">
    <point/>
   </object>
  </objectgroup>
- <objectgroup id="7" name="enemy_patrols">
+ <objectgroup color="#ff5500" id="7" name="enemy_patrols">
   <object id="99" name="Soldier1_Waypoint" x="144" y="111.75">
    <point/>
   </object>
@@ -91,19 +98,7 @@
    <point/>
   </object>
  </objectgroup>
- <objectgroup color="#aa00ff" id="8" name="zonas_oculto">
-  <object id="110" x="456" y="432" width="16" height="72"/>
-  <object id="111" x="520" y="318" width="16" height="34"/>
-  <object id="112" x="296" y="318" width="16" height="34"/>
-  <object id="113" x="40" y="318" width="16" height="34"/>
-  <object id="114" x="488" y="0" width="16" height="64"/>
-  <object id="133" x="544" y="80" width="16" height="72"/>
-  <object id="134" x="512" y="88" width="16" height="72"/>
-  <object id="135" x="480" y="88" width="16" height="72"/>
-  <object id="136" x="448" y="96" width="16" height="56"/>
-  <object id="137" x="416" y="88" width="16" height="72"/>
- </objectgroup>
- <layer id="9" name="techos" width="36" height="48">
+ <layer id="9" name="techos" width="36" height="48" visible="0">
   <data encoding="csv">
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -155,6 +150,9 @@
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 </data>
  </layer>
+ <objectgroup id="11" name="items">
+  <object id="147" name="pistola" x="56" y="164" width="34" height="18"/>
+ </objectgroup>
  <objectgroup color="#ff0000" id="5" name="colisiones_objs">
   <object id="10" x="160" y="320" width="8" height="128"/>
   <object id="13" x="184" y="288" width="8" height="128"/>
@@ -192,9 +190,9 @@
   <object id="46" x="16" y="64" width="16" height="8"/>
   <object id="47" x="368" y="64" width="24" height="8"/>
   <object id="48" x="464" y="64" width="16" height="8"/>
-  <object id="49" x="480" y="0" width="8" height="64"/>
-  <object id="50" x="504" y="0" width="8" height="64"/>
-  <object id="51" x="488" y="0" width="16" height="56"/>
+  <object id="49" x="480" y="58" width="8" height="6"/>
+  <object id="50" x="504" y="58" width="8" height="6"/>
+  <object id="51" x="488" y="52" width="16" height="4"/>
   <object id="52" x="464" y="88" width="64" height="4"/>
   <object id="53" x="408" y="88" width="40" height="4"/>
   <object id="54" x="408" y="92" width="8" height="68"/>
@@ -253,6 +251,18 @@
   <object id="131" x="496" y="144" width="16" height="8"/>
   <object id="132" x="464" y="144" width="16" height="8"/>
  </objectgroup>
+ <objectgroup color="#aa00ff" id="8" name="zonas_oculto">
+  <object id="110" x="456" y="432" width="16" height="72"/>
+  <object id="111" x="520" y="318" width="16" height="34"/>
+  <object id="112" x="296" y="318" width="16" height="34"/>
+  <object id="113" x="40" y="318" width="16" height="34"/>
+  <object id="114" x="488" y="0" width="16" height="64"/>
+  <object id="133" x="544" y="80" width="16" height="72"/>
+  <object id="134" x="512" y="88" width="16" height="72"/>
+  <object id="135" x="480" y="88" width="16" height="72"/>
+  <object id="136" x="448" y="96" width="16" height="56"/>
+  <object id="137" x="416" y="88" width="16" height="72"/>
+ </objectgroup>
  <objectgroup color="#ffff00" id="10" name="triggers">
   <object id="138" name="truck_trigger" x="544" y="124" width="15.8125" height="28.3125">
    <properties>
@@ -268,22 +278,12 @@
     <property name="target_map" value="assets/sprites/maps/truck_interior_2.tmx"/>
    </properties>
   </object>
-  <object id="148" name="vent_trigger" x="488" y="0" width="16" height="8">
+  <object id="148" name="vent_trigger" x="488" y="0" width="16" height="4">
    <properties>
     <property name="prone" type="bool" value="true"/>
-    <property name="spawn_x" type="int" value="500"/>
-    <property name="spawn_y" type="int" value="180"/>
+    <property name="spawn_x" type="int" value="495"/>
+    <property name="spawn_y" type="int" value="165"/>
     <property name="target_map" value="assets/sprites/maps/vents-576x192.tmx"/>
-   </properties>
-  </object>
- </objectgroup>
- <objectgroup id="11" name="items">
-  <object id="147" name="pistola" x="56" y="164" width="34" height="18"/>
- </objectgroup>
- <objectgroup id="12" name="codec_trigger">
-  <object id="149" name="enemy_call" x="0" y="0" width="576" height="496">
-   <properties>
-    <property name="call_id" value="enemy_call"/>
    </properties>
   </object>
  </objectgroup>
