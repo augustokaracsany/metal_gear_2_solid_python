@@ -16,6 +16,7 @@ from src.settings import PUNCH_DAMAGE, PUNCH_HIT_PADDING, PUNCH_STUN_TIME
 from src.inventory import InventoryMenu
 from src.item_message import ItemMessage
 from src.hud_inventory import HUDInventory  # <--- HUD de inventario equipado activo
+from src.fox import FoxScreenManager
 import numpy as np
 
 class Game:
@@ -69,6 +70,10 @@ class Game:
         # --- CODEC ---
 
         self.codec_manager = CodecManager()
+
+        # --- PANTALLA DEL ZORRO ---
+        
+        self.fox_screen = FoxScreenManager()
 
         # --- MÚSICA DE FONDO (solo misión 1: Entry Point) ---
         self.start_level_music()
@@ -334,33 +339,34 @@ class Game:
         if not self.map:
             return
 
-        triggers = self.map.get_triggers()
-        for trigger in triggers:
+        for trigger in self.map.get_triggers():
             if self.player.rect.colliderect(trigger["rect"]):
-                props = trigger["properties"]
-                target_map = props.get("target_map")
-                self.load_level(target_map)
-
-                # Propiedad opcional "mission": el trigger cambia el número de misión actual.
-                if "mission" in props:
-                    self.mission_number = int(props["mission"])
-
-                scale = self.map.scale if self.map else 2
-                spawn_x = float(props.get("spawn_x", 180)) * scale
-                spawn_y = float(props.get("spawn_y", 550)) * scale
-                self.player.x = spawn_x
-                self.player.y = spawn_y
-                self.player.rect.x = int(spawn_x)
-                self.player.rect.y = int(spawn_y)
-
-                # Propiedad opcional "prone": True = llega cuerpo a tierra, False = de pie.
-                if "prone" in props:
-                    self.player.set_stance("CRAWL" if props["prone"] else "STAND")
-                
-                map_width = self.map.width if self.map else self.map_image.get_width()
-                map_height = self.map.height if self.map else self.map_image.get_height()
-                self.camera = Camera(map_width, map_height, self.virtual_width, self.virtual_height)
+                self.fox_screen.start(lambda t=trigger: self._do_transition(t))
                 break
+
+    def _do_transition(self, trigger):
+        props = trigger["properties"]
+        target_map = props.get("target_map")
+        self.load_level(target_map)
+
+        if "mission" in props:
+            self.mission_number = int(props["mission"])
+
+        scale = self.map.scale if self.map else 2
+        spawn_x = float(props.get("spawn_x", 180)) * scale
+        spawn_y = float(props.get("spawn_y", 550)) * scale
+        self.player.x = spawn_x
+        self.player.y = spawn_y
+        self.player.rect.x = int(spawn_x)
+        self.player.rect.y = int(spawn_y)
+
+        if "prone" in props:
+            self.player.set_stance("CRAWL" if props["prone"] else "STAND")
+
+        map_width = self.map.width if self.map else self.map_image.get_width()
+        map_height = self.map.height if self.map else self.map_image.get_height()
+        self.camera = Camera(map_width, map_height, self.virtual_width, self.virtual_height)
+        self.camera.update(self.player)
 
     def trigger_victory_sequence(self):
         if self.state == "PLAYING":
@@ -513,6 +519,8 @@ class Game:
 
     def handle_events(self, events):
         for event in events:
+            if self.fox_screen.active and event.type != pygame.QUIT:
+                continue
             if self.pending_action:
                 continue
             if event.type == pygame.QUIT:
@@ -642,35 +650,16 @@ class Game:
                 self.player.punch_self_event(event)
         return None
 
-    def trigger_contextual_codec(self):
-        # 1. Buscamos por defecto la llamada "default"
-        chosen_call_id = "default"
-        
-        # 2. Comprobamos si el rect del jugador colisiona con alguna zona de Tiled
-        for zone in self.codec_zones:
-            if self.player.rect.colliderect(zone["rect"]):
-                chosen_call_id = zone["call_id"]
-                break # Encontró una zona, nos quedamos con su ID
-                
-        # 3. Cambiamos al estado de Códec y le pasamos el ID correspondiente
-        self.state = "CODEC"
-        self.codec_manager.start_call(chosen_call_id)
-
     def execute_radio_call(self):
-        # Por defecto, si no está en ninguna zona especial, llamamos al "default"
         target_call_id = "default"
-        
-        # Comprobamos si el rect del jugador colisiona con alguna zona de Tiled
+
         for zone in self.codec_zones:
             if self.player.rect.colliderect(zone["rect"]):
                 target_call_id = zone["call_id"]
-                break # Encontró la zona, nos quedamos con ese ID y salimos del bucle
-                
-        # Cambiamos el estado del juego a CODEC
+                break
+
         self.state = "CODEC"
-        
-        # Llamamos a tu método que ya tienes hecho pasándole el ID correspondiente
-        self.codec_manager.start_call(target_call_id)
+        self.codec_manager.start_call(target_call_id, calling=True)
 
     def player_shoot(self):
         if self.state != "PLAYING":
@@ -719,6 +708,9 @@ class Game:
     def update(self, dt, surface):
         if self.pending_action:
             self._update_exit_fade()
+            return
+        if self.fox_screen.active:
+            self.fox_screen.update(dt)
             return
         if self.fading_in:
             elapsed_fade = pygame.time.get_ticks() - self.fade_in_timer
@@ -1227,3 +1219,5 @@ class Game:
 
         elif self.state == "CODEC":
             self.codec_manager.draw(surface)
+
+        self.fox_screen.draw(surface)

@@ -72,6 +72,9 @@ class Enemy(pygame.sprite.Sprite):
     _sound_icon = None
     _alert_icon = None  
 
+    HOP_HEIGHT = 6         # px de altura máxima del salto (la pantalla se escala x2)
+    HOP_DURATION = 0.25    # segundos que dura el saltito
+
     def __init__(self, x, y, patrol_points, start_delay=0.0):
         super().__init__()
 
@@ -94,6 +97,7 @@ class Enemy(pygame.sprite.Sprite):
         self.anim_timer = 0.0
         self.frame_index = 0
         self.animation_speed = 0.2
+        self.hop_timer = 0.0
 
         # MÁQUINA DE ESTADOS.
         self.state = "WALKING"
@@ -182,6 +186,9 @@ class Enemy(pygame.sprite.Sprite):
 
     # UPDATE PRINCIPAL
     def update(self, dt, walls, player, grid=None, bullet_group=None):
+        if self.hop_timer > 0:
+            self.hop_timer = max(0.0, self.hop_timer - dt)
+
         self.current_walls = walls
         
         # Aturdido por un golpe: se queda quieto hasta que se le acabe el tiempo.
@@ -191,6 +198,7 @@ class Enemy(pygame.sprite.Sprite):
             if self.stun_timer <= 0 and self.hit_from is not None:
                 self._react_to_hit()
                 self.hit_from = None
+            return
         if grid is not None:
             self.GRID_TILE = grid.cell_px
 
@@ -433,6 +441,7 @@ class Enemy(pygame.sprite.Sprite):
             self.kill()  # Lo saca de enemies_group (y de cualquier otro grupo).
         else:
             self.stun_timer = max(self.stun_timer, stun_time)
+            self.hop_timer = self.HOP_DURATION      # <- inicia el saltito
             if stun_time > 0 and source_pos is not None:
                 self.hit_from = source_pos
 
@@ -722,27 +731,6 @@ class Enemy(pygame.sprite.Sprite):
                     return (g[0] * ts + ts / 2, g[1] * ts + ts / 2)
         return None
 
-    def hear_noise(self, pos, radius, grid, origin=None):
-        """pos: a dónde ir. origin: desde dónde se mide el radio (por defecto, pos).
-        Devuelve True si decidió ir a investigar."""
-        if self.start_delay > 0 or self.state in ("ALERT", "CHASE"):
-            return False                      # ya está en lo suyo
-
-        ox, oy = origin if origin else pos
-        fx, fy = self._fcenter()
-        if math.hypot(ox - fx, oy - fy) > radius:
-            return False
-
-        target = self._strict_target(grid, pos[0], pos[1], max_path=radius * 2.5)
-        if target is None:
-            return False                      # inalcanzable o camino demasiado largo
-
-        self.last_known_pos = target
-        self.search_target = target
-        self._set_state("SEARCH")             # no borra search_target
-        self._face_towards(*target)
-        return True
-
     def _heard(self, dt):
         """Gesto de "escuché algo": se queda quieto mirando hacia la fuente y luego investiga."""
         if self.search_target:
@@ -897,6 +885,16 @@ class Enemy(pygame.sprite.Sprite):
         dest_rect = camera.apply(self)
         draw_x = dest_rect.x - self.offset_x
         draw_y = dest_rect.y - self.offset_y
+
+        # Saltito al recibir un golpe (parábola: sube y baja)
+        hop = 0
+        if self.hop_timer > 0:
+            t = 1 - self.hop_timer / self.HOP_DURATION     # 0 -> 1
+            hop = int(4 * self.HOP_HEIGHT * t * (1 - t))
+        draw_y -= hop
+
+        pygame.draw.rect(surface, (255, 0, 0), dest_rect, 1)
+        surface.blit(current_image, (draw_x, draw_y))
 
         pygame.draw.rect(surface, (255, 0, 0), dest_rect, 1)
         surface.blit(current_image, (draw_x, draw_y))
