@@ -1,0 +1,565 @@
+Listado de rutas de carpetas
+El n£mero de serie del volumen es 7E33-9845
+C:.
+|   .gitignore
+|   estructura.txt
+|   main.py
+|   README.md
+|   requirements.txt
+|   
++---assets
+|   +---audio
+|   |   +---hind-d
+|   |   |       216-blast-furnace-twin-snakes-version.mp3
+|   |   |       62-blood-brothers-hind-d-twin-snakes-version.mp3
+|   |   |       autocannon-salvo-long-heavy-artillery-shot-1.wav
+|   |   |       cannon-30mm-hispano-suiza-loop-far.wav
+|   |   |       cannon-30mm-hispano-suiza-loop.wav
+|   |   |       helicopter-fly-over-01.wav
+|   |   |       helicopter-fly-over-04.wav
+|   |   |       helicopter-hovering-01.wav
+|   |   |       helicopter-starting-exterior-01.wav
+|   |   |       Metal Gear Solid_ Peace Walker Expanded Soundtrack - 30 - CHRYSALIS.mp3
+|   |   |       
+|   |   +---music
+|   |   |       Advance Immediately.mp3
+|   |   |       arriving.mp3
+|   |   |       encounter.mp3
+|   |   |       game_over.mp3
+|   |   |       midnight_shadow.mp3
+|   |   |       mission_complete.mp3
+|   |   |       musica_entry_point.mp3
+|   |   |       Theme_of_Solid_Snake.mp3
+|   |   |       
+|   |   +---sfx
+|   |   |       cancel.wav
+|   |   |       found.mp3
+|   |   |       gunshot.wav
+|   |   |       item_obtenido.wav
+|   |   |       kept.mp3
+|   |   |       punch.wav
+|   |   |       radio.mp3
+|   |   |       select.wav
+|   |   |       snake_scream.mp3
+|   |   |       text_scroll.wav
+|   |   |       
+|   |   +---stinger
+|   |   |       launch.wav
+|   |   |       
+|   |   \---weapons
+|   |           beretta_empty.wav
+|   |           beretta_fire.wav
+|   |           beretta_reload.wav
+|   |           m16_empty.wav
+|   |           m16_fire.wav
+|   |           m16_reload.wav
+|   |           mode_switch.wav
+|   |           ric1.wav
+|   |           ric10.wav
+|   |           ric11.wav
+|   |           ric12.wav
+|   |           ric13.wav
+|   |           ric14.wav
+|   |           ric15.wav
+|   |           ric2.wav
+|   |           ric3.wav
+|   |           ric4.wav
+|   |           ric5.wav
+|   |           ric6.wav
+|   |           ric7.wav
+|   |           ric8.wav
+|   |           ric9.wav
+|   |           uzi_fire.wav
+|   |           uzi_reload.wav
+|   |           
+|   +---codec
+|   |       codec1.png
+|   |       
+|   +---fonts
+|   |       PixelOperator8-Bold.ttf
+|   |       PixelOperator8.ttf
+|   |       PressStart2P-Regular.ttf
+|   |       
+|   +---intro
+|   |   |   frame1.png
+|   |   |   frame10.png
+|   |   |   frame11.png
+|   |   |   frame12.png
+|   |   |   frame13.png
+|   |   |   frame14.png
+|   |   |   frame15.png
+|   |   |   frame16.png
+|   |   |   frame17.png
+|   |   |   frame18.png
+|   |   |   frame19.png
+|   |   |   frame2.png
+|   |   |   frame20.png
+|   |   |   frame21.png
+|   |   |   frame22.png
+|   |   |   frame23.png
+|   |   |   frame24.png
+|   |   |   frame25.png
+|   |   |   frame26.png
+|   |   |   frame27.png
+|   |   |   frame28.png
+|   |   |   frame29.png
+|   |   |   frame3.png
+|   |   |   frame30.png
+|   |   |   frame31.png
+|   |   |   frame32.png
+|   |   |   frame33.png
+|   |   |   frame34.png
+|   |   |   frame35.png
+|   |   |   frame36.png
+|   |   |   frame37.png
+|   |   |   frame38.png
+|   |   |   frame39.png
+|   |   |   frame4.png
+|   |   |   frame40.png
+|   |   |   frame41.png
+|   |   |   frame42.png
+|   |   |   frame43.png
+|   |   |   frame44.png
+|   |   |   frame45.png
+|   |   |   frame46.png
+|   |   |   frame47.png
+|   |   |   frame48.png
+|   |   |   frame49.png
+|   |   |   frame5.png
+|   |   |   frame50.png
+|   |   |   frame51.png
+|   |   |   frame52.png
+|   |   |   frame53.png
+|   |   |   frame54.png
+|   |   |   frame55.png
+|   |   |   frame56.png
+|   |   |   frame57.png
+|   |   |   frame58.png
+|   |   |   frame59.png
+|   |   |   frame6.png
+|   |   |   frame60.png
+|   |   |   frame7.png
+|   |   |   frame8.png
+|   |   |   frame9.png
+|   |   |   gun.png
+|   |   |   title_logo.png
+|   |   |   
+|   |   \---sec2
+|   |           frame1.png
+|   |           frame10.png
+|   |           frame11.png
+|   |           frame12.png
+|   |           frame13.png
+|   |           frame14.png
+|   |           frame15.png
+|   |           frame16.png
+|   |           frame17.png
+|   |           frame18.png
+|   |           frame19.png
+|   |           frame2.png
+|   |           frame20.png
+|   |           frame21.png
+|   |           frame22.png
+|   |           frame23.png
+|   |           frame24.png
+|   |           frame25.png
+|   |           frame26.png
+|   |           frame27.png
+|   |           frame28.png
+|   |           frame29.png
+|   |           frame3.png
+|   |           frame30.png
+|   |           frame31.png
+|   |           frame32.png
+|   |           frame33.png
+|   |           frame34.png
+|   |           frame35.png
+|   |           frame36.png
+|   |           frame37.png
+|   |           frame38.png
+|   |           frame39.png
+|   |           frame4.png
+|   |           frame40.png
+|   |           frame41.png
+|   |           frame42.png
+|   |           frame43.png
+|   |           frame44.png
+|   |           frame45.png
+|   |           frame46.png
+|   |           frame47.png
+|   |           frame48.png
+|   |           frame49.png
+|   |           frame5.png
+|   |           frame50.png
+|   |           frame51.png
+|   |           frame52.png
+|   |           frame53.png
+|   |           frame54.png
+|   |           frame55.png
+|   |           frame56.png
+|   |           frame57.png
+|   |           frame58.png
+|   |           frame59.png
+|   |           frame6.png
+|   |           frame60.png
+|   |           frame61.png
+|   |           frame62.png
+|   |           frame63.png
+|   |           frame64.png
+|   |           frame65.png
+|   |           frame66.png
+|   |           frame67.png
+|   |           frame68.png
+|   |           frame69.png
+|   |           frame7.png
+|   |           frame70.png
+|   |           frame8.png
+|   |           frame9.png
+|   |           
+|   +---json
+|   |       codec_calls.json
+|   |       prologue_data.json
+|   |       
+|   +---menu
+|   |       background.png
+|   |       logo.png
+|   |       
+|   +---prologue
+|   |       frame1.jpg
+|   |       frame2.jpg
+|   |       frame3.jpg
+|   |       
+|   \---sprites
+|       +---alerts
+|       |       alert.png
+|       |       sound.png
+|       |       
+|       +---hind-d
+|       |       explo1.png
+|       |       explo2.png
+|       |       explo3.png
+|       |       explo4.png
+|       |       hindd-down1.png
+|       |       hindd-down2.png
+|       |       hindd-downleft1.png
+|       |       hindd-downleft2.png
+|       |       hindd-downright1.png
+|       |       hindd-downright2.png
+|       |       hindd-left1.png
+|       |       hindd-left2.png
+|       |       hindd-right1.png
+|       |       hindd-right2.png
+|       |       hindd-shot1.png
+|       |       hindd-shot2.png
+|       |       hindd-up1.png
+|       |       hindd-up2.png
+|       |       hindd-upleft1.png
+|       |       hindd-upleft2.png
+|       |       hindd-upright1.png
+|       |       hindd-upright2.png
+|       |       Hind_D1.png
+|       |       Hind_D2.png
+|       |       Hind_D3.png
+|       |       Hind_D4.png
+|       |       Hind_D5.png
+|       |       Hind_D6.png
+|       |       Hind_D7.png
+|       |       missile-down.png
+|       |       missile-downleft.png
+|       |       missile-downright.png
+|       |       missile-left.png
+|       |       missile-right.png
+|       |       missile-up.png
+|       |       missile-upleft.png
+|       |       missile-upright.png
+|       |       
+|       +---items
+|       |       municiones.png
+|       |       racion_roja.png
+|       |       
+|       +---maps
+|       |   |   16x16.png
+|       |   |   building1floor1.png
+|       |   |   building1_floor1-960x960.png
+|       |   |   building1_floor1-960x960.tmx
+|       |   |   building1_floor2-576x576.png
+|       |   |   building1_floor2-576x576.tmx
+|       |   |   colisiones.tsx
+|       |   |   ducto.tmx
+|       |   |   entry_point_brightness3-576x768.png
+|       |   |   entry_point_brightness3-576x768.tmx
+|       |   |   hidden_roofs.tsx
+|       |   |   hidden_roofs1.tsx
+|       |   |   hind-d_boss_fight-576x1344.png
+|       |   |   hind-d_boss_fight-576x1344.tmx
+|       |   |   intro_entry_point.png
+|       |   |   intro_entry_point.tmx
+|       |   |   swamp-960x768.png
+|       |   |   swamp-960x768.tmx
+|       |   |   swamp2-960x768.tmx
+|       |   |   swamp_desert-960x1728.png
+|       |   |   swamp_desert-960x1728.tmx
+|       |   |   truck_interior.png
+|       |   |   truck_interior.tmx
+|       |   |   truck_interior_2.tmx
+|       |   |   truck_interior_3.tmx
+|       |   |   truck_interior_4.tmx
+|       |   |   truck_interior_5.tmx
+|       |   |   truck_interior_6.tmx
+|       |   |   truck_interior_old.tmx
+|       |   |   vents-576x192.png
+|       |   |   vents-576x192.tmx
+|       |   |   
+|       |   \---hid
+|       |           fence_hid0.png
+|       |           fence_hid1.png
+|       |           fence_hid2.png
+|       |           hid1.png
+|       |           hid2.png
+|       |           hid3.png
+|       |           hid4.png
+|       |           hid5.png
+|       |           hid6.png
+|       |           hid7.png
+|       |           tank_hid1.png
+|       |           tank_hid2.png
+|       |           truck_hid1.png
+|       |           truck_hid2.png
+|       |           truck_hid3.png
+|       |           truck_hid4.png
+|       |           wall_vent1.png
+|       |           
+|       +---pickups
+|       |       ammo_beretta.png
+|       |       ammo_m16.png
+|       |       ammo_uzi.png
+|       |       stinger_launcher.png
+|       |       stinger_missiles.png
+|       |       
+|       +---radio
+|       |       call.png
+|       |       
+|       +---red_beret
+|       |       look_down1.png
+|       |       look_down2.png
+|       |       look_left1.png
+|       |       look_left2.png
+|       |       look_right1.png
+|       |       look_right2.png
+|       |       look_up1.png
+|       |       look_up2.png
+|       |       walk_down1.png
+|       |       walk_down2.png
+|       |       walk_left1.png
+|       |       walk_left2.png
+|       |       walk_right1.png
+|       |       walk_right2.png
+|       |       walk_up1.png
+|       |       walk_up2.png
+|       |       
+|       +---solid_python
+|       |       armed_stand_down.png
+|       |       armed_stand_left.png
+|       |       armed_stand_right.png
+|       |       armed_stand_up.png
+|       |       armed_walk_down1.png
+|       |       armed_walk_down2.png
+|       |       armed_walk_left1.png
+|       |       armed_walk_left2.png
+|       |       armed_walk_right1.png
+|       |       armed_walk_right2.png
+|       |       armed_walk_up1.png
+|       |       armed_walk_up2.png
+|       |       box1.png
+|       |       box2.png
+|       |       cardboard_box.png
+|       |       climb1.png
+|       |       climb2.png
+|       |       climb3.png
+|       |       climb4.png
+|       |       climb5.png
+|       |       crawl_down.png
+|       |       crawl_down1.png
+|       |       crawl_down2.png
+|       |       crawl_left.png
+|       |       crawl_left1.png
+|       |       crawl_left2.png
+|       |       crawl_right.png
+|       |       crawl_right1.png
+|       |       crawl_right2.png
+|       |       crawl_up.png
+|       |       crawl_up1.png
+|       |       crawl_up2.png
+|       |       crouch_down1.png
+|       |       crouch_down2.png
+|       |       crouch_left1.png
+|       |       crouch_left2.png
+|       |       crouch_right1.png
+|       |       crouch_right2.png
+|       |       crouch_up1.png
+|       |       crouch_up2.png
+|       |       m16_fire_down.png
+|       |       m16_fire_down2.png
+|       |       m16_fire_down3.png
+|       |       m16_fire_down4.png
+|       |       m16_fire_left.png
+|       |       m16_fire_left2.png
+|       |       m16_fire_left3.png
+|       |       m16_fire_left4.png
+|       |       m16_fire_right.png
+|       |       m16_fire_right2.png
+|       |       m16_fire_right3.png
+|       |       m16_fire_right4.png
+|       |       m16_fire_up.png
+|       |       m16_fire_up2.png
+|       |       m16_fire_up3.png
+|       |       m16_fire_up4.png
+|       |       m16_stand_down.png
+|       |       m16_stand_left.png
+|       |       m16_stand_right.png
+|       |       m16_stand_up.png
+|       |       m16_walk_down1.png
+|       |       m16_walk_down2.png
+|       |       m16_walk_left1.png
+|       |       m16_walk_left2.png
+|       |       m16_walk_right1.png
+|       |       m16_walk_right2.png
+|       |       m16_walk_up1.png
+|       |       m16_walk_up2.png
+|       |       MSX2 - Metal Gear 2_ Solid Snake - Playable Characters - Solid Snake.png
+|       |       punch_down.png
+|       |       punch_left.png
+|       |       punch_right.png
+|       |       punch_up.png
+|       |       smoke_down.png
+|       |       smoke_left.png
+|       |       smoke_right.png
+|       |       smoke_up.png
+|       |       stand_down.png
+|       |       stand_left.png
+|       |       stand_right.png
+|       |       stand_up.png
+|       |       stinger_stand_down.png
+|       |       stinger_stand_left.png
+|       |       stinger_stand_right.png
+|       |       stinger_stand_up.png
+|       |       stinger_walk_up1.png
+|       |       stinger_walk_up2.png
+|       |       throw_down.png
+|       |       throw_left.png
+|       |       throw_right.png
+|       |       throw_up.png
+|       |       walk_down1.png
+|       |       walk_down2.png
+|       |       walk_left1.png
+|       |       walk_left2.png
+|       |       walk_right1.png
+|       |       walk_right2.png
+|       |       walk_up1.png
+|       |       walk_up2.png
+|       |       
+|       \---weapons
+|               beretta_m92fs_handgun.png
+|               bullet.png
+|               fim-92_stinger_hind-d-killer.png
+|               m16a1_rifle.png
+|               micro_uzi_submachine-gun.png
+|               pistola.png
+|               
++---src
+|   |   bullet.py
+|   |   camera.py
+|   |   cinematic_intro.py
+|   |   codec.py
+|   |   controls_view.py
+|   |   credits_view.py
+|   |   enemy.py
+|   |   enemy_bullet.py
+|   |   fire_fx.py
+|   |   game.py
+|   |   hind.py
+|   |   hud.py
+|   |   hud_inventory.py
+|   |   intro.py
+|   |   intro_state.py
+|   |   inventory.py
+|   |   items.py
+|   |   item_message.py
+|   |   main_menu_view.py
+|   |   menu.py
+|   |   pause.py
+|   |   player.py
+|   |   prologue.py
+|   |   rain.py
+|   |   settings.py
+|   |   tilemap.py
+|   |   vent_transition.py
+|   |   weapons.py
+|   |   weapon_hud.py
+|   |   weapon_settings.py
+|   |   weapon_stinger.py
+|   |   __init__.py
+|   |   
+|   \---__pycache__
+|           bullet.cpython-312.pyc
+|           bullet.cpython-314.pyc
+|           camera.cpython-312.pyc
+|           camera.cpython-314.pyc
+|           cinematic_intro.cpython-312.pyc
+|           cinematic_intro.cpython-314.pyc
+|           codec.cpython-312.pyc
+|           codec.cpython-314.pyc
+|           controls_view.cpython-312.pyc
+|           controls_view.cpython-314.pyc
+|           credits_view.cpython-312.pyc
+|           credits_view.cpython-314.pyc
+|           enemy.cpython-312.pyc
+|           enemy.cpython-314.pyc
+|           enemy_bullet.cpython-312.pyc
+|           enemy_bullet.cpython-314.pyc
+|           fire_fx.cpython-312.pyc
+|           game.cpython-312.pyc
+|           game.cpython-314.pyc
+|           hind.cpython-312.pyc
+|           hud.cpython-312.pyc
+|           hud.cpython-314.pyc
+|           hud_inventory.cpython-312.pyc
+|           hud_inventory.cpython-314.pyc
+|           intro.cpython-312.pyc
+|           intro.cpython-314.pyc
+|           intro_state.cpython-312.pyc
+|           intro_state.cpython-314.pyc
+|           inventory.cpython-312.pyc
+|           inventory.cpython-314.pyc
+|           items.cpython-312.pyc
+|           items.cpython-314.pyc
+|           item_message.cpython-312.pyc
+|           item_message.cpython-314.pyc
+|           main_menu_view.cpython-312.pyc
+|           main_menu_view.cpython-314.pyc
+|           map_data.cpython-312.pyc
+|           map_data.cpython-314.pyc
+|           menu.cpython-312.pyc
+|           menu.cpython-314.pyc
+|           obstacle.cpython-312.pyc
+|           obstacle.cpython-314.pyc
+|           pause.cpython-312.pyc
+|           pause.cpython-314.pyc
+|           player.cpython-312.pyc
+|           player.cpython-314.pyc
+|           prologue.cpython-312.pyc
+|           prologue.cpython-314.pyc
+|           rain.cpython-312.pyc
+|           settings.cpython-312.pyc
+|           settings.cpython-314.pyc
+|           side_hud.cpython-314.pyc
+|           tilemap.cpython-312.pyc
+|           tilemap.cpython-314.pyc
+|           weapons.cpython-312.pyc
+|           weapon_hud.cpython-312.pyc
+|           weapon_settings.cpython-312.pyc
+|           weapon_stinger.cpython-312.pyc
+|           __init__.cpython-312.pyc
+|           __init__.cpython-314.pyc
+|           
+\---state
