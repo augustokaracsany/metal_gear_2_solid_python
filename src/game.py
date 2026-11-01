@@ -1454,10 +1454,10 @@ class Game:
             paradox_delay = 6500 
             
             if elapsed < paradox_delay:
-                target_text = "M I S S I O N  F A I L E D"
+                target_text = "P Y T H O N   I S   D E A D"
                 chars_to_show = min(len(target_text), int(elapsed / 80))
             else:
-                target_text = "T I M E  P A R A D O X"
+                target_text = "T I M E   P A R A D O X"
                 time_since_paradox = elapsed - paradox_delay
                 chars_to_show = min(len(target_text), int(time_since_paradox / 80))
                 
