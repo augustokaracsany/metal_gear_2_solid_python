@@ -21,6 +21,12 @@ class Game:
     ALERT_DECAY_TIME = 15.0    # en segundos
     FOUND_SFX_PATH = "assets/audio/sfx/found.mp3"
     CHASE_MUSIC_PATH = "assets/audio/music/encounter.mp3"
+    CHASE_MUSIC_ENABLED = False   # True = vuelve la música de persecución en bucle al ser detectado
+    # Música de fondo de cada misión (número de misión -> archivo).
+    LEVEL_MUSIC = {
+        1: "assets/audio/music/musica_entry_point.mp3",
+        2: "assets/audio/music/advance_immediately.mp3",
+    }
     ALERT_FONT_PATH = "assets/fonts/PixelOperator8-Bold.ttf"
     ALERTED_STATES = ("ALERT", "CHASE")
     NOISE_PUNCH_RADIUS = 250   # px
@@ -61,7 +67,7 @@ class Game:
         # Puedes cambiar la posición a: 'bottom-right', 'bottom-left', 'top-right' o 'top-left'
         self.hud_inventory = HUDInventory(position="bottom-right")
 
-        # --- MÚSICA DE FONDO DE LA MISIÓN ---
+        # --- MÚSICA DE FONDO (solo misión 1: Entry Point) ---
         self.start_level_music()
         
         # 1. DICCIONARIO DE NIVELES: Mapea cada misión a sus respectivas rutas de archivos
@@ -100,6 +106,7 @@ class Game:
 
         # Estado guardado de cada mapa visitado (guardias muertos y posiciones de los vivos).
         self.map_states = {}
+        self.picked_items = set()   # (mapa, id del objeto) de ítems de municiones ya recogidos
         self.current_map_key = None
         self.current_route_count = 0
 
@@ -147,27 +154,20 @@ class Game:
         self.fade_in_timer = pygame.time.get_ticks()
 
     def start_level_music(self):
-        """Música de fondo en bucle según la misión actual.
+        """Música de fondo en bucle del mapa Entry Point (misión 1).
 
         Usa el volumen actual del slider de OPCIONES de la pausa, así lo que se ve
         en pantalla coincide con lo que suena. Si el archivo no está, el juego sigue
         sin música (solo avisa por consola)."""
-        
-        # 1. Determinamos qué canción cargar según la misión actual
-        if self.mission_number == 1:
-            music_path = "assets/audio/music/musica_entry_point.mp3"
-        elif self.mission_number == 2:
-            music_path = "assets/audio/music/Advance Immediately.mp3"
-        else:
-            return  # Si hay otra misión que aún no tiene canción, no hace nada
-
-        # 2. Cargar y reproducir la pista seleccionada
+        music_path = self.LEVEL_MUSIC.get(self.mission_number)
+        if music_path is None:
+            return
         try:
             pygame.mixer.music.load(music_path)
             pygame.mixer.music.set_volume(self.pause_menu.music_volume)
             pygame.mixer.music.play(-1)  # -1 = bucle infinito
         except Exception as e:
-            print(f"Aviso música (Misión {self.mission_number}): {e}")
+            print(f"Aviso música de la misión {self.mission_number} ({music_path}): {e}")
 
     def _save_map_state(self):
         """Guarda qué guardias siguen vivos en el mapa actual y dónde estaban."""
@@ -301,14 +301,28 @@ class Game:
             # Municiones (ductos). Se agrega aparte, igual que la caja, la ración y la pistola.
             if hasattr(self.map.tmx_data, 'objects'):
                 for obj in self.map.tmx_data.objects:
-                    if obj.name == "ammo" and (not hasattr(self, 'player') or "ammo" not in self.player.inventory):
+                    # Se controla por objeto (no por inventario): así cada munición del mapa se puede recoger una vez.
+                    if obj.name == "ammo" and (tmx_path, obj.id) not in self.picked_items:
                         scale = self.map.scale
                         try:
                             ammo_item = Item("ammo", 0, 0, "assets/sprites/items/municiones.png", scale=1.5)
+                            ammo_item.pick_key = (tmx_path, obj.id)
                             ammo_item.rect.center = (int((obj.x + obj.width / 2) * scale), int((obj.y + obj.height / 2) * scale))
                             self.items_group.add(ammo_item)
                         except Exception as e:
                             print(f"Error cargando sprite de las municiones: {e}")
+
+            # Tarjeta azul (Building 1, cerca de la puerta). Se agrega aparte, igual que los demás ítems.
+            if hasattr(self.map.tmx_data, 'objects'):
+                for obj in self.map.tmx_data.objects:
+                    if obj.name == "tarjeta_azul" and (not hasattr(self, 'player') or "tarjeta_azul" not in self.player.inventory):
+                        scale = self.map.scale
+                        try:
+                            card_item = Item("tarjeta_azul", 0, 0, "assets/sprites/items/tarjeta_azul.png", scale=1.5)
+                            card_item.rect.center = (int((obj.x + obj.width / 2) * scale), int((obj.y + obj.height / 2) * scale))
+                            self.items_group.add(card_item)
+                        except Exception as e:
+                            print(f"Error cargando sprite de la tarjeta: {e}")
 
             # Grilla: DESPUÉS de crear los enemigos, con el hitbox real del guardia
             if self.enemies_group:
@@ -339,7 +353,11 @@ class Game:
 
                 # Propiedad opcional "mission": el trigger cambia el número de misión actual.
                 if "mission" in props:
-                    self.mission_number = int(props["mission"])
+                    nueva_mision = int(props["mission"])
+                    cambio_de_mision = nueva_mision != self.mission_number
+                    self.mission_number = nueva_mision
+                    if cambio_de_mision:
+                        self.start_level_music()   # al pasar por el ducto también arranca la música de la nueva misión
 
                 scale = self.map.scale if self.map else 2
                 spawn_x = float(props.get("spawn_x", 180)) * scale
@@ -425,6 +443,11 @@ class Game:
                 self._start_chase_music()
 
     def _on_alert_start(self):
+        if not self.CHASE_MUSIC_ENABLED:
+            # Solo suena el aviso de alerta UNA vez; la música de la misión sigue como estaba.
+            if self.found_sfx:
+                self.found_sfx.play()
+            return
         self.chase_music_active = True
         pygame.mixer.music.stop()   # corta la música del nivel para que se oiga el SFX
         if self.found_sfx:
@@ -443,9 +466,8 @@ class Game:
     def _on_alert_end(self):
         self.music_delay = None
         if self.chase_music_active:
+            pygame.mixer.music.fadeout(1500)
             self.chase_music_active = False
-            # Reiniciar la música del nivel actual (Misión 1 o Misión 2)
-            self.start_level_music()
 
     def _reset_alert(self):
         """Apaga todo de golpe (cambio de nivel, muerte)."""
@@ -492,6 +514,7 @@ class Game:
         p.update_offsets_for_stance()
 
         self.map_states = {}
+        self.picked_items = set()
 
         self.load_level(self.mission_number)
 
@@ -505,6 +528,10 @@ class Game:
         p.x, p.y = float(spawn_x), float(spawn_y)
         p.rect.x, p.rect.y = int(spawn_x), int(spawn_y)
         self.camera.update(p)
+
+        # La música de la misión vuelve a sonar desde el principio.
+        pygame.mixer.music.stop()
+        self.start_level_music()
 
     def handle_events(self, events):
         for event in events:
@@ -587,6 +614,7 @@ class Game:
             # Abrir la pausa con ESC (cerrar / volver lo maneja el propio menú de pausa)
             if (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE
                     and not self.is_paused and self.state == "PLAYING"):
+                # Pausar NO corta la música ni la alerta: la canción sigue sonando.
                 self.is_paused = True
                 continue
 
@@ -711,11 +739,19 @@ class Game:
         )
 
         inventario_previo = list(self.player.inventory)
+        items_antes = list(self.items_group)
         if hasattr(self.player, 'collect_items'):
             self.player.collect_items(self.items_group)
         for nombre_item in self.player.inventory:
             if nombre_item not in inventario_previo:
                 self.item_message.show(nombre_item, self.pause_menu.sfx_volume)
+        # Municiones: aunque Snake ya tenga "ammo" en el inventario, la recogida se avisa y no reaparece.
+        for item in items_antes:
+            clave = getattr(item, "pick_key", None)
+            if clave is not None and item not in self.items_group:
+                self.picked_items.add(clave)
+                if item.name in inventario_previo:
+                    self.item_message.show(item.name, self.pause_menu.sfx_volume)
 
         self._check_punch_noise()
 
@@ -1084,6 +1120,9 @@ class Game:
         for bullet in self.bullets_group:
             bullet.draw_with_camera(self.virtual_surface, self.camera)
 
+        # for enemy in self.enemies_group:
+        #     enemy.draw_vision(self.virtual_surface, self.camera)
+        
         if self.map:
             self.map.render_roofs(
                 self.virtual_surface,

@@ -55,6 +55,7 @@ class HUDInventory:
             "munition": "MUNICION",
             "ammo": "MUNICION",
             "ammunition": "MUNICION",
+            "tarjeta_azul": "TARJETA AZUL",
             "keycard": "TARJETA",
             "key_card": "TARJETA",
             "card": "TARJETA",
@@ -102,6 +103,11 @@ class HUDInventory:
         if item_key == "ammo":
             return self._load_sprite(
                 "assets/sprites/items/municiones.png"
+            )
+
+        if item_key == "tarjeta_azul":
+            return self._load_sprite(
+                "assets/sprites/items/tarjeta_azul.png"
             )
 
         # Permite incorporar sprites adicionales sin cambiar el HUD.

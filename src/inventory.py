@@ -38,6 +38,11 @@ ITEM_INFO = {
         "desc": "Cargador para la pistola.",
         "sprite": "assets/sprites/items/municiones.png",
     },
+    "tarjeta_azul": {
+        "name": "TARJETA AZUL",
+        "desc": "Tarjeta de acceso. Sirve para abrir las puertas que la requieren.",
+        "sprite": "assets/sprites/items/tarjeta_azul.png",
+    },
 }
 
 WEAPON_INFO = {
