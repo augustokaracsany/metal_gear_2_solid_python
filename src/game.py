@@ -1577,11 +1577,6 @@ class Game:
         if self.is_paused:
             self.pause_menu.draw(surface)
 
-        if self.pathfinding_grid:
-            for enemy in self.enemies_group:
-                enemy.draw_regions_debug(self.virtual_surface, self.camera, self.pathfinding_grid)
-                break
-
         if self.state == "RADIO_MENU":
             w, h = surface.get_width(), surface.get_height()
             

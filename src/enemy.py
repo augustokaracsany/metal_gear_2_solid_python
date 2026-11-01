@@ -310,11 +310,16 @@ class Enemy(pygame.sprite.Sprite):
         return self._has_line_of_sight(player.rect.center, walls)
 
     def _has_line_of_sight(self, target, walls):
-        start = self.rect.center
-        box = pygame.Rect(min(start[0], target[0]) - 1, min(start[1], target[1]) - 1,
-                          abs(target[0] - start[0]) + 2, abs(target[1] - start[1]) + 2)
-        for i in box.collidelistall(walls):      # un muro que corta el segmento está en su caja
-            if walls[i].clipline(start, target):
+        sx, sy = int(self.rect.centerx), int(self.rect.centery)
+        tx, ty = int(target[0]), int(target[1])
+        bx = min(sx, tx) - 1
+        by = min(sy, ty) - 1
+        bw = abs(tx - sx) + 2
+        bh = abs(ty - sy) + 2
+        box = pygame.Rect(bx, by, bw, bh)
+        seg = (sx, sy, tx, ty)
+        for i in box.collidelistall(walls):
+            if walls[i].clipline(seg):
                 return False
         return True
 
@@ -597,7 +602,8 @@ class Enemy(pygame.sprite.Sprite):
     def _astar(self, grid, start, goal, own_cell):
         ts = self.GRID_TILE
         try:
-            grid.cleanup()
+            from pathfinding.core.grid import Grid as _Grid
+            grid.__init__(matrix=grid.matrix)
             path, _ = AStarFinder(diagonal_movement=DiagonalMovement.never).find_path(
                 grid.node(*start), grid.node(*goal), grid)
         except Exception:
@@ -662,42 +668,22 @@ class Enemy(pygame.sprite.Sprite):
         self._face_vector(tx - fx, ty - fy)
 
     def check_collisions_x(self, walls, dx):
-        for _ in range(3):                       # 3 pasadas por si un empujón roza otro muro
-            hits = self.rect.collidelistall(walls)
-            if not hits:
-                return
-            pushed = False
-            for i in hits:
-                wall = walls[i]
-                if self.rect.colliderect(wall):
-                    if dx > 0:
-                        self.rect.right = wall.left
-                        pushed = True
-                    elif dx < 0:
-                        self.rect.left = wall.right
-                        pushed = True
-                    self.x = float(self.rect.x)
-            if not pushed:
-                return
+        for i in self.rect.collidelistall(walls):
+            wall = walls[i]
+            if dx > 0:
+                self.rect.right = min(self.rect.right, wall.left)
+            elif dx < 0:
+                self.rect.left = max(self.rect.left, wall.right)
+        self.x = float(self.rect.x)
 
     def check_collisions_y(self, walls, dy):
-        for _ in range(3):
-            hits = self.rect.collidelistall(walls)
-            if not hits:
-                return
-            pushed = False
-            for i in hits:
-                wall = walls[i]
-                if self.rect.colliderect(wall):
-                    if dy > 0:
-                        self.rect.bottom = wall.top
-                        pushed = True
-                    elif dy < 0:
-                        self.rect.top = wall.bottom
-                        pushed = True
-                    self.y = float(self.rect.y)
-            if not pushed:
-                return
+        for i in self.rect.collidelistall(walls):
+            wall = walls[i]
+            if dy > 0:
+                self.rect.bottom = min(self.rect.bottom, wall.top)
+            elif dy < 0:
+                self.rect.top = max(self.rect.top, wall.bottom)
+        self.y = float(self.rect.y)
 
     def _handle_shooting(self, dt, player, bullet_group):
         self.shoot_timer += dt

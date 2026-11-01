@@ -1,9 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="60" height="48" tilewidth="16" tileheight="16" infinite="0" nextlayerid="6" nextobjectid="45">
+<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="60" height="48" tilewidth="16" tileheight="16" infinite="0" nextlayerid="7" nextobjectid="50">
  <tileset firstgid="1" source="colisiones.tsx"/>
  <imagelayer id="3" name="swamp">
   <image source="Swamp-960x768.png" width="960" height="768"/>
  </imagelayer>
+ <objectgroup color="#ff5500" id="6" name="enemy_patrols">
+  <object id="45" name="FirstZone_Path" x="16" y="20">
+   <polygon points="0,0 0,84 132,84 132,0 132,84 48,84 8,84 0,84"/>
+  </object>
+  <object id="46" name="Soldier1_Waypoint" x="148" y="20">
+   <point/>
+  </object>
+  <object id="47" name="SecondZone_Path" x="24" y="144">
+   <polygon points="0,0 0,16 64,16 96,16 112,16 112,0"/>
+  </object>
+  <object id="48" name="Soldier2_Waypoint" x="24" y="144">
+   <point/>
+  </object>
+ </objectgroup>
  <layer id="1" name="colisiones_grid" width="60" height="48">
   <data encoding="csv">
 0,0,1,1,1,1,1,1,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
