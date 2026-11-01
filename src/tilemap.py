@@ -10,73 +10,69 @@ class TiledMap:
         self.width = int(self.tmx_data.width * self.tmx_data.tilewidth * self.scale)
         self.height = int(self.tmx_data.height * self.tmx_data.tileheight * self.scale)
 
-    def render_below(self, surface, camera):
-        """Renderiza todas las capas EXCEPTO la capa de techos aplicando la escala correcta."""
-        offset = camera.camera_rect.topleft
+    ROOF_LAYERS = ("techos", "roof", "capa_techo")
+
+    def _scaled_tile(self, gid, cache):
+        """Tile escalado, una sola vez por gid."""
+        if gid not in cache:
+            tile = self.tmx_data.get_tile_image_by_gid(gid)
+            cache[gid] = None if not tile else pygame.transform.scale(
+                tile, (int(tile.get_width() * self.scale), int(tile.get_height() * self.scale)))
+        return cache[gid]
+
+    def _build_layers_surface(self, roof):
+        """Pinta UNA SOLA VEZ todas las capas (de techos o de no-techos) en una superficie del
+        tamaño del mapa. Devuelve None si no hay nada que dibujar."""
+        surf = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        tiles = {}
+        drew = False
+        tw, th = self.tmx_data.tilewidth, self.tmx_data.tileheight
 
         for layer in self.tmx_data.visible_layers:
-            # Si es la capa de techos, la ignoramos por ahora
-            if layer.name in ("techos", "roof", "capa_techo"):
+            if (layer.name in self.ROOF_LAYERS) != roof:
                 continue
 
-            # 1. Capa de imagen de fondo
+            # 1. Capa de imagen
             if hasattr(layer, "image") and layer.image:
-                img_scaled = pygame.transform.scale(
-                    layer.image, 
-                    (int(layer.image.get_width() * self.scale), int(layer.image.get_height() * self.scale))
-                )
-                # Aplicamos la posición con el offset de la cámara
-                surface.blit(img_scaled, offset)
-                
-            # 2. Capa de patrones de colisión / grid o tilelayers normales
+                img = layer.image
+                surf.blit(pygame.transform.scale(
+                    img, (int(img.get_width() * self.scale), int(img.get_height() * self.scale))), (0, 0))
+                drew = True
+
+            # 2. Capa de tiles
             elif hasattr(layer, "data"):
                 for x, y, gid in layer:
-                    if gid != 0:
-                        tile = self.tmx_data.get_tile_image_by_gid(gid)
-                        if tile:
-                            tile_scaled = pygame.transform.scale(
-                                tile, 
-                                (int(tile.get_width() * self.scale), int(tile.get_height() * self.scale))
-                            )
-                            pos_x = (x * self.tmx_data.tilewidth * self.scale) + offset[0]
-                            pos_y = (y * self.tmx_data.tileheight * self.scale) + offset[1]
-                            surface.blit(tile_scaled, (pos_x, pos_y))
+                    if gid == 0:
+                        continue
+                    tile = self._scaled_tile(gid, tiles)
+                    if tile is None:
+                        continue
+                    pos_x = x * tw * self.scale
+                    pos_y = y * th * self.scale
+                    if roof:
+                        # Tiles más altos que la grilla (árboles, techos) suben hacia arriba.
+                        original_h = tile.get_height() / self.scale
+                        pos_y -= (original_h - th) * self.scale
+                    surf.blit(tile, (int(pos_x), int(pos_y)))
+                    drew = True
+
+        return surf if drew else None
+
+    def render_below(self, surface, camera):
+        """Dibuja todas las capas EXCEPTO la de techos (cacheadas: se pintan una sola vez)."""
+        if not hasattr(self, "_below_surface"):
+            self._below_surface = self._build_layers_surface(roof=False)
+        if self._below_surface is not None:
+            surface.blit(self._below_surface, camera.camera_rect.topleft)
 
     def render_roofs(self, surface, camera, render_condition=True):
-        """Renderiza la capa de techos únicamente si se cumple la condición (Snake oculto en recoveco)."""
-        # Si Snake no está oculto/bajo techo, no dibujamos nada de esta capa
+        """Dibuja la capa de techos únicamente si se cumple la condición (Snake oculto en recoveco)."""
         if not render_condition:
             return
-
-        offset = camera.camera_rect.topleft
-
-        for layer in self.tmx_data.visible_layers:
-            if layer.name in ("techos", "roof", "capa_techo"):
-                if hasattr(layer, "image") and layer.image:
-                    img_scaled = pygame.transform.scale(
-                        layer.image, 
-                        (int(layer.image.get_width() * self.scale), int(layer.image.get_height() * self.scale))
-                    )
-                    surface.blit(img_scaled, offset)
-                elif hasattr(layer, "data"):
-                    standard_tile_h = self.tmx_data.tileheight
-
-                    for x, y, gid in layer:
-                        if gid != 0:
-                            tile = self.tmx_data.get_tile_image_by_gid(gid)
-                            if tile:
-                                tile_scaled = pygame.transform.scale(
-                                    tile, 
-                                    (int(tile.get_width() * self.scale), int(tile.get_height() * self.scale))
-                                )
-                                pos_x = (x * self.tmx_data.tilewidth * self.scale) + offset[0]
-                                
-                                tile_h = tile.get_height()
-                                height_difference = tile_h - standard_tile_h
-                                
-                                pos_y = (y * standard_tile_h * self.scale) + offset[1] - (height_difference * self.scale)
-                                
-                                surface.blit(tile_scaled, (pos_x, pos_y))
+        if not hasattr(self, "_roof_surface"):
+            self._roof_surface = self._build_layers_surface(roof=True)
+        if self._roof_surface is not None:
+            surface.blit(self._roof_surface, camera.camera_rect.topleft)
 
     def get_collision_rects(self):
         rects = []
@@ -107,6 +103,28 @@ class TiledMap:
                             ))
         return rects
 
+    def load_codec_zones(self, layer_name="codec_trigger"):
+        codec_zones = []
+        for layer in self.tmx_data.layers:   # .layers incluye capas ocultas
+            if layer.name != layer_name or not isinstance(layer, pytmx.TiledObjectGroup):
+                continue
+            layer_props = dict(layer.properties) if layer.properties else {}
+            for obj in layer:
+                props = dict(layer_props)
+                if getattr(obj, "properties", None):
+                    props.update(obj.properties)
+                call_id = props.get("call_id") or getattr(obj, "call_id", None) or "default"
+                codec_zones.append({
+                    "rect": pygame.Rect(
+                        int(obj.x * self.scale),
+                        int(obj.y * self.scale),
+                        int(obj.width * self.scale),
+                        int(obj.height * self.scale),
+                    ),
+                    "call_id": call_id,
+                })
+        return codec_zones
+
     def get_spawn_point(self, name="player_spawn", default=(400, 350)):
         """Busca un objeto en el mapa de Tiled por su nombre y devuelve sus coordenadas escaladas."""
         for obj in self.tmx_data.objects:
@@ -117,9 +135,7 @@ class TiledMap:
     def get_patrol_path(self, layer_name="enemy_patrols"):
         patrol_paths = []
 
-
-
-# PATRULLA ENEMIGO. RUTA.
+        # PATRULLA ENEMIGO. RUTA.
         for layer in self.tmx_data.visible_layers:
             if layer.name == layer_name:
                 for obj in layer:
@@ -188,7 +204,7 @@ class TiledMap:
             # (Un grupo de objetos de pytmx no tiene atributo 'objects', hay que chequear el tipo.)
             if layer.name == "triggers" and isinstance(layer, pytmx.TiledObjectGroup):
                 for obj in layer:
-                    if obj.name in ["truck_trigger", "exit_trigger"]:
+                    if obj.name in ["truck_trigger", "exit_trigger", "vent_trigger"]:
                         rect = pygame.Rect(
                             int(obj.x * self.scale),
                             int(obj.y * self.scale),
@@ -212,13 +228,10 @@ class TiledMap:
                         })
         return triggers
 
-    def create_pathfinding_grid(self, tile_size=16, actor_size=(16, 16)):
-        """
-        Una celda es caminable solo si un cuerpo de tamaño actor_size, centrado en ella,
-        no toca ninguna pared. Así 'celda libre' significa 'el guardia entra entero'.
-        """
-        cols = self.width // tile_size
-        rows = self.height // tile_size
+    def create_pathfinding_grid(self, cell_px=16, actor_size=(16, 16)):
+        """cell_px: tamaño de celda en píxeles REALES (ya escalados)."""
+        cols = self.width // cell_px
+        rows = self.height // cell_px
         walls = self.get_collision_rects()
         aw, ah = actor_size
 
@@ -227,8 +240,30 @@ class TiledMap:
             line = []
             for col in range(cols):
                 body = pygame.Rect(0, 0, aw, ah)
-                body.center = (col * tile_size + tile_size // 2, row * tile_size + tile_size // 2)
+                body.center = (col * cell_px + cell_px // 2, row * cell_px + cell_px // 2)
                 line.append(0 if body.collidelist(walls) != -1 else 1)
             matrix.append(line)
 
-        return Grid(matrix=matrix)
+        grid = Grid(matrix=matrix)
+        grid.cell_px = cell_px          # <- el enemigo lo lee de acá
+        grid.region = self._label_regions(matrix)
+        return grid
+
+    def _label_regions(self, matrix):
+        rows, cols = len(matrix), len(matrix[0])
+        region = [[-1] * cols for _ in range(rows)]
+        rid = 0
+        for r in range(rows):
+            for c in range(cols):
+                if matrix[r][c] and region[r][c] == -1:
+                    stack = [(c, r)]
+                    region[r][c] = rid
+                    while stack:
+                        x, y = stack.pop()
+                        for nx, ny in ((x+1, y), (x-1, y), (x, y+1), (x, y-1)):
+                            if 0 <= nx < cols and 0 <= ny < rows \
+                                    and matrix[ny][nx] and region[ny][nx] == -1:
+                                region[ny][nx] = rid
+                                stack.append((nx, ny))
+                    rid += 1
+        return region

@@ -1,0 +1,234 @@
+{
+    "calls": {
+        "intro_first_mission": {
+            "frecuencia": "140.83",
+            "nombre_contacto": "Roy Campbell",
+            "codec_background": "assets/codec/codec1.png",
+            "dialogo": [
+                {
+                    "habla": "Snake",
+                    "texto": "Coronel, ya llegué al laboratorio MSX."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "Lo hice esperar, ¿huh?",
+                    "audio": "assets/audio/sfx/kept.mp3"
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Recibido Snake, ¿Podes oirme?"
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "Alto y claro, Coronel."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "¡Muy bien! Necesito que recuerdes por qué estas acá."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "Un tanque esta siendo desarrollado acá que amenaza con tomar el control de todo un continente..."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "y podría expandirse al resto del mundo. Lo usual."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Por eso necesitamos que te infiltres en el laboratorio y sabotees el avance de este proyecto."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Quien esta detras de todo este plan y su proposito no es información del cual tengamos conocimiento."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Puede ser por venganza, por ego, por recursos, territorio... en fin, muchas posibilidades."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Lo que si ideamos es un plan a llevar a cabo para cumplir nuestro objetivo."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "¿De qué trata el plan?"
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "El plan consiste en una serie de pasos, debido a que no será posible cumplir con la misión..."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "de forma directa. Por lo que será necesario ir por partes."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Tu primer objetivo va a ser relativamente sencillo. Veras, hay un gran ingeniero detras de toda esta... bueno... obra de la ingeniería."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Estamos hablando del Ingeniero Modnar. Modnar es un ingeniero electrónico con 35 años de experiencia."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Solía dedicarse a realizar encargos a empresas importantes, no fue hasta 5 años atras que se especializo en maquinaria."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Dicha maquinaria contempla no solamente maquinas de automatización industrial, sino también armas vendidas al ejercito."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Sin embargo, el ejercito dejó de comprar su maquinaria debido a que frecuentemente encontraban problemas de seguridad en sus dispositivos."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Esto hizo que su reputación cayese, y no iba a volver a realizar encargos a empresas. Sería un reves para su situación económica."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Parece que un ejercito privado cuyo nombre clave es CAPM, notó la situación de Modnar, y lo reclutaron para este proyecto."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Nada de esto esta totalmente clarificado, va a ser tu misión conseguir información extra al respecto."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Dicha información podrían estar en documentos, o algún guardia podría saber al respecto. Podrías interrogarlos si tenes tiempo."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Volviendo a la misión, extraer al Ingeniero Modnar es fundamental para frenar temporalmente el desarrollo del Metal Gear."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "Entendido. Voy a necesitar una descripción física del Ingeniero Modnar."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "El ingeniero Modnar tiene un aspecto bastante distintivo. Lo vas a reconocer al instante. Voy a pasarte una foto de el por el Codec."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Te sugiero verla con atención antes de empezar."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "Ahi recibí la imágen."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "¿Por qué lugares suele moverse habitualmente?"
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "A pesar de no tener mucha información al respecto, el departamento de ingeniería se encuentra en el ala derecha del laboratorio."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Hay altas chances de que este ahi. Sin embargo, nadie puede garantizar de que realmente este ahi."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "¿Ala derecha? Entendido."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "Creo que sera hora de moverme, no hay tiempo que perder."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Espera, una cosa mas. Si necesitas información adicional, puedes llamar en cualquier momento al cuartel general..."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "es decir, a nosotros, para recibir información o consejos para tu misión."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "La frecuencia es 140.83. No te lo olvides."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Aparte de recordarte que es una misión de infiltración. Esto quiere decir que no podes ser visto bajo ninguna circunstacia."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Utiliza lo que encuentres para esconderte o pasar desapercibido."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "El laboratorio esta altamente patrullado por todo tipo de soldados y elementos tecnológicos capaces de detectar cualquier intruso."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Es importante que te muevas con especial cuidado en esta misión. De lo contrario, no se si vas a salir con vida."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "¿Recordas como jugar? Si no tuviste la oportunidad de ver los controles, presiona ESC para abrir el menú y, posteriormente, el apartado de controles."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Recuerda, frecuencia 140.83."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Suerte, Snake. El éxito de la misión depende de vos."
+                }
+            ]
+        },
+        "default": {
+            "frecuencia": "140.83",
+            "nombre_contacto": "Roy Campbell",
+            "codec_background": "assets/codec/codec1.png",
+            "dialogo": [
+                {
+                    "habla": "Campbell",
+                    "texto": "Snake, tu objetivo es frenar el avance del Metal Gear DOW. Para eso, vas a tener que extraer al Ingeniero Modnar."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Ten mucho cuidado, el lugar esta altamente custodiado. Tendras que ser sigiloso."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Si te descubren, no vamos a poder enviar refuerzos."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "Entendido, coronel."
+                }
+            ]
+        },
+        "enemy_call": {
+            "frecuencia": "140.83",
+            "nombre_contacto": "Roy Campbell",
+            "codec_background": "assets/codec/codec1.png",
+            "dialogo": [
+                {
+                    "habla": "Campbell",
+                    "texto": "Esa base esta lleno de soldados enemigos. Son obligados a patrullar una zona específica. Tenes que evitar que te vean."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Hay varias formas para lograr esto: una de ellas es moviendote por fuera de su rango de vision..."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "o podrias generar una distracción, como un ruido, para que vayan a revisar y vos poder continuar."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Tambien podrías noquearlo usando técnicas de CQC o usar armas letales para que no obstruyan el camino."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Eso depende de vos."
+                }
+            ]
+        }
+    }
+}
