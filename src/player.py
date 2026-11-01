@@ -804,7 +804,7 @@ class Player(pygame.sprite.Sprite):
         # Sprite de disparo del M16: sobreescribe el sprite normal mientras está disparando.
         # Pasa is_moving y frame_index para que el ciclo de pasos esté sincronizado.
         fire_fx = getattr(self, "fire_fx", None)
-        if fire_fx and self.weapon_manager and not self.is_dying:
+        if fire_fx and self.weapon_manager and self.weapon_manager.current_id and not self.is_dying:
             fire_img = fire_fx.get_fire_image(
                 self.weapon_manager.current_id,
                 self.facing,
@@ -854,24 +854,20 @@ class Player(pygame.sprite.Sprite):
         return True
 
     def fire_bullet(self, damage_mult=1.0, muzzle=None):
+        # El sonido lo reproduce el arma equipada (WeaponManager); acá NO se toca audio.
         self.last_shot_time = pygame.time.get_ticks()
         self.gun_until = self.last_shot_time + PLAYER_GUN_SHOW_TIME
         return Bullet(self.rect, self.facing, damage=BULLET_DAMAGE * damage_mult, muzzle=muzzle)
-    
+
     def can_shoot(self):
-        if not self.can_use_weapon():
-            return False
-        return pygame.time.get_ticks() - self.last_shot_time >= PLAYER_SHOOT_COOLDOWN
+        return self.can_use_weapon()
 
     def shoot(self):
+        # Método puente para compatibilidad por si algún componente viejo lo llama
         if not self.can_shoot():
             return None
-        self.last_shot_time = pygame.time.get_ticks()
-        self.gun_until = self.last_shot_time + PLAYER_GUN_SHOW_TIME
-        if self.shoot_sound:
-            self.shoot_sound.play()
-        return Bullet(self.rect, self.facing)
-
+        return self.fire_bullet(1.0)
+    
     def is_invulnerable(self):
         return pygame.time.get_ticks() - self.last_hit_time < PLAYER_INVULNERABLE_TIME
 

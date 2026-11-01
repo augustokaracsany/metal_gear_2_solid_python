@@ -18,8 +18,6 @@ CATEGORIES = [
     {"name": "ARMAS", "desc": "Armamento disponible."},
 ]
 
-WEAPON_KEYS = {"pistola"}
-
 ITEM_INFO = {
     "cardboard_box": {
         "name": "CAJA DE CARTÓN",
@@ -32,11 +30,6 @@ ITEM_INFO = {
         "desc": "Ración de combate. Comida para mantenerse en pie durante la misión. "
                 "ENTER para equipar.",
         "sprite": "assets/sprites/items/racion_roja.png",
-    },
-    "ammo": {
-        "name": "MUNICIONES",
-        "desc": "Cargador para la pistola.",
-        "sprite": "assets/sprites/items/municiones.png",
     },
 }
 
@@ -107,20 +100,17 @@ class InventoryMenu:
 
     def _refresh_entries(self, player):
         self.entries = []
-        want_weapons = (self.category_index == 1)
-        for key in player.inventory:
-            is_weapon = key in WEAPON_KEYS
-            if is_weapon != want_weapons:
-                continue
-            info = (WEAPON_INFO if is_weapon else ITEM_INFO).get(
-                key, {"name": key.upper(), "desc": "Sin descripción."})
-            self.entries.append({
-                "key": key,
-                "kind": "weapon" if is_weapon else "item",
-                "name": info["name"],
-                "desc": info["desc"],
-                "sprite": info.get("sprite"),
-            })
+        if self.category_index == 1:
+            # ARMAS: las que tiene el WeaponManager (player.weapons es su lista `owned`).
+            for key in list(getattr(player, "weapons", [])):
+                info = WEAPON_INFO.get(key, {"name": key.upper(), "desc": "Sin descripción."})
+                self.entries.append({"key": key, "kind": "weapon", "name": info["name"],
+                                     "desc": info["desc"], "sprite": None})
+        else:
+            for key in player.inventory:
+                info = ITEM_INFO.get(key, {"name": key.upper(), "desc": "Sin descripción."})
+                self.entries.append({"key": key, "kind": "item", "name": info["name"],
+                                     "desc": info["desc"], "sprite": info.get("sprite")})
 
     def _entry_tag(self, entry, player):
         if entry["key"] == "cardboard_box" and player.is_disguised:
@@ -129,6 +119,11 @@ class InventoryMenu:
             manager = self._weapon_manager(player)
             if manager is not None and manager.current_id == entry["key"]:
                 return "EQUIPADA"
+            w = manager.weapons.get(entry["key"]) if manager is not None else None
+            if w is not None and hasattr(w, "mag"):
+                return f"{w.mag}/{w.reserve}"
+            if w is not None and hasattr(w, "missiles"):
+                return f"x{w.missiles}"
         return None
 
     def handle_input(self, event, player):

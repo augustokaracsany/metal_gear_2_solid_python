@@ -460,72 +460,29 @@ class HUDInventory:
         return False
 
     def draw(self, surface, player):
-        """Dibuja los paneles de armas y objetos en pantalla."""
+        """Dibuja el panel de OBJETOS (caja, ración...). Las armas las dibuja WeaponHUD."""
 
-        # NUEVO: si Snake murió, el HUD de inventario no se dibuja
         if self._player_is_dead(player):
             return
 
-        # Mismo ancho en ambos paneles para que queden alineados
-        weapon_w, weapon_h = 155, 90
         item_w, item_h = 155, 105
-
-        spacing = 16
         margin_x, margin_y = 20, 25
-
         screen_w, screen_h = surface.get_size()
 
-        # Posicionamiento
         if self.position == "bottom-right":
-            x = screen_w - item_w - margin_x
-            y_bottom = screen_h - item_h - margin_y
-            y_top = y_bottom - spacing - weapon_h
-
+            x, y = screen_w - item_w - margin_x, screen_h - item_h - margin_y
         elif self.position == "top-right":
-            x = screen_w - item_w - margin_x
-            y_top = margin_y + 15
-            y_bottom = y_top + weapon_h + spacing
-
+            x, y = screen_w - item_w - margin_x, margin_y + 15
         elif self.position == "top-left":
-            x = margin_x
-            y_top = margin_y + 15
-            y_bottom = y_top + weapon_h + spacing
+            x, y = margin_x, margin_y + 15
+        else:                                   # "bottom-left"
+            x, y = margin_x, screen_h - item_h - margin_y
 
-        else:
-            x = margin_x
-            y_bottom = screen_h - item_h - margin_y
-            y_top = y_bottom - spacing - weapon_h
-
-        # Leer equipamiento actual
-        eq_weapon = getattr( player, "equipped_weapon", None)
-
-        eq_item = getattr( player, "equipped_item", None)
-
+        eq_item = getattr(player, "equipped_item", None)
         inventory = getattr(player, "inventory", [])
+        if not eq_item and inventory:           # primer objeto del inventario
+            eq_item = inventory[0]
+            player.equipped_item = eq_item
 
-        # Selección automática del arma, como en la versión original
-        if not eq_weapon and "pistola" in inventory:
-            eq_weapon = "pistola"
-            player.equipped_weapon = eq_weapon
-
-        # Selección automática del primer objeto que no sea un arma
-        if not eq_item:
-            for item in inventory:
-                if item != "pistola":
-                    eq_item = item
-                    player.equipped_item = item
-                    break
-
-        # Panel superior: armas
-        weapon_sprite = self._get_item_sprite( eq_weapon, player)
-
-        # Se conserva el contador original hasta conectar
-        # la variable real de munición del jugador.
-        ammo_text = "0" if eq_weapon else None
-
-        self.draw_card( surface, x, y_top, weapon_w, weapon_h, "ARMAS", eq_weapon, weapon_sprite, ammo_text)
-
-        # Panel inferior: objetos en mano
-        item_sprite = self._get_item_sprite( eq_item, player )
-
-        self.draw_card( surface, x, y_bottom, item_w, item_h, "OBJETOS", eq_item, item_sprite, None )
+        item_sprite = self._get_item_sprite(eq_item, player)
+        self.draw_card(surface, x, y, item_w, item_h, "OBJETOS", eq_item, item_sprite, None)

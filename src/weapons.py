@@ -183,6 +183,26 @@ class Firearm:
         }
 
 
+class Unarmed:
+    """'Arma' nula: Snake con las manos vacías (todavía no recogió ninguna)."""
+    kind = "none"
+    id = None
+    name = ""
+    sprite_set = None
+    icon = None
+    blocks_movement = False
+    wants_unequip = False
+
+    def on_equip(self, player):
+        pass
+
+    def on_unequip(self, player):
+        pass
+
+    def update(self, *args, **kwargs):
+        pass
+
+
 # ====================================================================== MANAGER
 class WeaponManager:
     def __init__(self, player=None, starting=None):
@@ -199,9 +219,11 @@ class WeaponManager:
                 if w.kind == "firearm" and w.snd_fire is None:
                     w.snd_fire = fallback
 
+        self.unarmed = Unarmed()
         self.owned = list(starting if starting is not None else WS.STARTING_WEAPONS)
-        self.current_id = self.owned[0]
-        self.last_firearm_id = self.current_id
+        self.current_id = self.owned[0] if self.owned else None     # None = sin armas
+        self.last_firearm_id = (self.current_id if self.current_id
+                                and self.weapons[self.current_id].kind == "firearm" else None)
         self.popup_timer = 0.0      # cuánto tiempo se ven las cajitas de arma anterior/siguiente
         self.notices = []           # [texto, tiempo restante]
         self._fire_pressed = False
@@ -209,7 +231,7 @@ class WeaponManager:
     # ---- acceso
     @property
     def current(self):
-        return self.weapons[self.current_id]
+        return self.weapons[self.current_id] if self.current_id else self.unarmed
 
     @property
     def blocks_movement(self):
@@ -226,7 +248,7 @@ class WeaponManager:
 
     def neighbors(self):
         n = len(self.owned)
-        if n < 2:
+        if n < 2 or self.current_id not in self.owned:
             return None, None
         i = self.owned.index(self.current_id)
         return self.weapons[self.owned[(i - 1) % n]], self.weapons[self.owned[(i + 1) % n]]
@@ -239,6 +261,9 @@ class WeaponManager:
         if wid in self.owned:
             return False
         self.owned.append(wid)      # misma lista que lee inventory.py via player.weapons
+        # Primera arma de fuego que consigue: queda en la mano.
+        if self.current_id is None and self.weapons[wid].kind == "firearm":
+            self.equip(wid)
         return True
 
     def add_ammo(self, wid, amount):
@@ -252,11 +277,12 @@ class WeaponManager:
         if wid not in self.owned or wid == self.current_id:
             return False
         new = self.weapons[wid]
-        # El Stinger exige estar de pie y sin caja.
-        if (new.kind == "launcher" and self.player is not None
-                and hasattr(self.player, "can_use_weapon") and not self.player.can_use_weapon()):
-            self.notify("NO PODÉS USARLO AHORA")
-            return False
+        # El Stinger exige tener player y estar de pie y sin caja.
+        if new.kind == "launcher":
+            if self.player is None or (hasattr(self.player, "can_use_weapon")
+                                       and not self.player.can_use_weapon()):
+                self.notify("NO PODÉS USARLO AHORA")
+                return False
         self.current.on_unequip(self.player)
         self.current_id = wid
         if new.kind == "firearm":
@@ -266,6 +292,10 @@ class WeaponManager:
         return True
 
     def cycle(self, step=1):
+        if self.current_id is None:
+            if self.owned:
+                self.equip(self.owned[0])
+            return
         if len(self.owned) < 2:
             return
         i = self.owned.index(self.current_id)
@@ -309,7 +339,11 @@ class WeaponManager:
                             player=self.player, target=target, projectiles=projectiles)
 
         if getattr(self.current, "wants_unequip", False):
-            self.equip(self.last_firearm_id)
+            if self.last_firearm_id in self.owned:
+                self.equip(self.last_firearm_id)
+            else:                                   # no tiene armas de fuego: manos vacías
+                self.current.on_unequip(self.player)
+                self.current_id = None
 
         self.popup_timer = max(0.0, self.popup_timer - dt)
         for notice in self.notices:
@@ -354,21 +388,31 @@ def _load_pickup_png(name):
     return img
 
 def _pickup_image(name):
-    img = _load_pickup_png(name)
+    img = _load_pickup_png(name)                    # 1) PNG propio: pickups/<nombre>.png
     if img is not None:
         return img
-    if name == "stinger_launcher":
-        icon = load_icon("stinger")
-        if icon:
-            w = 44
-            h = max(1, int(icon.get_height() * w / icon.get_width()))
-            return pygame.transform.scale(icon, (w, h))
-        s = pygame.Surface((48, 12), pygame.SRCALPHA)
-        pygame.draw.rect(s, (90, 98, 84), (0, 3, 48, 6))
-        pygame.draw.rect(s, (40, 46, 38), (0, 3, 48, 6), 1)
-        pygame.draw.rect(s, (60, 66, 56), (30, 0, 8, 12))
-        return s
-    
+    spec = PICKUPS.get(name, {})
+    path = spec.get("image")                        # 2) sprite declarado en PICKUPS
+    if path and os.path.exists(path):
+        try:
+            img = pygame.image.load(path).convert_alpha()
+            k = spec.get("scale", 1)
+            if k != 1:
+                img = pygame.transform.scale(img, (int(img.get_width() * k), int(img.get_height() * k)))
+            return img
+        except pygame.error:
+            pass
+    wid = spec.get("weapon") or (spec.get("ammo") or (None,))[0]   # 3) ícono del arma
+    keyword = WS.WEAPON_DEFS.get(wid, {}).get("icon_keyword", wid) if wid else None
+    icon = load_icon(keyword) if keyword else None
+    if icon:
+        w = 44 if "weapon" in spec else 30
+        h = max(1, int(icon.get_height() * w / icon.get_width()))
+        return pygame.transform.scale(icon, (w, h))
+    s = pygame.Surface((32, 14), pygame.SRCALPHA)   # 4) cajita de reemplazo
+    pygame.draw.rect(s, (90, 98, 84), (0, 2, 32, 10))
+    pygame.draw.rect(s, (40, 46, 38), (0, 2, 32, 10), 1)
+    return s
 
 
 def make_pickup(name, center, uid=None):
@@ -377,12 +421,23 @@ def make_pickup(name, center, uid=None):
 
 # La clave es el nombre del objeto de Tiled (y Item.name).
 PICKUPS = {
+    # --- armas (nombre del objeto en Tiled) ---
+    "beretta_pistol":   {"weapon": "beretta", "msg": "OBTENIDO: BERETTA M92FS"},
+    "m16_rifle":        {"weapon": "m16",     "msg": "OBTENIDO: M16"},
+    "uzi_smg":          {"weapon": "uzi",     "msg": "OBTENIDO: MICRO UZI"},
     "stinger_launcher": {"weapon": "stinger", "msg": "OBTENIDO: FIM-92 STINGER"},
+    # Objeto viejo del mapa Entry Point: ahora es la Beretta del sistema de armas.
+    "pistola":          {"weapon": "beretta", "msg": "OBTENIDO: BERETTA M92FS",
+                         "image": "assets/sprites/weapons/pistola.png", "scale": 1.2},
+    # --- munición ---
     "stinger_missiles": {"ammo": ("stinger", WS.STINGER_MISSILES_PER_PICKUP),
                          "msg": "MISILES STINGER x{n}"},
     "ammo_beretta": {"ammo": ("beretta", 15), "msg": "MUNICIÓN BERETTA x{n}"},
     "ammo_m16": {"ammo": ("m16", 30), "msg": "MUNICIÓN M16 x{n}"},
     "ammo_uzi": {"ammo": ("uzi", 32), "msg": "MUNICIÓN UZI x{n}"},
+    # Objeto viejo "ammo" (ductos): ahora da balas de Beretta, ya no un ítem en el inventario.
+    "ammo": {"ammo": ("beretta", 15), "msg": "MUNICIÓN BERETTA x{n}",
+             "image": "assets/sprites/items/municiones.png", "scale": 1.5},
 }
 
 
@@ -397,12 +452,20 @@ def collect_pickups(player_rect, items, manager, reach=20):
         if not player_rect.colliderect(item.rect.inflate(reach * 2, reach * 2)):
             continue
         n = 0
+        msg = spec["msg"]
         if "weapon" in spec:
-            manager.add_weapon(spec["weapon"])
+            wid = spec["weapon"]
+            if not manager.add_weapon(wid):
+                # Ya tenía el arma: el pickup se convierte en munición.
+                w = manager.weapons[wid]
+                n = (WS.STINGER_MISSILES_PER_PICKUP if wid == "stinger"
+                     else getattr(w, "mag_size", 0))
+                manager.add_ammo(wid, n)
+                msg = f"MUNICIÓN {getattr(w, 'name', wid.upper())} x{{n}}"
         if "ammo" in spec:
             wid, n = spec["ammo"]
             manager.add_ammo(wid, n)
-        manager.notify(spec["msg"].format(n=n))
+        manager.notify(msg.format(n=n))
         collected.append(getattr(item, "pickup_id", None))
         item.kill()
     return collected

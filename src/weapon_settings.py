@@ -25,6 +25,7 @@ WEAPON_DEFS = {
         "name": "BERETTA M92FS", "icon_keyword": "beretta", "sprite_set": "gun",
         "mag_size": 15, "reserve": 45, "modes": ["SEMI"],
         "interval": 0.28, "reload_time": 1.4, "damage_mult": 1.0,
+        "noise_radius": 450,
         "blocks_movement": False,
         "hud_tag": "CQC",
     },
@@ -32,6 +33,7 @@ WEAPON_DEFS = {
         "name": "M16", "icon_keyword": "m16", "sprite_set": "m16",
         "mag_size": 30, "reserve": 90, "modes": ["AUTO", "SEMI", "BURST"],
         "interval": 0.10, "reload_time": 2.0, "damage_mult": 1.0,
+        "noise_radius": 650,
         "blocks_movement": True,
         "hud_tag": "DMG",
     },
@@ -39,6 +41,7 @@ WEAPON_DEFS = {
         "name": "MICRO UZI", "icon_keyword": "uzi", "sprite_set": "gun",
         "mag_size": 32, "reserve": 96, "modes": ["AUTO"],
         "interval": 0.065, "reload_time": 1.6, "damage_mult": 1.0,
+        "noise_radius": 550,
         "blocks_movement": False,
         "hud_tag": "CQC",
     },
@@ -49,7 +52,18 @@ BURST_COUNT    = 3
 BURST_INTERVAL = 0.06
 BURST_PAUSE    = 0.28
 
-STARTING_WEAPONS = ["beretta", "m16", "uzi", "stinger"]
+# Ruido de disparos: cada arma tiene su "noise_radius" (px) en WEAPON_DEFS. Mientras se dispara,
+# el ruido se emite como máximo cada SHOT_NOISE_INTERVAL segundos (cada emisión hace calcular
+# rutas A* a los guardias que la oyen).
+SHOT_NOISE_INTERVAL = 0.5
+
+# Armas con las que se EMPIEZA cada misión. [] = manos vacías: las armas se consiguen
+# recogiendo los pickups del mapa (y los recuadros del HUD quedan vacíos hasta entonces).
+STARTING_WEAPONS = []
+
+# Excepciones por misión (número de misión -> lista). Ejemplo:
+#   MISSION_START_WEAPONS = {3: ["beretta", "m16", "stinger"]}
+MISSION_START_WEAPONS = {}
 
 # ----------------------------------------------------------------- STINGER
 STINGER_DAMAGE              = 50

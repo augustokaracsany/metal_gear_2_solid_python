@@ -119,11 +119,11 @@ class Bullet(pygame.sprite.Sprite):
                 return
 
             # Chocó con una pared -> ricochet.
-            for wall in walls:
-                if self.rect.colliderect(wall):
-                    play_ricochet()
-                    self.kill()
-                    return
+            # collidelist recorre la lista en C (antes era un bucle de Python por pared).
+            if self.rect.collidelist(walls) != -1:
+                play_ricochet()
+                self.kill()
+                return
 
             # Chocó con un enemigo.
             for enemy in enemies:

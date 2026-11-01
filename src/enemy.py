@@ -53,6 +53,20 @@ class Enemy(pygame.sprite.Sprite):
     ALERT_ICON_PATH = "assets/sprites/alerts/alert.png"
     ALERT_ICON_SCALE = 2           # los demás sprites se escalan x2.
 
+    # ---- COMBATE (todo ajustable) ------------------------------------------------------
+    BULLET_DAMAGE = 20        # vida que le saca cada bala a Snake
+    GUN_HEIGHT = 0.40         # altura del arma, como fracción del alto del sprite (sobre el hitbox)
+    MUZZLE_FORWARD = 8        # px que sale la boca del arma hacia donde mira
+    FLASH_TIME = 0.07         # segundos que dura el destello del disparo
+    FLASH_SIZE = 9            # tamaño del destello (px)
+    FLASH_COLOR = (255, 225, 120)
+    FLASH_CORE = (255, 255, 245)
+    SHOT_SOUND_PATH = "assets/audio/sfx/gunshot.wav"
+    SHOT_VOLUME = 0.5         # volumen máximo (0..1); baja con la distancia a Snake
+    SHOT_HEAR_DISTANCE = 700  # px a los que el disparo ya no se escucha
+    _shot_sound = None
+    _shot_sound_failed = False
+
     # Si Snake lleva la caja y está quieto, no lo ven. FALSE para que lo vean igualmente. ( NO FUNCIONA. )
     BOX_FOOLS_GUARDS = True
 
@@ -132,6 +146,9 @@ class Enemy(pygame.sprite.Sprite):
         self.shoot_cooldown = 1.5  # Segundos entre disparos
         self.bullet_speed = 6 * 60
         self.bullet_group = pygame.sprite.Group()
+        self.flash_timer = 0.0          # destello del disparo
+        self._flash_off = (0.0, 0.0)
+        self._flash_dir = (1.0, 0.0)
 
         self.start_delay = float(start_delay) # Guardamos el retraso inicial
         self.path_fail_count = 0
@@ -184,11 +201,17 @@ class Enemy(pygame.sprite.Sprite):
     def update(self, dt, walls, player, grid=None, bullet_group=None):
         self.current_walls = walls
         
-        # Aturdido por un golpe: se queda quieto hasta que se le acabe el tiempo.
+        # Destello del disparo (efecto visual: corre siempre).
+        self.flash_timer = max(0.0, self.flash_timer - dt)
+
+        # Aturdido por un golpe: CONGELADO por completo. No camina, no mira alrededor, no dispara
+        # ni cambia de estado; conserva la pose y la dirección en la que estaba.
         if self.stun_timer > 0:
             self.stun_timer -= dt
             self.is_moving = False
-            if self.stun_timer <= 0 and self.hit_from is not None:
+            if self.stun_timer > 0:
+                return
+            if self.hit_from is not None:
                 self._react_to_hit()
                 self.hit_from = None
         if grid is not None:
@@ -288,8 +311,10 @@ class Enemy(pygame.sprite.Sprite):
 
     def _has_line_of_sight(self, target, walls):
         start = self.rect.center
-        for wall in walls:
-            if wall.clipline(start, target):
+        box = pygame.Rect(min(start[0], target[0]) - 1, min(start[1], target[1]) - 1,
+                          abs(target[0] - start[0]) + 2, abs(target[1] - start[1]) + 2)
+        for i in box.collidelistall(walls):      # un muro que corta el segmento está en su caja
+            if walls[i].clipline(start, target):
                 return False
         return True
 
@@ -377,7 +402,10 @@ class Enemy(pygame.sprite.Sprite):
             else:
                 moved = False
             
-            self._face_towards(tx, ty)
+            # Camina mirando hacia donde va; recién al frenarse se gira hacia Snake
+            # (al disparar también se gira: ver shoot_bullet).
+            if not moved:
+                self._face_towards(tx, ty)
             self._handle_shooting(dt, player, bullet_group)
             
             return moved
@@ -634,22 +662,42 @@ class Enemy(pygame.sprite.Sprite):
         self._face_vector(tx - fx, ty - fy)
 
     def check_collisions_x(self, walls, dx):
-        for wall in walls:
-            if self.rect.colliderect(wall):
-                if dx > 0:
-                    self.rect.right = wall.left
-                elif dx < 0:
-                    self.rect.left = wall.right
-                self.x = float(self.rect.x)
+        for _ in range(3):                       # 3 pasadas por si un empujón roza otro muro
+            hits = self.rect.collidelistall(walls)
+            if not hits:
+                return
+            pushed = False
+            for i in hits:
+                wall = walls[i]
+                if self.rect.colliderect(wall):
+                    if dx > 0:
+                        self.rect.right = wall.left
+                        pushed = True
+                    elif dx < 0:
+                        self.rect.left = wall.right
+                        pushed = True
+                    self.x = float(self.rect.x)
+            if not pushed:
+                return
 
     def check_collisions_y(self, walls, dy):
-        for wall in walls:
-            if self.rect.colliderect(wall):
-                if dy > 0:
-                    self.rect.bottom = wall.top
-                elif dy < 0:
-                    self.rect.top = wall.bottom
-                self.y = float(self.rect.y)
+        for _ in range(3):
+            hits = self.rect.collidelistall(walls)
+            if not hits:
+                return
+            pushed = False
+            for i in hits:
+                wall = walls[i]
+                if self.rect.colliderect(wall):
+                    if dy > 0:
+                        self.rect.bottom = wall.top
+                        pushed = True
+                    elif dy < 0:
+                        self.rect.top = wall.bottom
+                        pushed = True
+                    self.y = float(self.rect.y)
+            if not pushed:
+                return
 
     def _handle_shooting(self, dt, player, bullet_group):
         self.shoot_timer += dt
@@ -658,30 +706,57 @@ class Enemy(pygame.sprite.Sprite):
             self.shoot_bullet(player, bullet_group)
 
     def shoot_bullet(self, player, bullet_group):
-        ex, ey = self._eye_pos()
+        """La bala viaja en el PLANO DEL PISO (donde están todos los hitboxes), recta del
+        hitbox del guardia al de Snake; solo se DIBUJA a la altura del arma."""
+        if bullet_group is None:
+            return
+        fx, fy = self._fcenter()
         px, py = player.rect.center
-        
-        p_vx = getattr(player, "vx", 0)
-        p_vy = getattr(player, "vy", 0)
-        
-        prediction_factor = 0.3 
-        target_x = px + (p_vx * prediction_factor)
-        target_y = py + (p_vy * prediction_factor)
-        
-        dx = target_x - ex
-        dy = target_y - ey
+        dx, dy = px - fx, py - fy
         dist = math.hypot(dx, dy)
-        
         if dist == 0:
             return
-            
-        dir_x = dx / dist
-        dir_y = dy / dist
-        
-        bullet = enemyBullet(ex, ey, dir_x * self.bullet_speed, dir_y * self.bullet_speed)
+        ux, uy = dx / dist, dy / dist
 
-        if bullet_group is not None:
-            bullet_group.add(bullet)
+        self._face_vector(dx, dy)                # al disparar se gira hacia Snake
+        fdx, fdy = self.DIRS[self.facing]
+        sprite_h = self.offset_y + self.rect.height
+        draw_dx = fdx * self.MUZZLE_FORWARD
+        draw_dy = -self.GUN_HEIGHT * sprite_h + fdy * self.MUZZLE_FORWARD
+
+        bullet_group.add(enemyBullet(fx, fy, ux * self.bullet_speed, uy * self.bullet_speed,
+                                     draw_dx=draw_dx, draw_dy=draw_dy,
+                                     damage=self.BULLET_DAMAGE))
+        self._flash_off = (draw_dx, draw_dy)
+        self._flash_dir = (ux, uy)
+        self.flash_timer = self.FLASH_TIME
+        self._play_shot_sound(player)
+
+    @classmethod
+    def _get_shot_sound(cls):
+        if cls._shot_sound is None and not cls._shot_sound_failed:
+            try:
+                cls._shot_sound = pygame.mixer.Sound(cls.SHOT_SOUND_PATH)
+            except Exception:
+                cls._shot_sound_failed = True
+        return cls._shot_sound
+
+    def _play_shot_sound(self, player):
+        """Sonido del disparo; baja con la distancia a Snake. Usa un canal libre (nunca pisa los tuyos)."""
+        if not pygame.mixer.get_init():
+            return
+        snd = self._get_shot_sound()
+        if snd is None:
+            return
+        fx, fy = self._fcenter()
+        px, py = player.rect.center
+        vol = self.SHOT_VOLUME * max(0.0, 1.0 - math.hypot(px - fx, py - fy) / self.SHOT_HEAR_DISTANCE)
+        if vol < 0.02:
+            return
+        ch = pygame.mixer.find_channel()
+        if ch:
+            ch.play(snd)
+            ch.set_volume(vol)
 
     def _reachable_target(self, grid, tx, ty):
         if grid is None:
@@ -721,27 +796,6 @@ class Enemy(pygame.sprite.Sprite):
                 if pts is not None and len(pts) * ts <= max_path:
                     return (g[0] * ts + ts / 2, g[1] * ts + ts / 2)
         return None
-
-    def hear_noise(self, pos, radius, grid, origin=None):
-        """pos: a dónde ir. origin: desde dónde se mide el radio (por defecto, pos).
-        Devuelve True si decidió ir a investigar."""
-        if self.start_delay > 0 or self.state in ("ALERT", "CHASE"):
-            return False                      # ya está en lo suyo
-
-        ox, oy = origin if origin else pos
-        fx, fy = self._fcenter()
-        if math.hypot(ox - fx, oy - fy) > radius:
-            return False
-
-        target = self._strict_target(grid, pos[0], pos[1], max_path=radius * 2.5)
-        if target is None:
-            return False                      # inalcanzable o camino demasiado largo
-
-        self.last_known_pos = target
-        self.search_target = target
-        self._set_state("SEARCH")             # no borra search_target
-        self._face_towards(*target)
-        return True
 
     def _heard(self, dt):
         """Gesto de "escuché algo": se queda quieto mirando hacia la fuente y luego investiga."""
@@ -811,8 +865,10 @@ class Enemy(pygame.sprite.Sprite):
 
     def hear_noise(self, pos, radius, grid, origin=None, gesture=True):
         """gesture=True: hace la pausa con el ícono. gesture=False: va directo a investigar."""
-        if self.start_delay > 0 or self.state in ("ALERT", "CHASE", "NOISE"):
+        if self.start_delay > 0 or self.stun_timer > 0 or self.state in ("ALERT", "CHASE", "NOISE"):
             return False
+        if self.state == "SEARCH":
+            gesture = False      # ya está investigando: no repite la pausa con el "?" (evita trabarse)
 
         ox, oy = origin if origin else pos
         fx, fy = self._fcenter()
@@ -858,31 +914,38 @@ class Enemy(pygame.sprite.Sprite):
                 cls._sound_icon = pygame.Surface((1, 1), pygame.SRCALPHA)
         return cls._sound_icon
 
-    # def draw_vision(self, surface, camera):
-    #     dir_x, dir_y = self.DIRS[self._vision_facing()]
-    #     start_x, start_y = self._eye_pos()
-    #     perp_x, perp_y = -dir_y, dir_x
+    def draw_vision(self, surface, camera):
+        dir_x, dir_y = self.DIRS[self._vision_facing()]
+        start_x, start_y = self._eye_pos()
+        perp_x, perp_y = -dir_y, dir_x
 
-    #     rng = self.VISION_RANGE
-    #     w = self.CONE_TAN
-    #     left = (start_x + (dir_x - perp_x * w) * rng, start_y + (dir_y - perp_y * w) * rng)
-    #     right = (start_x + (dir_x + perp_x * w) * rng, start_y + (dir_y + perp_y * w) * rng)
+        rng = self.VISION_RANGE
+        w = self.CONE_TAN
+        left = (start_x + (dir_x - perp_x * w) * rng, start_y + (dir_y - perp_y * w) * rng)
+        right = (start_x + (dir_x + perp_x * w) * rng, start_y + (dir_y + perp_y * w) * rng)
 
-    #     ox, oy = camera.camera_rect.x, camera.camera_rect.y
-    #     points = [(start_x + ox, start_y + oy), (left[0] + ox, left[1] + oy), (right[0] + ox, right[1] + oy)]
+        ox, oy = camera.camera_rect.x, camera.camera_rect.y
+        points = [(start_x + ox, start_y + oy), (left[0] + ox, left[1] + oy), (right[0] + ox, right[1] + oy)]
 
-    #     alerted = self.state in ("ALERT", "CHASE")
-    #     color = (255, 0, 0, 100) if alerted else (0, 255, 0, 100)
+        alerted = self.state in ("ALERT", "CHASE")
+        color = (255, 0, 0, 100) if alerted else (0, 255, 0, 100)
 
-    #     vision_surface = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
-    #     pygame.draw.polygon(vision_surface, color, points)
-    #     surface.blit(vision_surface, (0, 0))
+        xs = [p[0] for p in points]
+        ys = [p[1] for p in points]
+        x0, y0 = math.floor(min(xs)), math.floor(min(ys))
+        box = pygame.Rect(x0, y0, math.ceil(max(xs)) - x0 + 2, math.ceil(max(ys)) - y0 + 2)
+        box = box.clip(surface.get_rect())
+        if box.width > 0 and box.height > 0:
+            vision_surface = pygame.Surface(box.size, pygame.SRCALPHA)
+            local = [(x - box.x, y - box.y) for x, y in points]
+            pygame.draw.polygon(vision_surface, color, local)
+            surface.blit(vision_surface, box.topleft)
 
-    #     if self.DEBUG_AI and self.path:
-    #         fx, fy = self._fcenter()
-    #         line = [(fx + ox, fy + oy)] + [(px + ox, py + oy) for px, py in self.path]
-    #         if len(line) > 1:
-    #             pygame.draw.lines(surface, (255, 255, 0), False, line, 1)
+        if self.DEBUG_AI and self.path:
+            fx, fy = self._fcenter()
+            line = [(fx + ox, fy + oy)] + [(px + ox, py + oy) for px, py in self.path]
+            if len(line) > 1:
+                pygame.draw.lines(surface, (255, 255, 0), False, line, 1)
 
     def draw_with_camera(self, surface, camera):
         if self.state == "LOOKING":
@@ -900,6 +963,8 @@ class Enemy(pygame.sprite.Sprite):
 
         pygame.draw.rect(surface, (255, 0, 0), dest_rect, 1)
         surface.blit(current_image, (draw_x, draw_y))
+        if self.flash_timer > 0:
+            self._draw_muzzle_flash(surface, dest_rect)
 
         if self.state == "ALERT":
             icon = self._get_alert_icon()
@@ -909,6 +974,18 @@ class Enemy(pygame.sprite.Sprite):
             icon = self._get_sound_icon()
             surface.blit(icon, (dest_rect.centerx - icon.get_width() // 2,
                                 draw_y - icon.get_height() - 2))
+
+    def _draw_muzzle_flash(self, surface, dest_rect):
+        """Destello en la boca del arma, orientado hacia donde sale la bala."""
+        cx = dest_rect.centerx + self._flash_off[0]
+        cy = dest_rect.centery + self._flash_off[1]
+        ux, uy = self._flash_dir
+        size = self.FLASH_SIZE
+        w = size * 0.45
+        tip = (cx + ux * size * 1.6, cy + uy * size * 1.6)
+        pts = [(cx - uy * w, cy + ux * w), tip, (cx + uy * w, cy - ux * w)]
+        pygame.draw.polygon(surface, self.FLASH_COLOR, pts)
+        pygame.draw.circle(surface, self.FLASH_CORE, (round(cx), round(cy)), max(1, size // 3))
 
     def draw_regions_debug(self, surface, camera, grid):
         ts = self.GRID_TILE

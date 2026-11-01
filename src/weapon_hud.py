@@ -202,6 +202,14 @@ class WeaponHUD:
             slot.set_alpha(int(255 * alpha))
         surface.blit(slot, rect.topleft)
 
+    def _draw_empty_slot(self, surface, rect):
+        """Caja vacía: todavía no hay ningún arma."""
+        slot = pygame.Surface(rect.size, pygame.SRCALPHA)
+        slot.fill((*BG_COLOR, BG_ALPHA))
+        if BORDER_COLOR is not None:
+            pygame.draw.rect(slot, BORDER_COLOR, slot.get_rect(), 1)
+        surface.blit(slot, rect.topleft)
+
     # ── avisos ───────────────────────────────────────────────────────────────
     def _draw_notices(self, surface, manager):
         w = surface.get_width()
@@ -217,9 +225,12 @@ class WeaponHUD:
 
         main = pygame.Rect(sw - MARGIN - SLOT_W, sh - MARGIN - SLOT_H,
                            SLOT_W, SLOT_H)
-        self._draw_slot(surface, main, manager.current)
+        if manager.current_id is None:
+            self._draw_empty_slot(surface, main)
+        else:
+            self._draw_slot(surface, main, manager.current)
 
-        if manager.popup_timer > 0:
+        if manager.current_id is not None and manager.popup_timer > 0:
             fade = min(1.0, manager.popup_timer / POPUP_FADE) * INACTIVE_ALPHA
             prev_w, next_w = manager.neighbors()
 
