@@ -1,10 +1,16 @@
 import pygame
 import pytmx
 import sys
+from src.rain import Rain
+from src.settings import SCREEN_WIDTH, SCREEN_HEIGHT
 
 class CinematicIntroState:
     def __init__(self, tmx_path="assets/sprites/maps/intro_entry_point.tmx"):
-        self.map_scale = 3  # Factor de escala de los mapas en tu juego
+        self.map_scale = 2  # Factor de escala de los mapas en tu juego
+        self.virtual_width = (SCREEN_WIDTH * self.map_scale) // 2
+        self.virtual_height = (SCREEN_HEIGHT * self.map_scale) // 2
+        self.virtual_surface = pygame.Surface((self.virtual_width, self.virtual_height))
+        self.rain = Rain(self.virtual_width, self.virtual_height)
 
         # Cargar el fondo PNG del mapa
         try:
@@ -66,7 +72,7 @@ class CinematicIntroState:
         for i in range(1, 6):
             try:
                 img = pygame.image.load(f"assets/sprites/solid_python/climb{i}.png").convert_alpha()
-                scaled_img = pygame.transform.scale(img, (img.get_width() * 3, img.get_height() * 3))
+                scaled_img = pygame.transform.scale(img, (img.get_width() * 2, img.get_height() * 2))
                 self.climb_frames.append(scaled_img)
             except Exception as e:
                 print(f"Aviso: No se pudo cargar climb{i}.png: {e}")
@@ -75,7 +81,7 @@ class CinematicIntroState:
         for i in range(1, 3):
             try:
                 img = pygame.image.load(f"assets/sprites/solid_python/crawl_left{i}.png").convert_alpha()
-                scaled_img = pygame.transform.scale(img, (img.get_width() * 3, img.get_height() * 3))
+                scaled_img = pygame.transform.scale(img, (img.get_width() * 2, img.get_height() * 2))
                 self.left_crawl_frames.append(scaled_img)
             except Exception as e:
                 print(f"Aviso: No se pudo cargar crawl_left{i}.png: {e}")
@@ -84,7 +90,7 @@ class CinematicIntroState:
         for i in range(1, 3):
             try:
                 img = pygame.image.load(f"assets/sprites/solid_python/crouch_left{i}.png").convert_alpha()
-                scaled_img = pygame.transform.scale(img, (img.get_width() * 3, img.get_height() * 3))
+                scaled_img = pygame.transform.scale(img, (img.get_width() * 2, img.get_height() * 2))
                 self.left_crouch_frames.append(scaled_img)
             except Exception as e:
                 print(f"Aviso: No se pudo cargar crouch_left{i}.png: {e}")
@@ -92,7 +98,7 @@ class CinematicIntroState:
         self.up_crawl = []
         try:
             img = pygame.image.load(f"assets/sprites/solid_python/crouch_up1.png").convert_alpha()
-            scaled_img = pygame.transform.scale(img, (img.get_width() * 3, img.get_height() * 3))
+            scaled_img = pygame.transform.scale(img, (img.get_width() * 2, img.get_height() * 2))
             self.up_crawl.append(scaled_img)
         except Exception as e:
             print(f"Aviso: No se pudo cargar crouch_up1.png: {e}")
@@ -100,7 +106,7 @@ class CinematicIntroState:
         self.up_stand = []
         try:
             img = pygame.image.load(f"assets/sprites/solid_python/stand_up.png").convert_alpha()
-            scaled_img = pygame.transform.scale(img, (img.get_width() * 3, img.get_height() * 3))
+            scaled_img = pygame.transform.scale(img, (img.get_width() * 2, img.get_height() * 2))
             self.up_stand.append(scaled_img)
         except Exception as e:
             print(f"Aviso: No se pudo cargar stand_up.png: {e}")
@@ -206,6 +212,8 @@ class CinematicIntroState:
                 self.fade_alpha = 255
                 self.finished = True  # Termina la cinemática y pasa al juego
             return
+
+        self.rain.update(dt)
 
         # --- LÓGICA DE CRÉDITOS ---
         if self.credits_phase == 0:
@@ -427,6 +435,8 @@ class CinematicIntroState:
 
             except Exception as e:
                 pass
+
+        self.rain.draw(surface)
 
         if self.show_skip_warning:
             try:

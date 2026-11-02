@@ -66,8 +66,8 @@ STARTING_WEAPONS = []
 MISSION_START_WEAPONS = {}
 
 # ----------------------------------------------------------------- STINGER
-STINGER_DAMAGE              = 50
-STINGER_MISSILES_PER_PICKUP = 8
+STINGER_DAMAGE              = 10
+STINGER_MISSILES_PER_PICKUP = 4
 HIND_ALTITUDE               = 90
 
 STINGER_AIM_RANGE_X      = 400
@@ -77,7 +77,7 @@ STINGER_CAMERA_FOLLOW    = 0.75
 STINGER_SCREEN_MARGIN    = 24
 
 STINGER_LOCK_RADIUS        = 46
-STINGER_LOCK_TIME          = 1.5   # reducido de 2.5 → más ágil
+STINGER_LOCK_TIME          = 3   # reducido de 2.5 → más ágil
 STINGER_LOCK_GRACE         = 0.5   # aumentado de 0.30 → más tolerante al movimiento
 STINGER_LOCK_BEEP_INTERVAL = 0.25
 
