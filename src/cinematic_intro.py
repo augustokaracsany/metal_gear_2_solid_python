@@ -6,9 +6,11 @@ from src.settings import SCREEN_WIDTH, SCREEN_HEIGHT
 
 class CinematicIntroState:
     def __init__(self, tmx_path="assets/sprites/maps/intro_entry_point.tmx"):
-        self.map_scale = 2  # Factor de escala de los mapas en tu juego
-        self.virtual_width = (SCREEN_WIDTH * self.map_scale) // 2
-        self.virtual_height = (SCREEN_HEIGHT * self.map_scale) // 2
+        self.map_scale = 2
+        self.ref_scale = 3
+        self.speed_k = self.map_scale / self.ref_scale
+        self.virtual_width = SCREEN_WIDTH // 2     # igual que Game
+        self.virtual_height = SCREEN_HEIGHT // 2
         self.virtual_surface = pygame.Surface((self.virtual_width, self.virtual_height))
         self.rain = Rain(self.virtual_width, self.virtual_height)
 
@@ -149,7 +151,7 @@ class CinematicIntroState:
         try:
             raw_call = pygame.image.load("assets/sprites/radio/call.png").convert_alpha()
             self.call_sprite = pygame.transform.scale(
-                raw_call, (raw_call.get_width() * self.map_scale, raw_call.get_height() * self.map_scale)
+                raw_call, (raw_call.get_width() * 3, raw_call.get_height() * 3)
             )
         except Exception as e:
             print(f"Aviso: No se pudo cargar call.png: {e}")
@@ -275,7 +277,7 @@ class CinematicIntroState:
         # FASE 2: ARRASTRÁNDOSE HASTA EL MIDDLE_POINT
         elif self.phase == "MOVING_TO_MIDDLE":
             target_x, target_y = self.middle_pos
-            speed = 30 * dt
+            speed = 30 * dt * self.speed_k
             
             if self.snake_pos[0] < target_x:
                 self.snake_pos[0] = min(self.snake_pos[0] + speed, target_x)
@@ -315,7 +317,7 @@ class CinematicIntroState:
         # FASE 5: CAMINANDO/MOVIÉNDOSE AGACHADO HASTA EL END_POINT
         elif self.phase == "MOVING_CROUCHED":
             target_x, target_y = self.end_pos
-            speed = 40 * dt  # Velocidad ligeramente menor por ir agachado
+            speed = 40 * dt * self.speed_k
             
             if self.snake_pos[0] < target_x:
                 self.snake_pos[0] = min(self.snake_pos[0] + speed, target_x)
@@ -386,67 +388,54 @@ class CinematicIntroState:
         return None
 
     def draw(self, surface):
-        surface.fill((0, 0, 0))
-        screen_w = surface.get_width()
-        screen_h = surface.get_height()
+        vs = self.virtual_surface
+        vs.fill((0, 0, 0))
+        vw, vh = vs.get_size()
+        screen_w, screen_h = surface.get_size()
 
+        camera_x = camera_y = 0
         if self.bg_image:
-            camera_x = max(0, min(self.end_pos[0] - screen_w // 2, self.map_width - screen_w))
-            camera_y = max(0, min(self.end_pos[1] - screen_h // 2, self.map_height - screen_h))
-            # Dibujar la imagen de fondo desplazada por la cámara
-            surface.blit(self.bg_image, (-camera_x, -camera_y))
+            camera_x = max(0, min(self.end_pos[0] - vw // 2, self.map_width - vw))
+            camera_y = max(0, min(self.end_pos[1] - vh // 2, self.map_height - vh))
+            vs.blit(self.bg_image, (-camera_x, -camera_y))
 
-        # Dibujar a Snake respecto a la cámara
         current_sprite = self.get_current_snake_sprite()
         if current_sprite:
-            snake_screen_pos = (self.snake_pos[0] - camera_x, self.snake_pos[1] - camera_y)
-            snake_rect = current_sprite.get_rect(center=snake_screen_pos)
-            surface.blit(current_sprite, snake_rect)
+            pos = (self.snake_pos[0] - camera_x, self.snake_pos[1] - camera_y)
+            vs.blit(current_sprite, current_sprite.get_rect(center=pos))
 
-        # --- RENDERIZADO DE CRÉDITOS A LA IZQUIERDA ---
+        self.rain.draw(vs)
+
+        surface.blit(pygame.transform.scale(vs, (screen_w, screen_h)), (0, 0))
+
+        # --- Créditos (sobre la pantalla real) ---
         if self.credits_phase in [1, 2, 3]:
             try:
                 font = pygame.font.Font("assets/fonts/PixelOperator8.ttf", 16)
                 fontBold = pygame.font.Font("assets/fonts/PixelOperator8-bold.ttf", 16)
-                credits_surf = pygame.Surface((350, 150), pygame.SRCALPHA)
+                start_x, start_y = 40, 60
 
-                start_x = 40
-                start_y = 60
-
-                # 1. Dibujar Título con efecto máquina de escribir
                 title_to_draw = self.title_target_text[:self.title_current_len]
                 if title_to_draw:
                     title_surface = fontBold.render(title_to_draw, True, (235, 198, 26))
                     title_surface.set_alpha(self.credits_alpha)
                     surface.blit(title_surface, (start_x, start_y))
 
-                # 2. Dibujar el listado de desarrolladores (efecto pop progresivo)
                 if self.credits_phase >= 2:
                     for i in range(self.visible_devs_count):
-                        dev_name = self.developers_list[i]
-                        dev_surface = font.render(f"{dev_name}", True, (255, 224, 138))
+                        dev_surface = font.render(self.developers_list[i], True, (255, 224, 138))
                         dev_surface.set_alpha(self.credits_alpha)
-                        surface.blit(dev_surface, (start_x + 10, start_y + 22 + (i * 20)))
-
-                credits_surf.set_alpha(self.credits_alpha)
-                
-                # Dibujar la superficie de créditos en la pantalla principal (posición fija a la izquierda)
-                surface.blit(credits_surf, (40, 60))
-
-            except Exception as e:
+                        surface.blit(dev_surface, (start_x + 10, start_y + 22 + i * 20))
+            except Exception:
                 pass
-
-        self.rain.draw(surface)
 
         if self.show_skip_warning:
             try:
                 font = pygame.font.Font("assets/fonts/PixelOperator8.ttf", 16)
-                warning_surface = font.render("Presiona ESC nuevamente para saltear", True, (255, 255, 255))
-                surface.blit(warning_surface, (20, 20))
+                surface.blit(font.render("Presiona ESC nuevamente para saltear", True, (255, 255, 255)), (20, 20))
             except Exception:
                 pass
 
-        # Aplicar fundido (fade) negro si está activo al salir/saltear
         if self.is_fading and self.fade_alpha > 0:
             fade_surf = pygame.Surface((screen_w, screen_h))
             fade_surf.fill((0, 0, 0))
@@ -454,6 +443,4 @@ class CinematicIntroState:
             surface.blit(fade_surf, (0, 0))
 
         if self.phase == "RADIO_CALL" and self.call_sprite:
-            call_x = screen_w - self.call_sprite.get_width() - 30  # 30 px de margen desde la derecha
-            call_y = 30  # 30 px de margen desde arriba
-            surface.blit(self.call_sprite, (call_x, call_y))
+            surface.blit(self.call_sprite, (screen_w - self.call_sprite.get_width() - 30, 30))
