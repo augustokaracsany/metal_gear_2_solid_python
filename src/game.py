@@ -173,6 +173,10 @@ class Game:
         self.radar = Radar(self.ALERTED_STATES)
         self._shot_noise_cd = 0.0     # espera entre ruidos de disparo
 
+        # Escalado final de la pantalla virtual a la ventana ( ver _scale_to_screen ).
+        self._scale_mode = "direct"   # "direct" | "buffer" | "plain"
+        self._scale_buf = None
+
         # Instanciación inicial del mapa y entidades
         self.load_level(current_level["tmx"])
 
@@ -413,6 +417,7 @@ class Game:
                 actor_size = self.enemies_group.sprites()[0].rect.size
                 self.pathfinding_grid = self.map.create_pathfinding_grid(
                     cell_px=8, actor_size=actor_size)
+                self.pathfinding_grid._tiled_map = self.map
             else:
                 self.pathfinding_grid = None
         else:
@@ -1196,6 +1201,8 @@ class Game:
         self.check_map_transitions()
 
         alerted = self.alert_level > 0
+        # Presupuesto de búsquedas A* de ESTE frame (compartido entre todos los guardias).
+        Enemy.begin_frame()
         for enemy in self.enemies_group:
             enemy.global_alert = alerted
             enemy.update(dt, walls, self.player, self.pathfinding_grid, self.enemy_bullets)
@@ -1248,6 +1255,7 @@ class Game:
             return
 
     def emit_noise(self, pos, radius):
+        # Barato: cada guardia solo deja el ruido pendiente; el A* se reparte entre frames (ver Enemy.hear_noise).
         for e in self.enemies_group:
             e.hear_noise(pos, radius, self.pathfinding_grid)
 
@@ -1285,6 +1293,32 @@ class Game:
         overlay = pygame.Surface(surface.get_size())
         overlay.set_alpha(int(255 * t))
         surface.blit(overlay, (0, 0))
+
+    def _scale_to_screen(self, surface):
+        """Escala la pantalla virtual a la ventana SIN crear una Surface nueva por frame.
+
+        1) "direct": escala directo sobre `surface` ( ahorra la alocación y el blit a pantalla completa ).
+        2) "buffer": si el formato no coincide, escala a un buffer reutilizable y lo blitea.
+        3) "plain":  el camino original ( Surface nueva por frame ), como último recurso.
+        Si un modo falla, baja al siguiente una sola vez y se queda ahí."""
+        size = surface.get_size()
+        if self._scale_mode == "direct":
+            try:
+                pygame.transform.scale(self.virtual_surface, size, surface)
+                return
+            except (ValueError, pygame.error, TypeError):
+                self._scale_mode = "buffer"
+        if self._scale_mode == "buffer":
+            try:
+                if self._scale_buf is None or self._scale_buf.get_size() != size:
+                    self._scale_buf = pygame.Surface(size)
+                pygame.transform.scale(self.virtual_surface, size, self._scale_buf)
+                surface.blit(self._scale_buf, (0, 0))
+                return
+            except (ValueError, pygame.error, TypeError):
+                self._scale_mode = "plain"
+        scaled_surface = pygame.transform.scale(self.virtual_surface, size)
+        surface.blit(scaled_surface, (0, 0))
 
     def draw(self, surface):
         self.virtual_surface.fill((0, 0, 0))
@@ -1548,8 +1582,7 @@ class Game:
             fade_surface.set_alpha(self.fade_alpha)
             self.virtual_surface.blit(fade_surface, (0, 0))
 
-        scaled_surface = pygame.transform.scale(self.virtual_surface, (surface.get_width(), surface.get_height()))
-        surface.blit(scaled_surface, (0, 0))
+        self._scale_to_screen(surface)
 
         if self.state == "PLAYING":
             self.health_bar.draw(surface, self.player)

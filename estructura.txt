@@ -4,6 +4,9 @@ C:.
 |   .gitignore
 |   estructura.txt
 |   main.py
+|   perf.prof
+|   perf2.prof
+|   perf3.prof
 |   README.md
 |   requirements.txt
 |   
@@ -336,6 +339,20 @@ C:.
 |       |       stinger_launcher.png
 |       |       stinger_missiles.png
 |       |       
+|       +---prisoners
+|       |       ambar_walkdown1.png
+|       |       ambar_walkdown2.png
+|       |       ambar_walkright1.png
+|       |       ambar_walkright2.png
+|       |       ambar_walkup1.png
+|       |       ambar_walkup2.png
+|       |       valen_walkdown1.png
+|       |       valen_walkdown2.png
+|       |       valen_walkleft1.png
+|       |       valen_walkleft2.png
+|       |       valen_walkup1.png
+|       |       valen_walkup2.png
+|       |       
 |       +---radio
 |       |       call.png
 |       |       
@@ -490,6 +507,7 @@ C:.
 |   |   pause.py
 |   |   player.py
 |   |   prologue.py
+|   |   radar.py
 |   |   rain.py
 |   |   settings.py
 |   |   tilemap.py
@@ -549,6 +567,7 @@ C:.
 |           player.cpython-314.pyc
 |           prologue.cpython-312.pyc
 |           prologue.cpython-314.pyc
+|           radar.cpython-312.pyc
 |           rain.cpython-312.pyc
 |           settings.cpython-312.pyc
 |           settings.cpython-314.pyc

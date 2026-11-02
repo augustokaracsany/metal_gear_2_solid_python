@@ -244,10 +244,23 @@ class TiledMap:
                 line.append(0 if body.collidelist(walls) != -1 else 1)
             matrix.append(line)
 
+        self._pathfinding_matrix = matrix
         grid = Grid(matrix=matrix)
-        grid.cell_px = cell_px          # <- el enemigo lo lee de acá
-        grid.region = self._label_regions(matrix)
+        grid.cell_px  = cell_px
+        grid.region   = self._label_regions(matrix)
+        grid._matrix  = matrix
         return grid
+
+    def make_private_grid(self, cell_px, region):
+        """Grilla privada para un solo guardia. Se llama una vez por guardia al spawnearlo;
+        el guardia la guarda en self._grid y la limpia con cleanup() antes de cada A*.
+        cleanup() es O(nodos_tocados) cuando los nodos ya existen: mucho más rápido que
+        crear una grilla nueva (que llama a build_nodes = O(total_nodos))."""
+        g = Grid(matrix=self._pathfinding_matrix)
+        g.cell_px = cell_px
+        g.region  = region
+        g._matrix = self._pathfinding_matrix
+        return g
 
     def _label_regions(self, matrix):
         rows, cols = len(matrix), len(matrix[0])
