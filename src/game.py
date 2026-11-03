@@ -207,10 +207,6 @@ class Game:
         self.health_bar = HealthBar()
         self.item_message = ItemMessage()
 
-        self.fading_in = True
-        self.fade_alpha = 255
-        self.fade_in_timer = pygame.time.get_ticks()
-
         # --- ARMAS (Beretta / M16 / UZI / Stinger) ---
         self.reset_weapons()
         self.weapon_hud = WeaponHUD()
@@ -231,6 +227,11 @@ class Game:
         self._cam_target = _CamTarget()
         if self.mission_number == BOSS_MISSION:
             self.setup_boss()
+
+        # Siempre al final: el fundido se mide desde que terminó de cargar todo.
+        self.fading_in = True
+        self.fade_alpha = 255
+        self.fade_in_timer = pygame.time.get_ticks()
 
     def start_level_music(self):
         """Música de fondo en bucle del mapa Entry Point (misión 1).
@@ -557,8 +558,8 @@ class Game:
     # ===================== JEFE (HIND-D) =====================
     def setup_boss(self):
         """Crea el jefe según los objetos del mapa:
-             boss_spawn        (punto, centro de la pista)  -> habilita la cinemática de despegue
-             trigger_cutscene  (rectángulo, opcional)       -> la cinemática arranca al pisarlo
+            boss_spawn        (punto, centro de la pista)  -> habilita la cinemática de despegue
+            trigger_cutscene  (rectángulo, opcional)       -> la cinemática arranca al pisarlo
         Sin boss_spawn: el Hind entra desde lejos, sin cinemática.
         Con skip_boss_intro: directo a la pelea."""
         if self.map:
@@ -703,6 +704,13 @@ class Game:
                 map_height = self.map.height if self.map else self.map_image.get_height()
                 self.camera = Camera(map_width, map_height, self.virtual_width, self.virtual_height)
                 self.fox_screen.start(lambda t=trigger: self._do_transition(t))
+                target = trigger["properties"].get("target_map")
+
+                # Entrar o salir del camión: cambio directo, sin pantalla del zorro.
+                if self._is_truck(target) or self._is_truck(self.current_map_key):
+                    self._do_transition(trigger)
+                else:
+                    self.fox_screen.start(lambda t=trigger: self._do_transition(t))
                 break
 
     def _do_transition(self, trigger):
@@ -949,7 +957,6 @@ class Game:
                         self.victory_selected_option = (self.victory_selected_option + 1) % max_options
                     elif event.key in (pygame.K_RETURN,):
                         self.confirm_victory_option()
-                   
 
                 elif event.type == pygame.MOUSEMOTION:
                     mx, my = event.pos
@@ -1117,15 +1124,17 @@ class Game:
         self.exit_fade_volume = pygame.mixer.music.get_volume()
 
     def confirm_victory_option(self):
-        """Ejecuta la acción seleccionada en el menú de Victoria"""
-        pygame.mixer.music.fadeout(1000)
-        self.stop_boss_audio()
         has_next = self.has_next_mission()
         if self.victory_selected_option == 0:
-            # Reintentar: la misión arranca de cero, con su cinemática de inicio.
-            self.__init__(self.mission_number, skip_boss_intro=False)
+            self._begin_exit_fade("restart", self.mission_number)
         elif self.victory_selected_option == 1 and has_next:
             self._begin_exit_fade("restart", self.mission_number + 1)
+        else:
+            self._begin_exit_fade("menu")
+
+    def confirm_game_over_option(self):
+        if self.game_over_selected_option == 0:
+            self._begin_exit_fade("restart", self.mission_number)
         else:
             self._begin_exit_fade("menu")
 
@@ -1134,6 +1143,7 @@ class Game:
         pygame.mixer.music.set_volume(self.exit_fade_volume * max(0.0, 1 - t))
         if t < 1:
             return
+        self.stop_boss_audio()
         action, mission = self.pending_action
         pygame.mixer.music.stop()
         pygame.mixer.music.set_volume(self.pause_menu.music_volume)
@@ -1142,16 +1152,6 @@ class Game:
         else:
             self.pending_action = None
             self.return_to_menu = True
-            self.stop_all_audio()       # Salir: nada de música colgada en el menú.
-            self.return_to_menu = True  # Activamos la bandera
-
-    def confirm_game_over_option(self):
-        pygame.mixer.music.fadeout(1000)
-        self.stop_boss_audio()
-        if self.game_over_selected_option == 0:
-            # Reintentar: la misión arranca de cero, con su cinemática de inicio.
-            self.__init__(self.mission_number, skip_boss_intro=False)
-        else:
             self.stop_all_audio()       # Salir: nada de música colgada en el menú.
             self.return_to_menu = True  # Activamos la bandera
 
@@ -1377,6 +1377,11 @@ class Game:
                 self._scale_mode = "plain"
         scaled_surface = pygame.transform.scale(self.virtual_surface, size)
         surface.blit(scaled_surface, (0, 0))
+
+    @staticmethod
+    def _is_truck(map_key):
+        """True si la clave o ruta corresponde a un mapa del camión (truck, truck_interior, truck_interior_2...)."""
+        return map_key is not None and "truck" in os.path.basename(str(map_key)).lower()
 
     def draw(self, surface):
         self.virtual_surface.fill((0, 0, 0))

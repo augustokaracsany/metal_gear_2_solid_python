@@ -2,9 +2,9 @@ import pygame
 
 class FoxScreenManager():
     FADE_DURATION = 500 # en ms
-    ANIMATION_DELAY = 2000 # en ms
-    ENDING_DELAY = 2000 # en ms
-    SPRITE_FRAME_INDEX = 0.1 # en segundos
+    ANIMATION_DELAY = 1500 # en ms
+    ENDING_DELAY = 1500 # en ms
+    SPRITE_FRAME_INDEX = 0.05 # en segundos
 
     FRAME_PATH = "assets/sprites/fox/zorro{}.png"
     FRAME_COUNT = 12
