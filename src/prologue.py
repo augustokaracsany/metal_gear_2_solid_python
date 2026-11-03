@@ -158,7 +158,7 @@ class PrologueState:
         is_speeding_up = keys[pygame.K_RETURN] or keys[pygame.K_SPACE]
 
         # Definimos la velocidad actual basada en si mantiene presionado el botón
-        current_text_speed = 40 if is_speeding_up else 20  # 20 normal, 40 acelerado
+        current_text_speed = 30 if is_speeding_up else 20  # 20 normal, 40 acelerado
         
         # Verificamos si ya pasó el tiempo de espera inicial de la imagen
         elapsed_panel = current_time - self.panel_start_time
@@ -232,7 +232,7 @@ class PrologueState:
                 return
 
     def draw(self, surface):
-        surface.fill((10, 5, 5))  # Fondo base oscuro
+        surface.fill((0, 0, 0))
 
         w = surface.get_width()
         h = surface.get_height()

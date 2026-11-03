@@ -2,9 +2,7 @@ import math
 
 
 import pygame
-from pathfinding.finder.a_star import AStarFinder
 from src.settings import ENEMY_MAX_HEALTH
-from pathfinding.core.diagonal_movement import DiagonalMovement
 from src.enemy_bullet import enemyBullet
 
 
@@ -27,6 +25,11 @@ class Enemy(pygame.sprite.Sprite):
     El guardia sigue la ruta moviéndose de a UN eje por vez, siempre por el centro de las
     celdas, y solo recalcula la ruta cuando está justo en el centro de una celda. ( Osea, se mueve por EJE X o por EJE Y, núnca por ambos en diagonal. )
     Resultado: no corta esquinas ni se come paredes.
+
+    RENDIMIENTO ( A* ): Todas las búsquedas comparten un PRESUPUESTO POR FRAME ( SEARCHES_PER_FRAME ).
+    Game.update() tiene que llamar a Enemy.begin_frame() una vez por frame, antes de actualizar a los guardias.
+    Los ruidos ( hear_noise ) ya NO calculan nada en el momento: dejan un pedido pendiente que
+    cada guardia resuelve en su update() cuando hay presupuesto y pasó su cooldown.
     """
 
     GRID_TILE = 32             # Tiene que coincidir con tile_size de create_pathfinding_grid()
@@ -53,6 +56,20 @@ class Enemy(pygame.sprite.Sprite):
     ALERT_ICON_PATH = "assets/sprites/alerts/alert.png"
     ALERT_ICON_SCALE = 2           # los demás sprites se escalan x2.
 
+    # ---- COMBATE (todo ajustable) ------------------------------------------------------
+    BULLET_DAMAGE = 20        # vida que le saca cada bala a Snake
+    GUN_HEIGHT = 0.40         # altura del arma, como fracción del alto del sprite (sobre el hitbox)
+    MUZZLE_FORWARD = 8        # px que sale la boca del arma hacia donde mira
+    FLASH_TIME = 0.07         # segundos que dura el destello del disparo
+    FLASH_SIZE = 9            # tamaño del destello (px)
+    FLASH_COLOR = (255, 225, 120)
+    FLASH_CORE = (255, 255, 245)
+    SHOT_SOUND_PATH = "assets/audio/sfx/gunshot.wav"
+    SHOT_VOLUME = 0.5         # volumen máximo (0..1); baja con la distancia a Snake
+    SHOT_HEAR_DISTANCE = 700  # px a los que el disparo ya no se escucha
+    _shot_sound = None
+    _shot_sound_failed = False
+
     # Si Snake lleva la caja y está quieto, no lo ven. FALSE para que lo vean igualmente. ( NO FUNCIONA. )
     BOX_FOOLS_GUARDS = True
 
@@ -67,10 +84,24 @@ class Enemy(pygame.sprite.Sprite):
     SEPARATION = 28        # px mínimos entre guardias que van al mismo lugar
     ALLY_WAIT_MAX = 1.2    # s máx. esperando a un compañero antes de seguir igual
 
+    HOP_HEIGHT = 6         # px de altura máxima del salto (la pantalla se escala x2)
+    HOP_DURATION = 0.25    # segundos que dura el saltito
+
     NOISE_REACT_TIME = 0.9                          # segundos con el ícono antes de ir a investigar
     SOUND_ICON_PATH = "assets/sprites/alerts/sound.png"
     _sound_icon = None
     _alert_icon = None  
+
+    # ---- RENDIMIENTO ( A* ) ------------------------------------------------------------
+    SEARCHES_PER_FRAME = 3     # Máx. búsquedas A* por frame ENTRE TODOS los guardias ( subilo si ves guardias "dormidos" ).
+    NOISE_COOLDOWN = 0.4       # s mínimos entre dos evaluaciones de ruido de un MISMO guardia.
+    NOISE_SAME_SPOT = 48       # px: un ruido a menos de esto del anterior no recalcula nada ( ráfagas desde el mismo lugar ).
+    NOISE_MAX_ASTARS = 3       # Máx. A* que prueba _strict_target por ruido ( antes llegaba a 24 ).
+    _search_budget = SEARCHES_PER_FRAME   # Se repone con Enemy.begin_frame().
+    @classmethod
+    def begin_frame(cls):
+        """Game.update() la llama UNA vez por frame, antes del bucle de guardias."""
+        cls._search_budget = cls.SEARCHES_PER_FRAME
 
     def __init__(self, x, y, patrol_points, start_delay=0.0):
         super().__init__()
@@ -94,6 +125,7 @@ class Enemy(pygame.sprite.Sprite):
         self.anim_timer = 0.0
         self.frame_index = 0
         self.animation_speed = 0.2
+        self.hop_timer = 0.0
 
         # MÁQUINA DE ESTADOS.
         self.state = "WALKING"
@@ -132,11 +164,19 @@ class Enemy(pygame.sprite.Sprite):
         self.shoot_cooldown = 1.5  # Segundos entre disparos
         self.bullet_speed = 6 * 60
         self.bullet_group = pygame.sprite.Group()
+        self.flash_timer = 0.0
+        self._flash_off = (0.0, 0.0)
+        self._flash_dir = (1.0, 0.0)
 
         self.start_delay = float(start_delay) # Guardamos el retraso inicial
         self.path_fail_count = 0
         self.search_target = None
         self.global_alert = False
+
+        # Ruidos: pedido pendiente ( se resuelve en update ), cooldown y último punto atendido.
+        self.pending_noise = None     # ( pos, radius, gesture ) o None
+        self.noise_cooldown = 0.0
+        self._last_noise_pos = None
 
     # CARGAR SPRITES.
     def load_sprites(self):
@@ -182,15 +222,26 @@ class Enemy(pygame.sprite.Sprite):
 
     # UPDATE PRINCIPAL
     def update(self, dt, walls, player, grid=None, bullet_group=None):
+        if self.hop_timer > 0:
+            self.hop_timer = max(0.0, self.hop_timer - dt)
+
         self.current_walls = walls
         
-        # Aturdido por un golpe: se queda quieto hasta que se le acabe el tiempo.
+        # Destello del disparo (efecto visual: corre siempre).
+        self.flash_timer = max(0.0, self.flash_timer - dt)
+        self.noise_cooldown = max(0.0, self.noise_cooldown - dt)
+
+        # Aturdido por un golpe: CONGELADO por completo. No camina, no mira alrededor, no dispara
+        # ni cambia de estado; conserva la pose y la dirección en la que estaba.
         if self.stun_timer > 0:
             self.stun_timer -= dt
             self.is_moving = False
-            if self.stun_timer <= 0 and self.hit_from is not None:
+            if self.stun_timer > 0:
+                return
+            if self.hit_from is not None:
                 self._react_to_hit()
                 self.hit_from = None
+            return
         if grid is not None:
             self.GRID_TILE = grid.cell_px
 
@@ -201,7 +252,9 @@ class Enemy(pygame.sprite.Sprite):
             return
 
         moving = False
-        
+
+        # 0) Ruido pendiente ( reparte el costo del A* entre varios frames )
+        self._process_pending_noise(grid)
 
         # 1) Percepción
         self._update_perception(dt, player, walls)
@@ -287,9 +340,16 @@ class Enemy(pygame.sprite.Sprite):
         return self._has_line_of_sight(player.rect.center, walls)
 
     def _has_line_of_sight(self, target, walls):
-        start = self.rect.center
-        for wall in walls:
-            if wall.clipline(start, target):
+        sx, sy = int(self.rect.centerx), int(self.rect.centery)
+        tx, ty = int(target[0]), int(target[1])
+        bx = min(sx, tx) - 1
+        by = min(sy, ty) - 1
+        bw = abs(tx - sx) + 2
+        bh = abs(ty - sy) + 2
+        box = pygame.Rect(bx, by, bw, bh)
+        seg = (sx, sy, tx, ty)
+        for i in box.collidelistall(walls):
+            if walls[i].clipline(seg):
                 return False
         return True
 
@@ -303,6 +363,7 @@ class Enemy(pygame.sprite.Sprite):
         self.path_finished = False
         self.repath_timer = 0.0
         self.stuck_timer = 0.0
+        self._last_noise_pos = None   # Cada ruido atendido lo vuelve a fijar DESPUÉS de cambiar de estado.
         if new_state == "ALERT":
             self.alert_timer = 0.0
 
@@ -377,7 +438,10 @@ class Enemy(pygame.sprite.Sprite):
             else:
                 moved = False
             
-            self._face_towards(tx, ty)
+            # Camina mirando hacia donde va; recién al frenarse se gira hacia Snake
+            # (al disparar también se gira: ver shoot_bullet).
+            if not moved:
+                self._face_towards(tx, ty)
             self._handle_shooting(dt, player, bullet_group)
             
             return moved
@@ -433,6 +497,7 @@ class Enemy(pygame.sprite.Sprite):
             self.kill()  # Lo saca de enemies_group (y de cualquier otro grupo).
         else:
             self.stun_timer = max(self.stun_timer, stun_time)
+            self.hop_timer = self.HOP_DURATION      # <- inicia el saltito
             if stun_time > 0 and source_pos is not None:
                 self.hit_from = source_pos
 
@@ -487,6 +552,11 @@ class Enemy(pygame.sprite.Sprite):
 
         self.repath_timer -= dt
         if self.repath_timer <= 0 and (not self.path or self._on_lane()):
+            if Enemy._search_budget <= 0:
+                # Sin presupuesto este frame: NO se reinicia el timer, así que reintenta en el próximo.
+                return self._follow_path(dt, speed), False
+            Enemy._search_budget -= 1
+
             self.repath_timer = self.REPATH_INTERVAL
             new_path = self._find_path(grid, tx, ty)
             if new_path is None:
@@ -566,23 +636,60 @@ class Enemy(pygame.sprite.Sprite):
                         best, best_d = (x, y), d
         return best
 
-    def _astar(self, grid, start, goal, own_cell):
+    def _astar(self, grid, start, goal, own_cell, max_cost=None):
+        """A* propio sin estado en los nodos: usa diccionarios locales, nunca necesita
+        grid.cleanup() (que en pathfinding 1.0.22 es O(total_nodos) siempre).
+
+        max_cost: tope de pasos ( celdas ). Como la heurística es consistente y el heap sale ordenado
+        por f, cuando f supera el tope no puede existir un camino más corto: se corta y devuelve None.
+        Evita expandir medio mapa para terminar descartando el resultado por largo."""
+        import heapq
         ts = self.GRID_TILE
-        try:
-            grid.cleanup()
-            path, _ = AStarFinder(diagonal_movement=DiagonalMovement.never).find_path(
-                grid.node(*start), grid.node(*goal), grid)
-        except Exception:
+        matrix = getattr(grid, '_matrix', None)
+        if matrix is None:
             return None
-        if not path:
+        rows = len(matrix)
+        cols = len(matrix[0]) if rows else 0
+        sx, sy = start
+        gx, gy = goal
+        if not (0 <= sx < cols and 0 <= sy < rows and 0 <= gx < cols and 0 <= gy < rows):
             return None
-        points = []
-        for node in path:
-            nx, ny = (node.x, node.y) if hasattr(node, "x") else node
-            points.append((nx * ts + ts / 2, ny * ts + ts / 2))
-        if start == own_cell and self._on_lane():
-            points.pop(0)
-        return points
+        if not matrix[sy][sx] or not matrix[gy][gx]:
+            return None
+        g_cost = {start: 0}
+        came_from = {}
+        counter = 0
+        open_heap = [(abs(gx - sx) + abs(gy - sy), 0, start)]
+        while open_heap:
+            f, _, cur = heapq.heappop(open_heap)
+            if max_cost is not None and f > max_cost:
+                return None          # todo lo que queda en el heap es peor
+            if cur == goal:
+                path = []
+                node = goal
+                while node in came_from:
+                    path.append(node)
+                    node = came_from[node]
+                path.reverse()
+                points = [(nx * ts + ts // 2, ny * ts + ts // 2) for nx, ny in path]
+                if start == own_cell and self._on_lane() and points:
+                    points.pop(0)
+                return points if points else None
+            cx, cy = cur
+            cur_g = g_cost[cur]
+            if f > cur_g + abs(gx - cx) + abs(gy - cy) + 0.001:
+                continue
+            for nx, ny in ((cx+1,cy),(cx-1,cy),(cx,cy+1),(cx,cy-1)):
+                if not (0 <= nx < cols and 0 <= ny < rows) or not matrix[ny][nx]:
+                    continue
+                nb = (nx, ny)
+                ng = cur_g + 1
+                if ng < g_cost.get(nb, 10**9):
+                    g_cost[nb] = ng
+                    came_from[nb] = cur
+                    counter += 1
+                    heapq.heappush(open_heap, (ng + abs(gx-nx) + abs(gy-ny), counter, nb))
+        return None
 
     def _find_path(self, grid, tx, ty):
         if grid is None:
@@ -634,22 +741,22 @@ class Enemy(pygame.sprite.Sprite):
         self._face_vector(tx - fx, ty - fy)
 
     def check_collisions_x(self, walls, dx):
-        for wall in walls:
-            if self.rect.colliderect(wall):
-                if dx > 0:
-                    self.rect.right = wall.left
-                elif dx < 0:
-                    self.rect.left = wall.right
-                self.x = float(self.rect.x)
+        for i in self.rect.collidelistall(walls):
+            wall = walls[i]
+            if dx > 0:
+                self.rect.right = min(self.rect.right, wall.left)
+            elif dx < 0:
+                self.rect.left = max(self.rect.left, wall.right)
+        self.x = float(self.rect.x)
 
     def check_collisions_y(self, walls, dy):
-        for wall in walls:
-            if self.rect.colliderect(wall):
-                if dy > 0:
-                    self.rect.bottom = wall.top
-                elif dy < 0:
-                    self.rect.top = wall.bottom
-                self.y = float(self.rect.y)
+        for i in self.rect.collidelistall(walls):
+            wall = walls[i]
+            if dy > 0:
+                self.rect.bottom = min(self.rect.bottom, wall.top)
+            elif dy < 0:
+                self.rect.top = max(self.rect.top, wall.bottom)
+        self.y = float(self.rect.y)
 
     def _handle_shooting(self, dt, player, bullet_group):
         self.shoot_timer += dt
@@ -658,30 +765,57 @@ class Enemy(pygame.sprite.Sprite):
             self.shoot_bullet(player, bullet_group)
 
     def shoot_bullet(self, player, bullet_group):
-        ex, ey = self._eye_pos()
+        """La bala viaja en el PLANO DEL PISO (donde están todos los hitboxes), recta del
+        hitbox del guardia al de Snake; solo se DIBUJA a la altura del arma."""
+        if bullet_group is None:
+            return
+        fx, fy = self._fcenter()
         px, py = player.rect.center
-        
-        p_vx = getattr(player, "vx", 0)
-        p_vy = getattr(player, "vy", 0)
-        
-        prediction_factor = 0.3 
-        target_x = px + (p_vx * prediction_factor)
-        target_y = py + (p_vy * prediction_factor)
-        
-        dx = target_x - ex
-        dy = target_y - ey
+        dx, dy = px - fx, py - fy
         dist = math.hypot(dx, dy)
-        
         if dist == 0:
             return
-            
-        dir_x = dx / dist
-        dir_y = dy / dist
-        
-        bullet = enemyBullet(ex, ey, dir_x * self.bullet_speed, dir_y * self.bullet_speed)
+        ux, uy = dx / dist, dy / dist
 
-        if bullet_group is not None:
-            bullet_group.add(bullet)
+        self._face_vector(dx, dy)                # al disparar se gira hacia Snake
+        fdx, fdy = self.DIRS[self.facing]
+        sprite_h = self.offset_y + self.rect.height
+        draw_dx = fdx * self.MUZZLE_FORWARD
+        draw_dy = -self.GUN_HEIGHT * sprite_h + fdy * self.MUZZLE_FORWARD
+
+        bullet_group.add(enemyBullet(fx, fy, ux * self.bullet_speed, uy * self.bullet_speed,
+                                     draw_dx=draw_dx, draw_dy=draw_dy,
+                                     damage=self.BULLET_DAMAGE))
+        self._flash_off = (draw_dx, draw_dy)
+        self._flash_dir = (ux, uy)
+        self.flash_timer = self.FLASH_TIME
+        self._play_shot_sound(player)
+
+    @classmethod
+    def _get_shot_sound(cls):
+        if cls._shot_sound is None and not cls._shot_sound_failed:
+            try:
+                cls._shot_sound = pygame.mixer.Sound(cls.SHOT_SOUND_PATH)
+            except Exception:
+                cls._shot_sound_failed = True
+        return cls._shot_sound
+
+    def _play_shot_sound(self, player):
+        """Sonido del disparo; baja con la distancia a Snake. Usa un canal libre (nunca pisa los tuyos)."""
+        if not pygame.mixer.get_init():
+            return
+        snd = self._get_shot_sound()
+        if snd is None:
+            return
+        fx, fy = self._fcenter()
+        px, py = player.rect.center
+        vol = self.SHOT_VOLUME * max(0.0, 1.0 - math.hypot(px - fx, py - fy) / self.SHOT_HEAR_DISTANCE)
+        if vol < 0.02:
+            return
+        ch = pygame.mixer.find_channel()
+        if ch:
+            ch.play(snd)
+            ch.set_volume(vol)
 
     def _reachable_target(self, grid, tx, ty):
         if grid is None:
@@ -705,43 +839,32 @@ class Enemy(pygame.sprite.Sprite):
 
     def _strict_target(self, grid, tx, ty, max_path):
         """Punto alcanzable cerca de (tx, ty), o None. NO usa el 'más cercano en toda la región':
-        si la fuente está en un hueco inaccesible, se ignora."""
+        si la fuente está en un hueco inaccesible, se ignora.
+
+        Optimizado: descarta por distancia Manhattan antes de buscar, corta el A* en cuanto el camino
+        supera max_path y prueba como mucho NOISE_MAX_ASTARS búsquedas ( antes hasta 24 sin límite )."""
         if grid is None:
             return (tx, ty)
         ts = self.GRID_TILE
+        max_cells = int(max_path // ts) + 1       # +1: el A* devuelve el camino sin la celda inicial
         fx, fy = self._fcenter()
         own = (int(fx // ts), int(fy // ts))
         starts = self._cells_near(grid, own[0], own[1], fx, fy, max(2, 24 // ts), 4)
         goals = self._cells_near(grid, int(tx // ts), int(ty // ts), tx, ty, max(2, 16 // ts), 6)
+        tries = 0
         for s in starts:
             for g in goals:
                 if grid.region[s[1]][s[0]] != grid.region[g[1]][g[0]]:
                     continue
-                pts = self._astar(grid, s, g, own)
+                if abs(s[0] - g[0]) + abs(s[1] - g[1]) > max_cells:
+                    continue                      # ni en línea recta llega
+                if tries >= self.NOISE_MAX_ASTARS:
+                    return None
+                tries += 1
+                pts = self._astar(grid, s, g, own, max_cost=max_cells)
                 if pts is not None and len(pts) * ts <= max_path:
                     return (g[0] * ts + ts / 2, g[1] * ts + ts / 2)
         return None
-
-    def hear_noise(self, pos, radius, grid, origin=None):
-        """pos: a dónde ir. origin: desde dónde se mide el radio (por defecto, pos).
-        Devuelve True si decidió ir a investigar."""
-        if self.start_delay > 0 or self.state in ("ALERT", "CHASE"):
-            return False                      # ya está en lo suyo
-
-        ox, oy = origin if origin else pos
-        fx, fy = self._fcenter()
-        if math.hypot(ox - fx, oy - fy) > radius:
-            return False
-
-        target = self._strict_target(grid, pos[0], pos[1], max_path=radius * 2.5)
-        if target is None:
-            return False                      # inalcanzable o camino demasiado largo
-
-        self.last_known_pos = target
-        self.search_target = target
-        self._set_state("SEARCH")             # no borra search_target
-        self._face_towards(*target)
-        return True
 
     def _heard(self, dt):
         """Gesto de "escuché algo": se queda quieto mirando hacia la fuente y luego investiga."""
@@ -749,7 +872,9 @@ class Enemy(pygame.sprite.Sprite):
             self._face_towards(*self.search_target)
         self.state_timer += dt
         if self.state_timer >= self.NOISE_REACT_TIME:
+            keep = self._last_noise_pos
             self._set_state("SEARCH")   # _set_state no borra search_target
+            self._last_noise_pos = keep # sigue siendo "el ruido que estoy investigando"
 
     def _taken_targets(self):
         """Destinos que otros guardias ya están usando."""
@@ -809,15 +934,50 @@ class Enemy(pygame.sprite.Sprite):
                 return True
         return False
 
+    # RUIDOS
     def hear_noise(self, pos, radius, grid, origin=None, gesture=True):
-        """gesture=True: hace la pausa con el ícono. gesture=False: va directo a investigar."""
-        if self.start_delay > 0 or self.state in ("ALERT", "CHASE", "NOISE"):
+        """gesture=True: hace la pausa con el ícono. gesture=False: va directo a investigar.
+
+        YA NO CALCULA RUTAS ACÁ: solo hace los chequeos baratos y deja el ruido PENDIENTE; el guardia
+        lo resuelve en su update() ( ver _process_pending_noise ). Devuelve True si el ruido quedó
+        registrado ( o ya lo estaba investigando ) y False si lo ignora por estado o por distancia.
+        Un ruido nuevo pisa a uno pendiente anterior ( gana el más reciente )."""
+        if self.start_delay > 0 or self.stun_timer > 0 or self.state in ("ALERT", "CHASE", "NOISE"):
             return False
 
         ox, oy = origin if origin else pos
         fx, fy = self._fcenter()
         if math.hypot(ox - fx, oy - fy) > radius:
             return False
+
+        # Ya está yendo a investigar ese mismo lugar ( ráfaga desde la misma posición ): no recalcula nada.
+        if (self.state in ("NOISE", "SEARCH") and self.search_target is not None
+                and self._last_noise_pos is not None):
+            lx, ly = self._last_noise_pos
+            if (pos[0] - lx) ** 2 + (pos[1] - ly) ** 2 < self.NOISE_SAME_SPOT ** 2:
+                return True
+
+        self.pending_noise = (pos, radius, gesture)
+        return True
+
+    def _process_pending_noise(self, grid):
+        """Resuelve el ruido pendiente si hay cooldown libre y presupuesto de búsquedas en este frame."""
+        if self.pending_noise is None:
+            return
+        if self.state in ("ALERT", "CHASE", "NOISE"):
+            self.pending_noise = None            # ya está en otra cosa: el ruido quedó viejo
+            return
+        if self.noise_cooldown > 0 or Enemy._search_budget <= 0:
+            return                               # queda pendiente para un frame próximo
+        pos, radius, gesture = self.pending_noise
+        self.pending_noise = None
+        Enemy._search_budget -= 1
+        self.noise_cooldown = self.NOISE_COOLDOWN
+        self._apply_noise(grid, pos, radius, gesture)
+
+    def _apply_noise(self, grid, pos, radius, gesture):
+        if self.state == "SEARCH":
+            gesture = False      # ya está investigando: no repite la pausa con el "?" (evita trabarse)
 
         target = self._strict_target(grid, pos[0], pos[1], max_path=radius * 2.5)
         if target is None:
@@ -828,6 +988,7 @@ class Enemy(pygame.sprite.Sprite):
         self.last_known_pos = target
         self.search_target = target
         self._set_state("NOISE" if gesture else "SEARCH")
+        self._last_noise_pos = pos               # DESPUÉS de _set_state, que lo borra
         self._face_towards(*target)
         return True
 
@@ -858,31 +1019,38 @@ class Enemy(pygame.sprite.Sprite):
                 cls._sound_icon = pygame.Surface((1, 1), pygame.SRCALPHA)
         return cls._sound_icon
 
-    # def draw_vision(self, surface, camera):
-    #     dir_x, dir_y = self.DIRS[self._vision_facing()]
-    #     start_x, start_y = self._eye_pos()
-    #     perp_x, perp_y = -dir_y, dir_x
+    def draw_vision(self, surface, camera):
+        dir_x, dir_y = self.DIRS[self._vision_facing()]
+        start_x, start_y = self._eye_pos()
+        perp_x, perp_y = -dir_y, dir_x
 
-    #     rng = self.VISION_RANGE
-    #     w = self.CONE_TAN
-    #     left = (start_x + (dir_x - perp_x * w) * rng, start_y + (dir_y - perp_y * w) * rng)
-    #     right = (start_x + (dir_x + perp_x * w) * rng, start_y + (dir_y + perp_y * w) * rng)
+        rng = self.VISION_RANGE
+        w = self.CONE_TAN
+        left = (start_x + (dir_x - perp_x * w) * rng, start_y + (dir_y - perp_y * w) * rng)
+        right = (start_x + (dir_x + perp_x * w) * rng, start_y + (dir_y + perp_y * w) * rng)
 
-    #     ox, oy = camera.camera_rect.x, camera.camera_rect.y
-    #     points = [(start_x + ox, start_y + oy), (left[0] + ox, left[1] + oy), (right[0] + ox, right[1] + oy)]
+        ox, oy = camera.camera_rect.x, camera.camera_rect.y
+        points = [(start_x + ox, start_y + oy), (left[0] + ox, left[1] + oy), (right[0] + ox, right[1] + oy)]
 
-    #     alerted = self.state in ("ALERT", "CHASE")
-    #     color = (255, 0, 0, 100) if alerted else (0, 255, 0, 100)
+        alerted = self.state in ("ALERT", "CHASE")
+        color = (255, 0, 0, 100) if alerted else (0, 255, 0, 100)
 
-    #     vision_surface = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
-    #     pygame.draw.polygon(vision_surface, color, points)
-    #     surface.blit(vision_surface, (0, 0))
+        xs = [p[0] for p in points]
+        ys = [p[1] for p in points]
+        x0, y0 = math.floor(min(xs)), math.floor(min(ys))
+        box = pygame.Rect(x0, y0, math.ceil(max(xs)) - x0 + 2, math.ceil(max(ys)) - y0 + 2)
+        box = box.clip(surface.get_rect())
+        if box.width > 0 and box.height > 0:
+            vision_surface = pygame.Surface(box.size, pygame.SRCALPHA)
+            local = [(x - box.x, y - box.y) for x, y in points]
+            pygame.draw.polygon(vision_surface, color, local)
+            surface.blit(vision_surface, box.topleft)
 
-    #     if self.DEBUG_AI and self.path:
-    #         fx, fy = self._fcenter()
-    #         line = [(fx + ox, fy + oy)] + [(px + ox, py + oy) for px, py in self.path]
-    #         if len(line) > 1:
-    #             pygame.draw.lines(surface, (255, 255, 0), False, line, 1)
+        if self.DEBUG_AI and self.path:
+            fx, fy = self._fcenter()
+            line = [(fx + ox, fy + oy)] + [(px + ox, py + oy) for px, py in self.path]
+            if len(line) > 1:
+                pygame.draw.lines(surface, (255, 255, 0), False, line, 1)
 
     def draw_with_camera(self, surface, camera):
         if self.state == "LOOKING":
@@ -898,8 +1066,20 @@ class Enemy(pygame.sprite.Sprite):
         draw_x = dest_rect.x - self.offset_x
         draw_y = dest_rect.y - self.offset_y
 
+        # Saltito al recibir un golpe (parábola: sube y baja)
+        hop = 0
+        if self.hop_timer > 0:
+            t = 1 - self.hop_timer / self.HOP_DURATION     # 0 -> 1
+            hop = int(4 * self.HOP_HEIGHT * t * (1 - t))
+        draw_y -= hop
+
         pygame.draw.rect(surface, (255, 0, 0), dest_rect, 1)
         surface.blit(current_image, (draw_x, draw_y))
+
+        pygame.draw.rect(surface, (255, 0, 0), dest_rect, 1)
+        surface.blit(current_image, (draw_x, draw_y))
+        if self.flash_timer > 0:
+            self._draw_muzzle_flash(surface, dest_rect)
 
         if self.state == "ALERT":
             icon = self._get_alert_icon()
@@ -909,6 +1089,18 @@ class Enemy(pygame.sprite.Sprite):
             icon = self._get_sound_icon()
             surface.blit(icon, (dest_rect.centerx - icon.get_width() // 2,
                                 draw_y - icon.get_height() - 2))
+
+    def _draw_muzzle_flash(self, surface, dest_rect):
+        """Destello en la boca del arma, orientado hacia donde sale la bala."""
+        cx = dest_rect.centerx + self._flash_off[0]
+        cy = dest_rect.centery + self._flash_off[1]
+        ux, uy = self._flash_dir
+        size = self.FLASH_SIZE
+        w = size * 0.45
+        tip = (cx + ux * size * 1.6, cy + uy * size * 1.6)
+        pts = [(cx - uy * w, cy + ux * w), tip, (cx + uy * w, cy - ux * w)]
+        pygame.draw.polygon(surface, self.FLASH_COLOR, pts)
+        pygame.draw.circle(surface, self.FLASH_CORE, (round(cx), round(cy)), max(1, size // 3))
 
     def draw_regions_debug(self, surface, camera, grid):
         ts = self.GRID_TILE

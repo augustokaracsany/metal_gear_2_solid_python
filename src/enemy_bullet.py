@@ -1,54 +1,83 @@
-import pygame
 import math
+import pygame
+from src.bullet import play_ricochet            # mismo ricochet que las balas de Snake
+from src.settings import BULLET_HIT_PADDING
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  CONFIG  (tocá solo esto)
+# ═══════════════════════════════════════════════════════════════════════════
+BULLET_RANGE    = 750      # px máximos que recorre antes de desaparecer
+STEP_PX         = 4        # la bala avanza de a pasos de este tamaño (no atraviesa nada)
+HIT_SIZE        = 4        # lado del hitbox de la bala (px)
+TRACER_LENGTH   = 9        # largo de la estela dibujada (px)
+TRACER_WIDTH    = 2
+COLOR_TRACER    = (255, 215, 110)
+COLOR_HEAD      = (255, 255, 235)
+AUDIBLE_RADIUS  = 450      # el ricochet solo suena si el impacto está cerca de Snake
+# ═══════════════════════════════════════════════════════════════════════════
+
 
 class enemyBullet(pygame.sprite.Sprite):
-    _bullet_image = None  # Caché para cargar la imagen una sola vez
+    """Bala de guardia.
 
-    def __init__(self, x, y, vx, vy):
+    Igual que las de Snake: su posición LÓGICA (x, y) está en el plano del piso, donde viven
+    los hitboxes, y viaja recta hacia Snake. Solo se DIBUJA desplazada (draw_dx, draw_dy) para
+    que salga de la altura del arma. Choca con paredes (ricochet) y no atraviesa a Snake
+    aunque el FPS caiga, porque avanza de a pasos.
+    """
+
+    def __init__(self, x, y, vx, vy, draw_dx=0.0, draw_dy=0.0, damage=20):
         super().__init__()
-
-        # Cargar y escalar la imagen de la bala si no está cargada
-        if enemyBullet._bullet_image is None:
-            try:
-                img = pygame.image.load("assets/sprites/weapons/bullet.png").convert_alpha()
-                scale = 1  # Ajusta este factor si necesitas que la bala sea más grande o chica
-                enemyBullet._bullet_image = pygame.transform.scale(
-                    img, (int(img.get_width() * scale), int(img.get_height() * scale))
-                )
-            except Exception as e:
-                print(f"Aviso: No se pudo cargar bullet.png: {e}")
-                # Superficie de respaldo por si falla la carga del archivo
-                enemyBullet._bullet_image = pygame.Surface((6, 6))
-                enemyBullet._bullet_image.fill((255, 255, 0))
-
-        self.image = enemyBullet._bullet_image
-        self.rect = self.image.get_rect(center=(x, y))
-
-        # Posiciones en float para un movimiento suave y preciso
         self.x = float(x)
         self.y = float(y)
-
-        # Velocidades direccionales (permiten diagonales exactas)
         self.vx = vx
         self.vy = vy
+        self.draw_dx = draw_dx
+        self.draw_dy = draw_dy
+        self.damage = damage
+        self.hit_target = False           # True cuando alcanzó a Snake (Game aplica el daño y la quita)
+        self.distance_traveled = 0.0
 
-        self.distance_traveled = 0
+        speed = math.hypot(vx, vy) or 1.0
+        self._ux = vx / speed
+        self._uy = vy / speed
 
-    def update(self, dt):
-        # 1. Movemos la bala en base a su velocidad y el delta time
-        self.x += self.vx * dt
-        self.y += self.vy * dt
+        self.rect = pygame.Rect(0, 0, HIT_SIZE, HIT_SIZE)
         self.rect.center = (round(self.x), round(self.y))
-        
-        # 2. Acumulamos la distancia recorrida en este frame
-        distance_moved = math.hypot(self.vx * dt, self.vy * dt)
-        self.distance_traveled += distance_moved
-        
-        # 3. Si supera el límite establecido (ej. 150 píxeles), se elimina
-        if self.distance_traveled >= 750:
+
+    def update(self, dt, walls=None, target=None):
+        """walls: lista de Rect de paredes. target: hitbox de Snake (pygame.Rect)."""
+        dist = math.hypot(self.vx * dt, self.vy * dt)
+        steps = max(1, math.ceil(dist / STEP_PX))
+        sx = self.vx * dt / steps
+        sy = self.vy * dt / steps
+        hit_rect = target.inflate(BULLET_HIT_PADDING, BULLET_HIT_PADDING) if target is not None else None
+
+        for _ in range(steps):
+            self.x += sx
+            self.y += sy
+            self.rect.center = (round(self.x), round(self.y))
+
+            if walls and self.rect.collidelist(walls) != -1:
+                if (target is not None
+                        and math.hypot(self.x - target.centerx, self.y - target.centery) <= AUDIBLE_RADIUS):
+                    play_ricochet()
+                self.kill()
+                return
+
+            if hit_rect is not None and self.rect.colliderect(hit_rect):
+                self.hit_target = True
+                return
+
+        self.distance_traveled += dist
+        if self.distance_traveled >= BULLET_RANGE:
             self.kill()
 
     def draw_with_camera(self, surface, camera):
-        # Si tu juego usa un objeto de cámara para desplazar el mapa
-        dest_rect = camera.apply(self)
-        surface.blit(self.image, dest_rect)
+        ox, oy = camera.camera_rect.x, camera.camera_rect.y
+        hx = self.x + self.draw_dx + ox
+        hy = self.y + self.draw_dy + oy
+        tx = hx - self._ux * TRACER_LENGTH
+        ty = hy - self._uy * TRACER_LENGTH
+        pygame.draw.line(surface, COLOR_TRACER, (round(tx), round(ty)), (round(hx), round(hy)), TRACER_WIDTH)
+        pygame.draw.rect(surface, COLOR_HEAD, (round(hx) - 1, round(hy) - 1, 2, 2))
