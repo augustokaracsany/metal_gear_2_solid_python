@@ -18,6 +18,7 @@ from src.inventory import InventoryMenu
 from src.item_message import ItemMessage
 from src.hud_inventory import HUDInventory  # <--- HUD de inventario equipado activo
 from src.fox import FoxScreenManager
+from src.flashback import FlashbackManager
 import numpy as np
 from src.rain import Rain
 from src.radar import Radar
@@ -57,7 +58,10 @@ class Game:
     EXIT_FADE_MS = 700
     DEATH_MUSIC_DELAY_MS = 1500
     DEATH_FADE_DELAY_MS = 1000
-
+    DEAD_TEXT = "P Y T H O N   I S   D E A D"
+    DEAD_TEXT_DELAY_MS = 500
+    DEAD_TEXT_FADE_MS = 2500
+    DEAD_BLUR_LEVELS = 10
     def __init__(self, mission_number=1, skip_boss_intro=False):
         # Por si venimos de una partida anterior con el Stinger apuntando: mouse normal.
         pygame.mouse.set_visible(True)
@@ -79,6 +83,7 @@ class Game:
         self.victory_timer = 0.0
         self.game_over_selected_option = 0
         self.return_to_menu = False
+        self._dead_text_levels = None
 
         # Música y audio
         self._music_key = None
@@ -106,6 +111,10 @@ class Game:
         # --- PANTALLA DEL ZORRO ---
         
         self.fox_screen = FoxScreenManager()
+
+        # --- FLASHBACKS ---
+
+        self.flashbacks = FlashbackManager()
 
         # --- MÚSICA DE FONDO (solo misión 1: Entry Point) ---
         self.start_level_music()
@@ -1121,6 +1130,7 @@ class Game:
             self.fade_alpha = min(255, int(fade_elapsed * 0.1))
 
             self.player.update_death(dt)
+            self.flashbacks.update(dt)
             
             if not self.death_music_started and elapsed_death >= self.DEATH_MUSIC_DELAY_MS:
                 self.death_music_started = True
@@ -1131,7 +1141,7 @@ class Game:
                 except Exception as e:
                     print(f"No se pudo cargar la música game_over.mp3: {e}")
 
-            if elapsed_death >= 4500:
+            if elapsed_death >= max(4500, self.flashbacks.total_ms() + 500):
                 self.state = "GAME_OVER"
                 self.game_over_timer = pygame.time.get_ticks()
             return
@@ -1279,6 +1289,33 @@ class Game:
         """Llamar siempre que se abandone el nivel (ESC, menú, salir)."""
         self._reset_alert()
         pygame.mixer.music.stop()   # por si quedó sonando algo del nivel
+
+    def _build_dead_text(self):
+        font = pygame.font.Font("assets/fonts/PixelOperator8-Bold.ttf", 28)
+        base = font.render(self.DEAD_TEXT, True, (190, 190, 160))
+        pad = 24                                   # margen para que el difuminado no se recorte
+        w, h = base.get_size()
+        canvas = pygame.Surface((w + pad * 2, h + pad * 2), pygame.SRCALPHA)
+        canvas.blit(base, (pad, pad))
+        cw, ch = canvas.get_size()
+
+        self._dead_text_levels = [canvas]          # nivel 0 = nítido
+        for i in range(1, self.DEAD_BLUR_LEVELS):
+            k = 1.0 / (1 + i * 1.0)
+            small = pygame.transform.smoothscale(canvas, (max(1, int(cw * k)), max(1, int(ch * k))))
+            self._dead_text_levels.append(pygame.transform.smoothscale(small, (cw, ch)))
+
+    def _draw_dead_text(self, surface, elapsed, center):
+        if self._dead_text_levels is None:
+            self._build_dead_text()
+        p = (elapsed - self.DEAD_TEXT_DELAY_MS) / self.DEAD_TEXT_FADE_MS
+        p = max(0.0, min(1.0, p))
+        if p <= 0:
+            return
+        levels = self._dead_text_levels
+        img = levels[int((1 - p) * (len(levels) - 1) + 0.5)]   # empieza borroso y se enfoca
+        img.set_alpha(int(255 * p))                            # y aparece a la vez
+        surface.blit(img, img.get_rect(center=center))
 
     def _draw_exit_fade(self, surface):
         if not self.pending_action:
@@ -1484,20 +1521,7 @@ class Game:
             current_time = pygame.time.get_ticks()
             elapsed = current_time - self.game_over_timer
             
-            paradox_delay = 6500 
-            
-            if elapsed < paradox_delay:
-                target_text = "P Y T H O N   I S   D E A D"
-                chars_to_show = min(len(target_text), int(elapsed / 80))
-            else:
-                target_text = "T I M E   P A R A D O X"
-                time_since_paradox = elapsed - paradox_delay
-                chars_to_show = min(len(target_text), int(time_since_paradox / 80))
-                
-            text_to_render = target_text[:chars_to_show]
-            text_surface = font_large.render(text_to_render, True, (190, 190, 160))
-            text_rect = text_surface.get_rect(center=(w // 2, h // 2))
-            surface.blit(text_surface, text_rect)
+            self._draw_dead_text(surface, elapsed, (w // 2, h // 2))
 
             prompt_delay = 2000
             if elapsed > prompt_delay:
@@ -1591,6 +1615,9 @@ class Game:
 
         # DIBUJAR HUD DE INVENTARIO SOBRE LA PANTALLA PRINCIPAL
         self.hud_inventory.draw(surface, self.player)
+
+        if self.state == "DYING":
+            self.flashbacks.draw(surface)
 
         # Mira del Stinger (se dibuja sobre la pantalla real, así queda nítida) y HUD del arma equipada.
         if self.state == "PLAYING" and self.boss_mode != "CUTSCENE":
