@@ -7,7 +7,7 @@ from src.enemy import Enemy
 from src.player import Player
 from src.camera import Camera
 from src.tilemap import TiledMap  # Mapas TMX
-from src.settings import SCREEN_WIDTH, SCREEN_HEIGHT
+from src.settings import SCREEN_WIDTH, SCREEN_HEIGHT, FPS
 from src.items import Item  
 from src.hud import HealthBar
 from src.codec import CodecManager
@@ -59,9 +59,11 @@ class Game:
     DEATH_MUSIC_DELAY_MS = 1500
     DEATH_FADE_DELAY_MS = 1000
     DEAD_TEXT = "P Y T H O N   I S   D E A D"
-    DEAD_TEXT_DELAY_MS = 500
-    DEAD_TEXT_FADE_MS = 2500
+    DEAD_TEXT_DELAY_MS = 250
+    DEAD_TEXT_FADE_MS = 1000
     DEAD_BLUR_LEVELS = 10
+    DEATH_FADE_MAX = 100
+    DEATH_FADE_RATE = 0.04
     def __init__(self, mission_number=1, skip_boss_intro=False):
         # Por si venimos de una partida anterior con el Stinger apuntando: mouse normal.
         pygame.mouse.set_visible(True)
@@ -87,6 +89,7 @@ class Game:
 
         # Música y audio
         self._music_key = None
+        self.restart_music = False
 
         # --- SISTEMA DE PAUSA ---
         self.is_paused = False
@@ -264,7 +267,10 @@ class Game:
         try:
             pygame.mixer.music.load(music_path)
             pygame.mixer.music.set_volume(self.pause_menu.music_volume)
-            pygame.mixer.music.play(-1)  # -1 = bucle infinito
+            if self.restart_music:
+                pygame.mixer.music.play(-1, 0, 1000)  # -1 = bucle infinito
+            else:
+                pygame.mixer.music.play(-1)  # -1 = bucle infinito
         except Exception as e:
             print(f"Aviso música (Misión {self.mission_number}): {e}")
 
@@ -793,13 +799,14 @@ class Game:
         self.music_delay = None
         if self.chase_music_active:
             self.chase_music_active = False
+            self.restart_music = True
             # Reiniciar la música del nivel actual (Misión 1 o Misión 2)
             self.start_level_music()
 
     def _reset_alert(self):
         """Apaga todo de golpe (cambio de nivel, muerte)."""
         if self.chase_music_active:
-            pygame.mixer.music.stop()
+            pygame.mixer.music.fadeout(1000)
         if getattr(self, "found_sfx", None):
             self.found_sfx.stop()
         self.alert_level = 0.0
@@ -1127,7 +1134,7 @@ class Game:
         if self.state == "DYING":
             elapsed_death = pygame.time.get_ticks() - self.death_timer
             fade_elapsed = max(0, elapsed_death - self.DEATH_FADE_DELAY_MS)
-            self.fade_alpha = min(255, int(fade_elapsed * 0.1))
+            self.fade_alpha = min(self.DEATH_FADE_MAX, int(fade_elapsed * self.DEATH_FADE_RATE))
 
             self.player.update_death(dt)
             self.flashbacks.update(dt)

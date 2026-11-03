@@ -23,7 +23,7 @@ class Player(pygame.sprite.Sprite):
         self.is_dying = False
         self.death_frame_index = 0
         self.death_timer = 0.0
-        self.death_animation_speed = 0.5
+        self.death_animation_speed = 0.8
         self.death_finished = False
         self.death_anim_timer = 0.0
         
