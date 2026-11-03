@@ -22,6 +22,7 @@ from src.flashback import FlashbackManager
 import numpy as np
 from src.rain import Rain
 from src.radar import Radar
+from src.vent_cinematic import VentCinematic
 
 import src.hind as hind_mod
 from src.hind import (
@@ -64,6 +65,9 @@ class Game:
     DEAD_BLUR_LEVELS = 10
     DEATH_FADE_MAX = 100
     DEATH_FADE_RATE = 0.04
+    VENT_MUSIC_PATH = "assets/audio/music/the_man_who_sold_the_world.mp3"
+    MUSIC_FADE_OUT_S = 0.8     # baja la música del nivel
+    MUSIC_FADE_IN_S = 2.0      # entra la música de la cinemática
     def __init__(self, mission_number=1, skip_boss_intro=False):
         # Por si venimos de una partida anterior con el Stinger apuntando: mouse normal.
         pygame.mouse.set_visible(True)
@@ -74,6 +78,7 @@ class Game:
         self.death_music_started = False
         self.exit_fade_start = 0
         self.exit_fade_volume = 1.0
+        self._mf = None
         
         # Estados del juego
         self.state = "PLAYING"
@@ -248,6 +253,9 @@ class Game:
         self.fade_alpha = 255
         self.fade_in_timer = pygame.time.get_ticks()
 
+        self.cine = None
+        self.cutscenes_done = set()
+
     def start_level_music(self):
         """Música de fondo en bucle según la misión actual.
 
@@ -273,6 +281,45 @@ class Game:
                 pygame.mixer.music.play(-1)  # -1 = bucle infinito
         except Exception as e:
             print(f"Aviso música (Misión {self.mission_number}): {e}")
+
+    def fade_to_music(self, path, out_s=None, in_s=None, loops=-1):
+        """Baja la música actual y entra `path` con fade in, sin bloquear el juego."""
+        self._mf = {
+            "path": path, "loops": loops,
+            "out": self.MUSIC_FADE_OUT_S if out_s is None else out_s,
+            "in": self.MUSIC_FADE_IN_S if in_s is None else in_s,
+            "t": 0.0,
+            "v0": pygame.mixer.music.get_volume(),
+            "phase": "out" if pygame.mixer.music.get_busy() else "load",
+        }
+
+    def _update_music_fade(self, dt):
+        mf = self._mf
+        if not mf:
+            return
+        if mf["phase"] == "out":
+            mf["t"] += dt
+            k = min(1.0, mf["t"] / max(0.01, mf["out"]))
+            pygame.mixer.music.set_volume(mf["v0"] * (1 - k))
+            if k >= 1.0:
+                mf["phase"] = "load"
+        if mf["phase"] == "load":
+            try:
+                pygame.mixer.music.load(mf["path"])
+                pygame.mixer.music.set_volume(0.0)
+                pygame.mixer.music.play(mf["loops"])
+            except Exception as e:
+                print(f"Aviso música de cinemática: {e}")
+                self._mf = None
+                return
+            mf["phase"], mf["t"] = "in", 0.0
+            return
+        if mf["phase"] == "in":
+            mf["t"] += dt
+            k = min(1.0, mf["t"] / max(0.01, mf["in"]))
+            pygame.mixer.music.set_volume(self.pause_menu.music_volume * k)
+            if k >= 1.0:
+                self._mf = None
 
     def _save_map_state(self):
         """Guarda qué guardias siguen vivos en el mapa actual y dónde estaban."""
@@ -707,6 +754,9 @@ class Game:
         self.camera = Camera(map_width, map_height, self.virtual_width, self.virtual_height)
         self.camera.update(self.player)
 
+        if self.mission_number == 2:
+            self.start_vent_cutscene()
+
     def trigger_victory_sequence(self):
         if self.state == "PLAYING":
             self.stop_boss_audio()
@@ -978,6 +1028,10 @@ class Game:
                 self.codec_manager.handle_input([event])
                 continue
 
+            if self.state == "VENT_CINE":
+                self.cine.handle_events([event])
+                continue
+
             # Abrir Pausa con la tecla ESC (cerrar / volver lo maneja el propio menú de pausa)
             if (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE
                     and not self.is_paused and not self.inventory_open):
@@ -1076,6 +1130,10 @@ class Game:
         self.state = "CODEC"
         self.codec_manager.start_call(target_call_id, calling=True)
 
+    def execute_radio_call_id(self, call_id, calling):
+        self.state = "CODEC"
+        self.codec_manager.start_call(call_id, calling)      # calling=False: sin tono
+
     def _begin_exit_fade(self, action, mission=None):
         if self.pending_action:
             return
@@ -1119,6 +1177,9 @@ class Game:
         if self.pending_action:
             self._update_exit_fade()
             return
+        if not self.is_paused:
+            self._update_music_fade(dt)
+
         if self.fox_screen.active:
             self.fox_screen.update(dt)
             return
@@ -1160,6 +1221,15 @@ class Game:
             self.codec_manager.update(dt)
             if self.codec_manager.finished:
                 self.state = "PLAYING"
+            return
+
+        if self.state == "VENT_CINE":
+            self.cine.update(dt)
+            if self.cine.finished:
+                self.cine = None
+                self.state = "PLAYING"
+                self.fade_to_music("assets/audio/music/Advance Immediately.mp3", out_s=1.5, in_s=1.5)
+                self.execute_radio_call_id("vent_radio", True)
             return
 
         walls = self.walls
@@ -1264,6 +1334,14 @@ class Game:
         if self.player.health <= 0:
             self.trigger_death_sequence()
             return
+
+    def start_vent_cutscene(self):
+        if "vent_exit" in self.cutscenes_done:
+            return
+        self.cutscenes_done.add("vent_exit")
+        self.fade_to_music(self.VENT_MUSIC_PATH)
+        self.cine = VentCinematic()
+        self.state = "VENT_CINE"
 
     def emit_noise(self, pos, radius):
         # Barato: cada guardia solo deja el ruido pendiente; el A* se reparte entre frames (ver Enemy.hear_noise).
@@ -1557,6 +1635,11 @@ class Game:
                 fade_surface.set_alpha(fade_alpha)
                 surface.blit(fade_surface, (0, 0))
             self._draw_exit_fade(surface)
+            return
+
+        if self.state == "VENT_CINE" and self.cine:
+            self.cine.draw(surface)
+            self.fox_screen.draw(surface)
             return
 
         # --- RENDERIZADO NORMAL DEL JUEGO (PLAYING / DYING) ---

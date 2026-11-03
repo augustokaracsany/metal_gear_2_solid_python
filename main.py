@@ -90,7 +90,7 @@ def main():
                 if mission_num == 1:
                     # Asignamos el prólogo como estado inicial al elegir la misión 1
                     prologue_instance = PrologueState()
-                    prologue_instance.target_mission = mission_num 
+                    prologue_instance.target_mission = mission_num
                     current_state = prologue_instance
                 else:
                     # Si es otra misión sin prólogo, entra directo
