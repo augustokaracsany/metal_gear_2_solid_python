@@ -441,7 +441,7 @@ PICKUPS = {
 }
 
 
-def collect_pickups(player_rect, items, manager, reach=20):
+def collect_pickups(player_rect, items, manager, reach=20, item_message=None, sfx_volume=1.0):
     """Recoge armas/munición al acercarse (los camiones suelen ser sólidos, por eso `reach`).
     Devuelve la lista de pickup_id recogidos (para no volver a generarlos al recargar el mapa)."""
     collected = []
@@ -453,6 +453,7 @@ def collect_pickups(player_rect, items, manager, reach=20):
             continue
         n = 0
         msg = spec["msg"]
+        ammo_wid = None
         if "weapon" in spec:
             wid = spec["weapon"]
             if not manager.add_weapon(wid):
@@ -462,10 +463,19 @@ def collect_pickups(player_rect, items, manager, reach=20):
                      else getattr(w, "mag_size", 0))
                 manager.add_ammo(wid, n)
                 msg = f"MUNICIÓN {getattr(w, 'name', wid.upper())} x{{n}}"
+                ammo_wid = wid
         if "ammo" in spec:
             wid, n = spec["ammo"]
             manager.add_ammo(wid, n)
-        manager.notify(msg.format(n=n))
+            ammo_wid = wid
+        if ammo_wid is not None and item_message is not None:
+            # Munición: cartel azul, igual que al recoger los demás ítems.
+            w = manager.weapons.get(ammo_wid)
+            nombre = getattr(w, "name", None) or ammo_wid.upper()
+            unidad = "misiles" if ammo_wid == "stinger" else "balas"
+            item_message.show_text("Munición recargada", f"{n} {unidad} de {nombre}", sfx_volume)
+        else:
+            manager.notify(msg.format(n=n))
         collected.append(getattr(item, "pickup_id", None))
         item.kill()
     return collected

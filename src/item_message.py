@@ -8,6 +8,7 @@ ITEM_MESSAGES = {
     "cardboard_box": ("Recogido", "Caja de cartón."),
     "pistola": ("Recogido", "Pistola Beretta 92FS."),
     "ammo": ("Recogido", "Municiones."),
+    "tarjeta_azul": ("Recogido", "Tarjeta azul."),
 }
 
 FONT_PATH = "assets/fonts/PixelOperator8.ttf"   # la misma fuente del prólogo
@@ -66,7 +67,19 @@ class ItemMessage:
         lines = ITEM_MESSAGES.get(item_name)
         if lines is None:
             return
+        self._set_lines(lines)
 
+    def show_text(self, top, bottom, sfx_volume=1.0):
+        """Igual que show(), pero con el texto que le pases (para mensajes que no son un ítem fijo)."""
+        if self.sound:
+            try:
+                self.sound.set_volume(sfx_volume)
+                self.sound.play()
+            except pygame.error:
+                pass
+        self._set_lines((top, bottom))
+
+    def _set_lines(self, lines):
         self.line_surfaces = [self.font.render(t, True, COLOR_TEXTO) for t in lines]
         self.shadow_surfaces = [self.font.render(t, True, COLOR_SOMBRA) for t in lines]
         # El ancho se ajusta al texto más largo.
