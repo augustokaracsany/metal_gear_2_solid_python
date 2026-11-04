@@ -31,6 +31,16 @@ ITEM_INFO = {
                 "ENTER para equipar.",
         "sprite": "assets/sprites/items/racion_roja.png",
     },
+    "ammo": {
+        "name": "MUNICIONES",
+        "desc": "Cargador para la pistola.",
+        "sprite": "assets/sprites/items/municiones.png",
+    },
+    "tarjeta_azul": {
+        "name": "TARJETA AZUL",
+        "desc": "Tarjeta de acceso. Sirve para abrir las puertas que la requieren.",
+        "sprite": "assets/sprites/items/tarjeta_azul.png",
+    },
 }
 
 # Descripciones de cada arma (la clave es el id del arma en weapons.py).
