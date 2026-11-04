@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="36" height="84" tilewidth="16" tileheight="16" infinite="0" nextlayerid="12" nextobjectid="121">
+<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="36" height="84" tilewidth="16" tileheight="16" infinite="0" nextlayerid="12" nextobjectid="123">
  <tileset firstgid="1" source="colisiones.tsx"/>
  <imagelayer id="2" name="hind-d_boss_fight-576x1344">
   <image source="hind-d_boss_fight-576x1344.png" width="576" height="1344"/>
@@ -88,8 +88,8 @@
 1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,
 1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,
 1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,
-1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
 </data>
  </layer>
  <objectgroup color="#aa55ff" id="4" name="player_spawn">
@@ -146,17 +146,25 @@
    <properties>
     <property name="spawn_x" type="int" value="49"/>
     <property name="spawn_y" type="int" value="117"/>
-    <property name="target_map" value="assets/sprites/maps/truck_interior_4.tmx"/>
+    <property name="target_map" value="assets/sprites/maps/truck_interior_3.tmx"/>
    </properties>
   </object>
   <object id="36" name="truck_trigger" x="344" y="772" width="15.8125" height="28">
    <properties>
     <property name="spawn_x" type="int" value="49"/>
     <property name="spawn_y" type="int" value="117"/>
-    <property name="target_map" value="assets/sprites/maps/truck_interior_3.tmx"/>
+    <property name="target_map" value="assets/sprites/maps/truck_interior_4.tmx"/>
    </properties>
   </object>
   <object id="106" name="trigger_cutscene" x="12" y="288" width="552" height="64"/>
+  <object id="122" name="exit_trigger" x="256" y="1340" width="32" height="4">
+   <properties>
+    <property name="prone" type="bool" value="false"/>
+    <property name="spawn_x" type="int" value="464"/>
+    <property name="spawn_y" type="int" value="20"/>
+    <property name="target_map" value="assets/sprites/maps/swamp2-960x768.tmx"/>
+   </properties>
+  </object>
  </objectgroup>
  <objectgroup color="#aa00ff" id="8" name="zonas_oculto">
   <object id="37" x="344" y="728" width="16" height="72"/>
