@@ -69,13 +69,13 @@ class Game:
     # Pantalla de victoria: el título se escribe, después aparecen las estadísticas una por una
     # y recién al final el menú REINTENTAR / SIGUIENTE / SALIR.
     VICTORY_STATS_START_MS = 1400
-    VICTORY_ROW_MS = 350
+    VICTORY_ROW_MS = 280
     VICTORY_MENU_DELAY_MS = 3100
     VICTORY_ANIM_DIR = "assets/images/victory_anim"    # frames PNG (frame_00.png, frame_01.png...) del fondo animado de victoria
     VICTORY_ANIM_FRAME_MS = 80                         # duración de cada frame de la animación
     VICTORY_ANIM_SHADE = 55                            # oscurecimiento general del fondo animado (0-255)
     VICTORY_BG_PATH = "assets/images/victory_bg.png"   # fondo de la pantalla de victoria (si no existe, usa el degradado de siempre)
-    LIFE_ITEM_KEYWORDS = ("ration", "racion", "medic")   # nombres de ítem que cuentan como "vida"
+    
 
 
     def __init__(self, mission_number=1, skip_boss_intro=False):
@@ -800,18 +800,15 @@ class Game:
     def _reset_mission_stats(self):
         self.stat_time = 0.0     # segundos jugados (la pausa, el inventario y el codec no cuentan)
         self.stat_alerts = 0     # veces que te descubrieron
-        self.stat_items = 0      # raciones / medicinas usadas
+        self.stat_items = 0      # raciones usadas
         self.stat_shots = 0      # disparos efectuados
+        Enemy.kills = 0
 
     def _count_life_items_used(self, inventory_before):
-        """Cuenta las raciones/medicinas que salieron del inventario entre antes y ahora."""
-        remaining = [str(n) for n in self.player.inventory]
-        for name in inventory_before:
-            name = str(name)
-            if name in remaining:
-                remaining.remove(name)
-            elif any(k in name.lower() for k in self.LIFE_ITEM_KEYWORDS):
-                self.stat_items += 1
+        """Cuenta las raciones que salieron del inventario entre antes y ahora."""
+        used = inventory_before.count("food_ration") - self.player.inventory.count("food_ration")
+        if used > 0:
+            self.stat_items += used
 
     def _victory_menu_ready(self):
         return pygame.time.get_ticks() - self.victory_timer >= self.VICTORY_MENU_DELAY_MS
@@ -1018,6 +1015,7 @@ class Game:
         p.anim_timer = 0.0
         p.input_locked = False
         p.health = p.max_health
+        p.damage_taken = 0
         p.is_dead = False
         p.update_offsets_for_stance()
 
@@ -1248,6 +1246,7 @@ class Game:
             return
 
         p.inventory.remove("food_ration")
+        self.stat_items += 1          # <- nueva
         self.ration_eaten = True
         if getattr(p, "equipped_item", None) == "food_ration":
             p.equipped_item = None
@@ -1628,13 +1627,15 @@ class Game:
                 filas = [
                     ("TIEMPO DE JUEGO", tiempo),
                     ("VECES DESCUBIERTO", str(self.stat_alerts)),
-                    ("RACIONES Y MEDICINAS USADAS", str(self.stat_items)),
+                    ("ENEMIGOS ELIMINADOS", str(Enemy.kills)),
+                    ("RACIONES USADAS", str(self.stat_items)),
                     ("DISPAROS EFECTUADOS", str(self.stat_shots)),
+                    ("DAÑO TOTAL RECIBIDO", str(int(self.player.damage_taken))),
                 ]
-                step = max(28, int(h * 0.047))
+                step = max(26, int(h * 0.042))
                 pad = step // 2
                 pw, ph = min(560, w - 40), step * len(filas) + pad * 2
-                px, py = (w - pw) // 2, int(h * 0.57)
+                px, py = (w - pw) // 2, int(h * 0.38)
                 panel = pygame.Surface((pw, ph), pygame.SRCALPHA)
                 panel.fill((6, 8, 6, 175))
                 surface.blit(panel, (px, py))

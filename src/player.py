@@ -58,6 +58,7 @@ class Player(pygame.sprite.Sprite):
 
         self.max_health = PLAYER_MAX_HEALTH
         self.health = self.max_health
+        self.damage_taken = 0
         self.is_dead = False
         self.last_hit_time = -PLAYER_INVULNERABLE_TIME
 
@@ -897,7 +898,9 @@ class Player(pygame.sprite.Sprite):
     def take_damage(self, amount):
         if self.is_dead or self.is_invulnerable():
             return
+        before = self.health
         self.health = max(0, self.health - amount)
+        self.damage_taken += before - self.health   # Solo el daño realmente aplicado.
         self.last_hit_time = pygame.time.get_ticks()
         if self.health == 0:
             self.is_dead = True
