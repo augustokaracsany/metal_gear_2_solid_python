@@ -84,6 +84,9 @@ class Enemy(pygame.sprite.Sprite):
     SEPARATION = 28        # px mínimos entre guardias que van al mismo lugar
     ALLY_WAIT_MAX = 1.2    # s máx. esperando a un compañero antes de seguir igual
 
+    HOP_HEIGHT = 6         # px de altura máxima del salto (la pantalla se escala x2)
+    HOP_DURATION = 0.25    # segundos que dura el saltito
+
     NOISE_REACT_TIME = 0.9                          # segundos con el ícono antes de ir a investigar
     SOUND_ICON_PATH = "assets/sprites/alerts/sound.png"
     _sound_icon = None
@@ -95,7 +98,6 @@ class Enemy(pygame.sprite.Sprite):
     NOISE_SAME_SPOT = 48       # px: un ruido a menos de esto del anterior no recalcula nada ( ráfagas desde el mismo lugar ).
     NOISE_MAX_ASTARS = 3       # Máx. A* que prueba _strict_target por ruido ( antes llegaba a 24 ).
     _search_budget = SEARCHES_PER_FRAME   # Se repone con Enemy.begin_frame().
-
     @classmethod
     def begin_frame(cls):
         """Game.update() la llama UNA vez por frame, antes del bucle de guardias."""
@@ -123,6 +125,7 @@ class Enemy(pygame.sprite.Sprite):
         self.anim_timer = 0.0
         self.frame_index = 0
         self.animation_speed = 0.2
+        self.hop_timer = 0.0
 
         # MÁQUINA DE ESTADOS.
         self.state = "WALKING"
@@ -219,6 +222,9 @@ class Enemy(pygame.sprite.Sprite):
 
     # UPDATE PRINCIPAL
     def update(self, dt, walls, player, grid=None, bullet_group=None):
+        if self.hop_timer > 0:
+            self.hop_timer = max(0.0, self.hop_timer - dt)
+
         self.current_walls = walls
         
         # Destello del disparo (efecto visual: corre siempre).
@@ -235,6 +241,7 @@ class Enemy(pygame.sprite.Sprite):
             if self.hit_from is not None:
                 self._react_to_hit()
                 self.hit_from = None
+            return
         if grid is not None:
             self.GRID_TILE = grid.cell_px
 
@@ -490,6 +497,7 @@ class Enemy(pygame.sprite.Sprite):
             self.kill()  # Lo saca de enemies_group (y de cualquier otro grupo).
         else:
             self.stun_timer = max(self.stun_timer, stun_time)
+            self.hop_timer = self.HOP_DURATION      # <- inicia el saltito
             if stun_time > 0 and source_pos is not None:
                 self.hit_from = source_pos
 
@@ -1057,6 +1065,16 @@ class Enemy(pygame.sprite.Sprite):
         dest_rect = camera.apply(self)
         draw_x = dest_rect.x - self.offset_x
         draw_y = dest_rect.y - self.offset_y
+
+        # Saltito al recibir un golpe (parábola: sube y baja)
+        hop = 0
+        if self.hop_timer > 0:
+            t = 1 - self.hop_timer / self.HOP_DURATION     # 0 -> 1
+            hop = int(4 * self.HOP_HEIGHT * t * (1 - t))
+        draw_y -= hop
+
+        pygame.draw.rect(surface, (255, 0, 0), dest_rect, 1)
+        surface.blit(current_image, (draw_x, draw_y))
 
         pygame.draw.rect(surface, (255, 0, 0), dest_rect, 1)
         surface.blit(current_image, (draw_x, draw_y))

@@ -3,7 +3,6 @@ import pygame
 import sys
 import math
 import pytmx
-import numpy as np
 from src.enemy import Enemy
 from src.player import Player
 from src.camera import Camera
@@ -17,7 +16,9 @@ from src.pause import PauseMenu
 from src.settings import PUNCH_DAMAGE, PUNCH_HIT_PADDING, PUNCH_STUN_TIME
 from src.inventory import InventoryMenu
 from src.item_message import ItemMessage
-from src.hud_inventory import HUDInventory  # HUD de inventario equipado activo
+from src.hud_inventory import HUDInventory  # <--- HUD de inventario equipado activo
+from src.fox import FoxScreenManager
+import numpy as np
 from src.rain import Rain
 from src.radar import Radar
 
@@ -102,7 +103,14 @@ class Game:
         # --- CODEC ---
         self.codec_manager = CodecManager()
 
-        # 1. DICCIONARIO DE NIVELES (Definido PRIMERO para que esté disponible)
+        # --- PANTALLA DEL ZORRO ---
+        
+        self.fox_screen = FoxScreenManager()
+
+        # --- MÚSICA DE FONDO (solo misión 1: Entry Point) ---
+        self.start_level_music()
+        
+        # 1. DICCIONARIO DE NIVELES: Mapea cada misión a sus respectivas rutas de archivos
         self.levels_data = {
             1: {
                 "tmx": "assets/sprites/maps/entry_point_brightness3-576x768.tmx",
@@ -202,10 +210,6 @@ class Game:
         self.health_bar = HealthBar()
         self.item_message = ItemMessage()
 
-        self.fading_in = True
-        self.fade_alpha = 255
-        self.fade_in_timer = pygame.time.get_ticks()
-
         # --- ARMAS (Beretta / M16 / UZI / Stinger) ---
         self.reset_weapons()
         self.weapon_hud = WeaponHUD()
@@ -226,6 +230,11 @@ class Game:
         self._cam_target = _CamTarget()
         if self.mission_number == BOSS_MISSION:
             self.setup_boss()
+
+        # Siempre al final: el fundido se mide desde que terminó de cargar todo.
+        self.fading_in = True
+        self.fade_alpha = 255
+        self.fade_in_timer = pygame.time.get_ticks()
 
     def start_level_music(self):
         """Música de fondo en bucle según la misión actual.
@@ -532,8 +541,8 @@ class Game:
     # ===================== JEFE (HIND-D) =====================
     def setup_boss(self):
         """Crea el jefe según los objetos del mapa:
-             boss_spawn        (punto, centro de la pista)  -> habilita la cinemática de despegue
-             trigger_cutscene  (rectángulo, opcional)       -> la cinemática arranca al pisarlo
+            boss_spawn        (punto, centro de la pista)  -> habilita la cinemática de despegue
+            trigger_cutscene  (rectángulo, opcional)       -> la cinemática arranca al pisarlo
         Sin boss_spawn: el Hind entra desde lejos, sin cinemática.
         Con skip_boss_intro: directo a la pelea."""
         if self.map:
@@ -648,33 +657,40 @@ class Game:
         if not self.map:
             return
 
-        triggers = self.map.get_triggers()
-        for trigger in triggers:
+        for trigger in self.map.get_triggers():
             if self.player.rect.colliderect(trigger["rect"]):
-                props = trigger["properties"]
-                target_map = props.get("target_map")
-                self.load_level(target_map)
+                target = trigger["properties"].get("target_map")
 
-                # Propiedad opcional "mission": el trigger cambia el número de misión actual.
-                if "mission" in props:
-                    self.mission_number = int(props["mission"])
-
-                scale = self.map.scale if self.map else 2
-                spawn_x = float(props.get("spawn_x", 180)) * scale
-                spawn_y = float(props.get("spawn_y", 550)) * scale
-                self.player.x = spawn_x
-                self.player.y = spawn_y
-                self.player.rect.x = int(spawn_x)
-                self.player.rect.y = int(spawn_y)
-
-                # Propiedad opcional "prone": True = llega cuerpo a tierra, False = de pie.
-                if "prone" in props:
-                    self.player.set_stance("CRAWL" if props["prone"] else "STAND")
-                
-                map_width = self.map.width if self.map else self.map_image.get_width()
-                map_height = self.map.height if self.map else self.map_image.get_height()
-                self.camera = Camera(map_width, map_height, self.virtual_width, self.virtual_height)
+                # Entrar o salir del camión: cambio directo, sin pantalla del zorro.
+                if self._is_truck(target) or self._is_truck(self.current_map_key):
+                    self._do_transition(trigger)
+                else:
+                    self.fox_screen.start(lambda t=trigger: self._do_transition(t))
                 break
+
+    def _do_transition(self, trigger):
+        props = trigger["properties"]
+        target_map = props.get("target_map")
+        self.load_level(target_map)
+
+        if "mission" in props:
+            self.mission_number = int(props["mission"])
+
+        scale = self.map.scale if self.map else 2
+        spawn_x = float(props.get("spawn_x", 180)) * scale
+        spawn_y = float(props.get("spawn_y", 550)) * scale
+        self.player.x = spawn_x
+        self.player.y = spawn_y
+        self.player.rect.x = int(spawn_x)
+        self.player.rect.y = int(spawn_y)
+
+        if "prone" in props:
+            self.player.set_stance("CRAWL" if props["prone"] else "STAND")
+
+        map_width = self.map.width if self.map else self.map_image.get_width()
+        map_height = self.map.height if self.map else self.map_image.get_height()
+        self.camera = Camera(map_width, map_height, self.virtual_width, self.virtual_height)
+        self.camera.update(self.player)
 
     def trigger_victory_sequence(self):
         if self.state == "PLAYING":
@@ -867,6 +883,8 @@ class Game:
 
     def handle_events(self, events):
         for event in events:
+            if self.fox_screen.active and event.type != pygame.QUIT:
+                continue
             if self.pending_action:
                 continue
             if event.type == pygame.QUIT:
@@ -884,7 +902,6 @@ class Game:
                         self.victory_selected_option = (self.victory_selected_option + 1) % max_options
                     elif event.key in (pygame.K_RETURN,):
                         self.confirm_victory_option()
-                   
 
                 elif event.type == pygame.MOUSEMOTION:
                     mx, my = event.pos
@@ -1032,35 +1049,16 @@ class Game:
                 self.player.punch_self_event(event)
         return None
 
-    def trigger_contextual_codec(self):
-        # 1. Buscamos por defecto la llamada "default"
-        chosen_call_id = "default"
-        
-        # 2. Comprobamos si el rect del jugador colisiona con alguna zona de Tiled
-        for zone in self.codec_zones:
-            if self.player.rect.colliderect(zone["rect"]):
-                chosen_call_id = zone["call_id"]
-                break # Encontró una zona, nos quedamos con su ID
-                
-        # 3. Cambiamos al estado de Códec y le pasamos el ID correspondiente
-        self.state = "CODEC"
-        self.codec_manager.start_call(chosen_call_id)
-
     def execute_radio_call(self):
-        # Por defecto, si no está en ninguna zona especial, llamamos al "default"
         target_call_id = "default"
-        
-        # Comprobamos si el rect del jugador colisiona con alguna zona de Tiled
+
         for zone in self.codec_zones:
             if self.player.rect.colliderect(zone["rect"]):
                 target_call_id = zone["call_id"]
-                break # Encontró la zona, nos quedamos con ese ID y salimos del bucle
-                
-        # Cambiamos el estado del juego a CODEC
+                break
+
         self.state = "CODEC"
-        
-        # Llamamos a tu método que ya tienes hecho pasándole el ID correspondiente
-        self.codec_manager.start_call(target_call_id)
+        self.codec_manager.start_call(target_call_id, calling=True)
 
     def _begin_exit_fade(self, action, mission=None):
         if self.pending_action:
@@ -1070,15 +1068,17 @@ class Game:
         self.exit_fade_volume = pygame.mixer.music.get_volume()
 
     def confirm_victory_option(self):
-        """Ejecuta la acción seleccionada en el menú de Victoria"""
-        pygame.mixer.music.fadeout(1000)
-        self.stop_boss_audio()
         has_next = self.has_next_mission()
         if self.victory_selected_option == 0:
-            # Reintentar: la misión arranca de cero, con su cinemática de inicio.
-            self.__init__(self.mission_number, skip_boss_intro=False)
+            self._begin_exit_fade("restart", self.mission_number)
         elif self.victory_selected_option == 1 and has_next:
             self._begin_exit_fade("restart", self.mission_number + 1)
+        else:
+            self._begin_exit_fade("menu")
+
+    def confirm_game_over_option(self):
+        if self.game_over_selected_option == 0:
+            self._begin_exit_fade("restart", self.mission_number)
         else:
             self._begin_exit_fade("menu")
 
@@ -1087,6 +1087,7 @@ class Game:
         pygame.mixer.music.set_volume(self.exit_fade_volume * max(0.0, 1 - t))
         if t < 1:
             return
+        self.stop_boss_audio()
         action, mission = self.pending_action
         pygame.mixer.music.stop()
         pygame.mixer.music.set_volume(self.pause_menu.music_volume)
@@ -1098,19 +1099,12 @@ class Game:
             self.stop_all_audio()       # Salir: nada de música colgada en el menú.
             self.return_to_menu = True  # Activamos la bandera
 
-    def confirm_game_over_option(self):
-        pygame.mixer.music.fadeout(1000)
-        self.stop_boss_audio()
-        if self.game_over_selected_option == 0:
-            # Reintentar: la misión arranca de cero, con su cinemática de inicio.
-            self.__init__(self.mission_number, skip_boss_intro=False)
-        else:
-            self.stop_all_audio()       # Salir: nada de música colgada en el menú.
-            self.return_to_menu = True  # Activamos la bandera
-
     def update(self, dt, surface):
         if self.pending_action:
             self._update_exit_fade()
+            return
+        if self.fox_screen.active:
+            self.fox_screen.update(dt)
             return
         if self.fading_in:
             elapsed_fade = pygame.time.get_ticks() - self.fade_in_timer
@@ -1319,6 +1313,11 @@ class Game:
                 self._scale_mode = "plain"
         scaled_surface = pygame.transform.scale(self.virtual_surface, size)
         surface.blit(scaled_surface, (0, 0))
+
+    @staticmethod
+    def _is_truck(map_key):
+        """True si la clave o ruta corresponde a un mapa del camión (truck, truck_interior, truck_interior_2...)."""
+        return map_key is not None and "truck" in os.path.basename(str(map_key)).lower()
 
     def draw(self, surface):
         self.virtual_surface.fill((0, 0, 0))
@@ -1641,3 +1640,5 @@ class Game:
 
         elif self.state == "CODEC":
             self.codec_manager.draw(surface)
+
+        self.fox_screen.draw(surface)

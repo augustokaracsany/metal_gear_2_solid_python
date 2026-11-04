@@ -31,8 +31,8 @@ FONT_SIZE_MODE   = 12     # "semi" / "burst" / "auto"
 FONT_SIZE_NOTICE = 12     # avisos centrados arriba
 
 # ── Cajas ──────────────────────────────────────────────────────────────────
-SLOT_W      = 222         # ancho de cada caja
-SLOT_H      = 143         # alto de cada caja
+SLOT_W      = 150         # ancho de cada caja
+SLOT_H      = 100         # alto de cada caja
 SLOT_GAP_X  = 16          # separación horizontal entre cajas
 SLOT_GAP_Y  = 14          # separación vertical entre cajas
 MARGIN      = WS.HUD_MARGIN
