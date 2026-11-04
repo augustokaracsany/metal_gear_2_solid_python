@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="60" height="60" tilewidth="16" tileheight="16" infinite="0" nextlayerid="18" nextobjectid="353">
+<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="60" height="60" tilewidth="16" tileheight="16" infinite="0" nextlayerid="18" nextobjectid="359">
  <tileset firstgid="1" source="colisiones.tsx"/>
  <tileset firstgid="2" source="hidden_roofs.tsx"/>
  <imagelayer id="14" name="building1_floor1-960x960">
@@ -162,10 +162,17 @@
   </object>
  </objectgroup>
  <objectgroup color="#55aa00" id="16" name="pickups">
-  <object id="297" name="tarjeta_azul" x="519" y="228" width="12" height="12"/>
-  <object id="298" name="food_ration" x="520" y="303" width="12" height="12"/>
+  <object id="354" name="tarjeta_azul" x="524" y="236">
+   <point/>
+  </object>
+  <object id="355" name="food_ration" x="528" y="308">
+   <point/>
+  </object>
+  <object id="356" name="uzi_smg" x="272" y="532">
+   <point/>
+  </object>
  </objectgroup>
- <layer id="10" name="techos" width="60" height="60" visible="0">
+ <layer id="10" name="techos" width="60" height="60">
   <data encoding="csv">
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -293,9 +300,6 @@
   <object id="325" x="300" y="64" width="24" height="68"/>
   <object id="326" x="556" y="64" width="24" height="68"/>
  </objectgroup>
- <objectgroup color="#aa55ff" id="3" name="player_spawn">
-  <object id="203" name="player_spawn" x="360" y="260" width="12" height="12"/>
- </objectgroup>
  <objectgroup color="#aa00ff" id="6" name="zonas_oculto">
   <object id="213" x="676" y="424" width="20" height="40"/>
   <object id="214" x="156" y="296" width="20" height="40"/>
@@ -400,6 +404,11 @@
   </object>
  </objectgroup>
  <objectgroup color="#55aa00" id="16" name="items"/>
+ <objectgroup color="#aa55ff" id="3" name="player_spawn">
+  <object id="357" name="player_spawn" x="236" y="164">
+   <point/>
+  </object>
+ </objectgroup>
  <layer id="10" name="techos" width="60" height="60">
   <data encoding="csv">
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -488,7 +497,7 @@
     <property name="prone" type="bool" value="false"/>
     <property name="spawn_x" type="int" value="115"/>
     <property name="spawn_y" type="int" value="750"/>
-    <property name="target_map" value="assets/sprites/maps/swamp2-960x768.tmx"/>
+    <property name="target_map" value="assets/sprites/maps/swamp-960x768.tmx"/>
    </properties>
   </object>
   <object id="319" name="exit_trigger" x="292" y="200" width="24" height="28">

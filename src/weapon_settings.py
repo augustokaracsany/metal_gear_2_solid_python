@@ -8,7 +8,7 @@ STINGER_SOUND_DIR = "assets/audio/stinger"
 SOLID_SPRITE_DIR  = "assets/sprites/solid_python"
 UI_FONT_BOLD      = "assets/fonts/PixelOperator8-Bold.ttf"
 UI_FONT           = "assets/fonts/PixelOperator8.ttf"
-PICKUP_ICON_DIR   = "assets/sprites/pickups"
+PICKUP_ICON_DIR   = "assets/sprites/weapons"
 PICKUP_ICON_SCALE = 2
 
 # ----------------------------------------------------------------- TECLAS

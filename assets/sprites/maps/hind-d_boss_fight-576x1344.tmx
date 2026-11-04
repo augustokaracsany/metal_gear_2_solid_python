@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="36" height="84" tilewidth="16" tileheight="16" infinite="0" nextlayerid="12" nextobjectid="123">
+<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="36" height="84" tilewidth="16" tileheight="16" infinite="0" nextlayerid="12" nextobjectid="127">
  <tileset firstgid="1" source="colisiones.tsx"/>
  <imagelayer id="2" name="hind-d_boss_fight-576x1344">
   <image source="hind-d_boss_fight-576x1344.png" width="576" height="1344"/>
@@ -97,41 +97,53 @@
    <point/>
   </object>
  </objectgroup>
- <objectgroup color="#ff0000" id="11" name="pickups">
-  <object id="109" name="ammo_m16" x="428" y="460">
+ <objectgroup color="#55aa00" id="11" name="pickups">
+  <object id="109" name="ammo_m16" x="96" y="464">
    <point/>
   </object>
-  <object id="110" name="ammo_uzi" x="428" y="440">
+  <object id="110" name="ammo_uzi" x="96" y="496">
    <point/>
   </object>
-  <object id="111" name="ammo_beretta" x="428" y="420">
+  <object id="111" name="ammo_beretta" x="96" y="528">
    <point/>
   </object>
-  <object id="112" name="stinger_launcher" x="428" y="492">
+  <object id="112" name="stinger_launcher" x="304" y="432">
    <point/>
   </object>
-  <object id="113" name="stinger_missiles" x="300" y="452">
+  <object id="113" name="stinger_missiles" x="208" y="448">
    <point/>
   </object>
-  <object id="114" name="stinger_missiles" x="336" y="452">
+  <object id="114" name="stinger_missiles" x="208" y="480">
    <point/>
   </object>
-  <object id="115" name="stinger_missiles" x="168" y="424">
+  <object id="115" name="stinger_missiles" x="112" y="384">
    <point/>
   </object>
-  <object id="116" name="stinger_missiles" x="204" y="424">
+  <object id="116" name="stinger_missiles" x="144" y="384">
    <point/>
   </object>
-  <object id="117" name="stinger_missiles" x="164" y="472">
+  <object id="117" name="stinger_missiles" x="80" y="384">
    <point/>
   </object>
-  <object id="118" name="stinger_missiles" x="200" y="472">
+  <object id="118" name="stinger_missiles" x="176" y="384">
    <point/>
   </object>
-  <object id="119" name="stinger_missiles" x="240" y="404">
+  <object id="119" name="stinger_missiles" x="208" y="384">
    <point/>
   </object>
-  <object id="120" name="stinger_missiles" x="276" y="404">
+  <object id="120" name="stinger_missiles" x="208" y="416">
+   <point/>
+  </object>
+  <object id="123" name="m16_rifle" x="48" y="464">
+   <point/>
+  </object>
+  <object id="124" name="uzi_smg" x="48" y="496">
+   <point/>
+  </object>
+  <object id="125" name="beretta_pistol" x="48" y="528">
+   <point/>
+  </object>
+  <object id="126" name="stinger_launcher" x="48" y="432">
    <point/>
   </object>
  </objectgroup>
@@ -162,7 +174,7 @@
     <property name="prone" type="bool" value="false"/>
     <property name="spawn_x" type="int" value="464"/>
     <property name="spawn_y" type="int" value="20"/>
-    <property name="target_map" value="assets/sprites/maps/swamp2-960x768.tmx"/>
+    <property name="target_map" value="assets/sprites/maps/swamp-960x768.tmx"/>
    </properties>
   </object>
  </objectgroup>
