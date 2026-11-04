@@ -721,10 +721,12 @@ class Game:
 
         for trigger in self.map.get_triggers():
             if self.player.rect.colliderect(trigger["rect"]):
-                target = trigger["properties"].get("target_map")
+                props = trigger["properties"]
+                target = props.get("target_map")
+                use_fox = props.get("fox_menu", True)      # false = sin pantalla del zorro
 
-                # Entrar o salir del camión: cambio directo, sin pantalla del zorro.
-                if self._is_truck(target) or self._is_truck(self.current_map_key):
+                # Camión o fox_menu=false: cambio directo, sin zorro.
+                if self._is_truck(target) or self._is_truck(self.current_map_key) or not use_fox:
                     self._do_transition(trigger)
                 else:
                     self.fox_screen.start(lambda t=trigger: self._do_transition(t))
@@ -754,7 +756,12 @@ class Game:
         self.camera = Camera(map_width, map_height, self.virtual_width, self.virtual_height)
         self.camera.update(self.player)
 
-        if self.mission_number == 2:
+        target_map = props.get("target_map")
+        goes_to_building = (
+            target_map is not None
+            and os.path.normpath(str(target_map)) == os.path.normpath(self.levels_data[2]["tmx"])
+        )
+        if goes_to_building and props.get("start_cinematic", True):
             self.start_vent_cutscene()
 
     def trigger_victory_sequence(self):
@@ -904,7 +911,7 @@ class Game:
         p.active_hidden_top_zone = None
         p.active_hidden_bottom_marker = None
         p.stance = "STAND"
-        p.facing = "DOWN"
+        p.facing = "UP"
         p.frame_index = 0
         p.anim_timer = 0.0
         p.input_locked = False

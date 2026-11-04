@@ -28,6 +28,7 @@ class VentCinematic:
     TEXT_DELAY_S = 0.5        # pausa antes de que arranque cada línea
     CRAWL_END_WAIT_S = 1.0    # Snake quieto en el suelo al terminar de arrastrarse
     STAND_WAIT_S = 2.0        # Snake de pie, antes de mover la cámara
+    CROUCH_WAIT_S = 1.0
     ENTER_BLINK_MS = 500      # parpadeo del "ENTER"
 
     # (quién habla, texto). Reemplazalos por los diálogos reales.
@@ -169,10 +170,11 @@ class VentCinematic:
         d = self.SNAKE_DIR
         try:
             self.crawl = [self._img(d + n) for n in ("crawl_up.png", "crawl_up1.png", "crawl_up.png", "crawl_up2.png")]
+            self.crouch = self._img(d + "crouch_up1.png")
             self.stand = self._img(d + "stand_up.png")
         except Exception as e:
             print(f"Aviso: sprites de Snake: {e}")
-            self.crawl, self.stand = [], None
+            self.crawl, self.crouch,self.stand = [], None
         try:
             self.soldier_img = self._img(self.SOLDIER_SPRITE)
         except Exception:
@@ -267,6 +269,10 @@ class VentCinematic:
 
         elif self.phase == "CRAWLED":          # 1 s quieto en el suelo
             if self.phase_t >= self.CRAWL_END_WAIT_S:
+                self._go("CROUCH")
+
+        elif self.phase == "CROUCH":         # agachado, 1 s antes de pararse
+            if self.phase_t >= self.CROUCH_WAIT_S:
                 self._go("STANDING")
 
         elif self.phase == "STANDING":         # de pie, 2 s antes de mover la cámara
@@ -345,6 +351,8 @@ class VentCinematic:
             snake = self.crawl[self.frame % len(self.crawl)]
         elif self.phase == "CRAWLED" and self.crawl:
             snake = self.crawl[0]            # quieto en el suelo
+        elif self.phase == "CROUCH" and self.crouch:
+            snake = self.crouch
         else:
             snake = self.stand               # de pie
         self._blit_actor(snake, self.snake_pos, cam)

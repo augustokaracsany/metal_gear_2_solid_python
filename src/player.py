@@ -45,7 +45,7 @@ class Player(pygame.sprite.Sprite):
         self.transition_duration = 0.18
         self.target_stance = None
         
-        self.facing = "DOWN"
+        self.facing = "UP"
         self.is_moving = False
         self.is_hidden = False
         self.hidden_zones = []

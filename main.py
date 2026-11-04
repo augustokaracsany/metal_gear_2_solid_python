@@ -63,7 +63,6 @@ def main():
 
     # Estados iniciales.s
     current_state = IntroState(intro_script, music_path=music_file)
-    menu_manager = MenuManager()
     game_instance = None
 
     running = True
@@ -76,6 +75,7 @@ def main():
             current_state.handle_events(events)
             current_state.update(dt)
             if current_state.finished:
+                menu_manager = MenuManager()
                 # Al terminar la intro completa, pasa al Menú Principal.
                 current_state = menu_manager
 
