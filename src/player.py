@@ -44,6 +44,7 @@ class Player(pygame.sprite.Sprite):
         self.transition_timer = 0.0
         self.transition_duration = 0.18
         self.target_stance = None
+        self.force_crawl = False   # True dentro de las ventilaciones: siempre cuerpo a tierra.
         
         self.facing = "DOWN"
         self.is_moving = False
@@ -123,7 +124,7 @@ class Player(pygame.sprite.Sprite):
             print("Disfraz:", "Caja equipada" if self.is_disguised else "Sin caja")
 
     def punch_self_event(self, event):
-        if self.input_locked or self.weapon_locked:
+        if self.input_locked or self.weapon_locked or self.force_crawl:
             return
         current_time = pygame.time.get_ticks()
         if event.type == pygame.KEYDOWN:
@@ -159,6 +160,8 @@ class Player(pygame.sprite.Sprite):
                         self.start_stance_transition("STAND")
 
     def set_stance(self, new_stance):
+        if self.force_crawl and new_stance != "CRAWL":   # NUEVO
+            return                                       # NUEVO
         if new_stance != "CRAWL" and self._is_inside_hidden_zone(self.rect):
             return
         if new_stance != self.stance:
@@ -347,6 +350,9 @@ class Player(pygame.sprite.Sprite):
             self.offset_y = img_height - col_height
 
     def start_stance_transition(self, target_stance):
+        if self.force_crawl:   # NUEVO
+            return             # NUEVO
+        
         if not self.is_transitioning and not self._is_inside_hidden_zone(self.rect):
             self.target_stance = target_stance
             self.is_transitioning = True
@@ -829,6 +835,23 @@ class Player(pygame.sprite.Sprite):
 
         surface.blit(current_image, (draw_x, draw_y))
         # pygame.draw.rect(surface, (255, 0, 0), dest_rect, 2)  # debug hitbox
+
+    def set_force_crawl(self, enabled):
+        """Mientras esté activo, Snake queda cuerpo a tierra y no puede cambiar de postura."""
+        if enabled == self.force_crawl:
+            return
+        self.force_crawl = enabled
+        self.forced_crouch = False
+        self.crouch_hold_timer = 0.0
+        if enabled:
+            self.is_transitioning = False
+            self.target_stance = None
+            self.is_punching = False
+            self.is_disguised = False   # Sin caja: en los ductos va cuerpo a tierra.
+            self.stance = "CRAWL"
+            self.frame_index = 0
+            self.anim_timer = 0.0
+            self.update_offsets_for_stance()
 
     def is_aiming(self):
         return pygame.time.get_ticks() < self.gun_until

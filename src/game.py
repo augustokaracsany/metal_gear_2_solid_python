@@ -162,6 +162,7 @@ class Game:
         self.current_map_key = None
         self.current_route_count = 0
         self.codec_zones = []
+        self.vent_zones = []
 
         self.alert_level = 0.0
         self.chase_music_active = False   # True si la música de persecución tomó el control
@@ -355,6 +356,14 @@ class Game:
             self.top_barriers = self.map.get_top_barriers("limites_top") or []
             self.walls = self.map.get_collision_rects()   # cacheadas una sola vez
             self.codec_zones = self.map.load_codec_zones()
+            # Zonas de ventilación (capa "vents_trigger"): ahí Snake va siempre cuerpo a tierra.
+            self.vent_zones = []
+            scale = self.map.scale
+            for o in self.find_objects("vents_trigger"):
+                self.vent_zones.append(pygame.Rect(
+                    int(o.x * scale), int(o.y * scale),
+                    int(o.width * scale), int(o.height * scale)))
+            print(f"[VENTS] zonas de ventilación cargadas: {len(self.vent_zones)}")   # TEMPORAL: borrar después de probar.
 
             self.radar.build(self.map.width, self.map.height, self.walls)
         self.enemies_group.empty()
@@ -671,6 +680,7 @@ class Game:
     def _do_transition(self, trigger):
         props = trigger["properties"]
         target_map = props.get("target_map")
+        self.player.set_force_crawl(False)   # Se vuelve a activar solo si el mapa nuevo tiene zonas de ventilación.
         self.load_level(target_map)
 
         if "mission" in props:
@@ -1149,6 +1159,18 @@ class Game:
 
         if self.rain_active:
             self.rain.update(dt)
+
+        # Dentro de las ventilaciones Snake va siempre cuerpo a tierra.
+        in_vents = any(self.player.rect.colliderect(zone) for zone in self.vent_zones)
+        self.player.set_force_crawl(in_vents)
+
+        # El Stinger no se puede usar cuerpo a tierra: vuelve al arma de fuego anterior.
+        if in_vents and self.weapons.current.kind == "launcher":
+            if self.weapons.last_firearm_id in self.weapons.owned:
+                self.weapons.equip(self.weapons.last_firearm_id)
+            else:
+                self.weapons.current.on_unequip(self.player)
+                self.weapons.current_id = None
 
         # Con el Stinger equipado Snake queda quieto y mira hacia donde apunta la mira.
         self.player.weapon_locked = self.weapons.blocks_movement
