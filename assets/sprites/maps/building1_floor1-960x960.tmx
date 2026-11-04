@@ -296,7 +296,7 @@
   <object id="268" x="620" y="929" width="20" height="4"/>
  </objectgroup>
  <objectgroup color="#aa55ff" id="3" name="player_spawn">
-  <object id="203" name="player_spawn" x="360" y="260" width="12" height="12"/>
+  <object id="203" name="player_spawn" x="628" y="908" width="12" height="12"/>
  </objectgroup>
  <objectgroup color="#aa00ff" id="6" name="zonas_oculto">
   <object id="213" x="676" y="424" width="20" height="40"/>

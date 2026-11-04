@@ -444,7 +444,7 @@ class Game:
                 if snap["state"] not in ("WALKING", "LOOKING") and hasattr(guardia, "_set_state"):
                     guardia._set_state("RETURN")   # Si estaba persiguiendo, vuelve a su patrulla.
             else:
-                guardia = Enemy(ruta[0][0], ruta[0][1], ruta, start_delay=i * 1.0)
+                guardia = Enemy(ruta[0][0], ruta[0][1], ruta, start_delay=i * 0.5)
 
             guardia.route_index = i
             self.enemies_group.add(guardia)
@@ -1675,9 +1675,9 @@ class Game:
         for bullet in self.enemy_bullets:
             bullet.draw_with_camera(self.virtual_surface, self.camera)
 
-        for enemy in self.enemies_group:
-            enemy.draw_vision(self.virtual_surface, self.camera)
-        self.fire_fx.draw(self.virtual_surface, self.camera)
+        # for enemy in self.enemies_group:
+        #     enemy.draw_vision(self.virtual_surface, self.camera)
+        # self.fire_fx.draw(self.virtual_surface, self.camera)
         
         if self.map:
             self.map.render_roofs(

@@ -30,6 +30,7 @@ class VentCinematic:
     STAND_WAIT_S = 2.0        # Snake de pie, antes de mover la cámara
     CROUCH_WAIT_S = 1.0
     ENTER_BLINK_MS = 500      # parpadeo del "ENTER"
+    SKIP_FADE_S = 0.6
 
     # (quién habla, texto). Reemplazalos por los diálogos reales.
     DIALOGUE = [
@@ -94,10 +95,19 @@ class VentCinematic:
         self.skip_warning = False
         self.warning_t = 0
         self.fade_t = 0.0
+        self.skipping = False
+        self.skip_fade_t = 0.0
 
     def _go(self, phase):
         self.phase = phase
         self.phase_t = 0.0
+
+    def _skip(self):
+        """Congela todo y hace fundido a negro; al terminar, Game lanza la radio."""
+        self.skipping = True
+        self.skip_fade_t = 0.0
+        self.skip_warning = False
+        self._set_text_sound(False)
 
     # ---------- lectura de Tiled ----------
     def _layer_objects(self, name):
@@ -174,7 +184,7 @@ class VentCinematic:
             self.stand = self._img(d + "stand_up.png")
         except Exception as e:
             print(f"Aviso: sprites de Snake: {e}")
-            self.crawl, self.crouch,self.stand = [], None
+            self.crawl, self.crouch, self.stand = [], None, None
         try:
             self.soldier_img = self._img(self.SOLDIER_SPRITE)
         except Exception:
@@ -222,16 +232,14 @@ class VentCinematic:
             if e.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-            if self.phase == "FADE":
+            if self.skipping or self.phase == "FADE":
                 continue
             if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1 and self.phase == "DIALOGUE":
                 self._advance()
             elif e.type == pygame.KEYDOWN:
                 if e.key == pygame.K_ESCAPE:
                     if self.skip_warning:
-                        self._set_text_sound(False)
-                        self.snake_pos = list(self.snake_end)
-                        self._go("FINAL")
+                        self._skip()
                     else:
                         self.skip_warning = True
                         self.warning_t = pygame.time.get_ticks()
@@ -245,6 +253,12 @@ class VentCinematic:
         if self.skip_warning and pygame.time.get_ticks() - self.warning_t > 3000:
             self.skip_warning = False
 
+        if self.skipping:
+            self.skip_fade_t += dt
+            if self.skip_fade_t >= self.SKIP_FADE_S:
+                self.finished = True
+            return
+        
         if self.phase == "FADE":
             self.fade_t += dt
             if self.fade_t >= self.FADE_OUT_S:
@@ -386,6 +400,12 @@ class VentCinematic:
 
         if self.phase == "FADE":
             a = int(255 * min(1.0, self.fade_t / self.FADE_OUT_S))
+            fade = pygame.Surface((sw, sh))
+            fade.set_alpha(a)
+            surface.blit(fade, (0, 0))
+
+        if self.skipping:
+            a = int(255 * min(1.0, self.skip_fade_t / self.SKIP_FADE_S))
             fade = pygame.Surface((sw, sh))
             fade.set_alpha(a)
             surface.blit(fade, (0, 0))
