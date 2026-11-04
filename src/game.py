@@ -154,6 +154,7 @@ class Game:
 
         # Armas/munición del mapa ya recogidas (para que no reaparezcan al recargar el mapa).
         self.picked_pickups = set()
+        self.ration_eaten = False   # True cuando Snake ya se comió la ración (para que no reaparezca en el camión).
         
         self.enemy_bullets = pygame.sprite.Group()
 
@@ -411,7 +412,7 @@ class Game:
                         print(f"Error cargando sprite de la caja: {e}")
 
                 # Ración de comida (camión de truck_interior_2)
-                elif obj.name == "food_ration" and hasattr(self, 'player') and "food_ration" not in self.player.inventory:
+                elif obj.name == "food_ration" and hasattr(self, 'player') and "food_ration" not in self.player.inventory and not self.ration_eaten:
                     scale = self.map.scale
                     try:
                         ration_item = Item("food_ration", 0, 0, "assets/sprites/items/racion_roja.png", scale=1.7)
@@ -859,7 +860,8 @@ class Game:
         # 1b) Armas de cero (sin Stinger, munición inicial) y pickups del mapa disponibles otra vez.
         self.reset_weapons()
         self.picked_pickups = set()
-        
+        self.ration_eaten = False
+
         # 2) Mapa de la misión desde cero (enemigos + ítems como la caja del camión).
         #    Si Snake estaba dentro del camión, esto también lo devuelve al mapa principal.
         self.load_level(self.mission_number)
@@ -1026,7 +1028,7 @@ class Game:
                     elif event.key == pygame.K_h:
                         self.player.take_damage(10)
                     elif event.key == pygame.K_j:
-                        self.player.heal(10)
+                        self.use_ration()
                     elif event.key == pygame.K_TAB:
                         self.state = "RADIO_MENU"
                     elif event.key == pygame.K_F1:
@@ -1058,6 +1060,25 @@ class Game:
                             self.cine_phase = "TAKEOFF"
                 self.player.punch_self_event(event)
         return None
+
+    def use_ration(self):
+        """Tecla J: Snake se come la ración y recupera 40 de vida."""
+        p = self.player
+        if self.state != "PLAYING" or p.is_dead or p.is_dying:
+            return
+        if "food_ration" not in p.inventory:
+            self.weapons.notify("NO TENÉS RACIONES")
+            return
+        if p.health >= p.max_health:
+            self.weapons.notify("TENÉS LA VIDA COMPLETA")   # No gasta la ración si no hace falta.
+            return
+
+        p.inventory.remove("food_ration")
+        self.ration_eaten = True
+        if getattr(p, "equipped_item", None) == "food_ration":
+            p.equipped_item = None
+        p.heal(40)
+        self.weapons.notify("RACIÓN: +40 DE VIDA")
 
     def execute_radio_call(self):
         target_call_id = "default"
