@@ -228,7 +228,7 @@ class PauseMenu:
         self.options_menu[i]["val"] = value
         if i == 0:
             try:
-                pygame.mixer.music.set_volume(value / 100.0)
+                pygame.mixer.music.set_volume(value / 100.0 * getattr(self, "music_gain", 1.0))
             except pygame.error:
                 pass
 
