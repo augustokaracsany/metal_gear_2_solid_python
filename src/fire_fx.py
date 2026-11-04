@@ -107,6 +107,7 @@ CASING_ORIGIN = {
     },
     # Ejemplo para el M16 (descomentá y editá):
     "m16": {"UP": (-2, -45), "DOWN": (-4, -35), "LEFT": (-4, -38), "RIGHT": (4, -38)},
+    "gun": {"UP": (-2, -45), "DOWN": (-4, -35), "LEFT": (-4, -32), "RIGHT": (4, -32)},
 }
 
 # ── Con cuánta fuerza y cuánto cae ────────────────────────────────────────────
@@ -154,8 +155,8 @@ _CASING_ROT_STEP = 15
 # en píxeles desde el CENTRO del rect de Snake.
 _MUZZLE = {
     "m16":     {"DOWN": ( 0, -2), "UP": ( 0, -50), "LEFT": (-35, -38), "RIGHT": (35, -38)},
-    "gun":     {"DOWN": ( 5,  -9), "UP": (-5, -24), "LEFT": (-16, -14), "RIGHT": (16, -14)},
-    "stinger": {"DOWN": ( 0,  -8), "UP": ( 0, -26), "LEFT": (-22, -14), "RIGHT": (22, -14)},
+    "gun":     {"DOWN": ( -2,  -20), "UP": (0, -50), "LEFT": (-17, -32), "RIGHT": (17, -32)},
+    "stinger": {"DOWN": ( 0,  -8), "UP": ( 0, -50), "LEFT": (-22, -14), "RIGHT": (22, -14)},
 }
 _MUZZLE_DEFAULT = {"DOWN": (5, -10), "UP": (-5, -24), "LEFT": (-16, -14), "RIGHT": (16, -14)}
 
