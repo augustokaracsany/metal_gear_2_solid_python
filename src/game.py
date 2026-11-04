@@ -69,13 +69,13 @@ class Game:
     # Pantalla de victoria: el título se escribe, después aparecen las estadísticas una por una
     # y recién al final el menú REINTENTAR / SIGUIENTE / SALIR.
     VICTORY_STATS_START_MS = 1400
-    VICTORY_ROW_MS = 350
+    VICTORY_ROW_MS = 280
     VICTORY_MENU_DELAY_MS = 3100
     VICTORY_ANIM_DIR = "assets/images/victory_anim"    # frames PNG (frame_00.png, frame_01.png...) del fondo animado de victoria
     VICTORY_ANIM_FRAME_MS = 80                         # duración de cada frame de la animación
     VICTORY_ANIM_SHADE = 55                            # oscurecimiento general del fondo animado (0-255)
     VICTORY_BG_PATH = "assets/images/victory_bg.png"   # fondo de la pantalla de victoria (si no existe, usa el degradado de siempre)
-    LIFE_ITEM_KEYWORDS = ("ration", "racion", "medic")   # nombres de ítem que cuentan como "vida"
+    
 
 
     def __init__(self, mission_number=1, skip_boss_intro=False):
@@ -174,6 +174,7 @@ class Game:
 
         # Armas/munición del mapa ya recogidas (para que no reaparezcan al recargar el mapa).
         self.picked_pickups = set()
+        self.ration_eaten = False   # True cuando Snake ya se comió la ración (para que no reaparezca en el camión).
         
         self.enemy_bullets = pygame.sprite.Group()
 
@@ -182,6 +183,7 @@ class Game:
         self.current_map_key = None
         self.current_route_count = 0
         self.codec_zones = []
+        self.vent_zones = []
 
         self.alert_level = 0.0
         self.chase_music_active = False   # True si la música de persecución tomó el control
@@ -377,6 +379,14 @@ class Game:
             self.top_barriers = self.map.get_top_barriers("limites_top") or []
             self.walls = self.map.get_collision_rects()   # cacheadas una sola vez
             self.codec_zones = self.map.load_codec_zones()
+            # Zonas de ventilación (capa "vents_trigger"): ahí Snake va siempre cuerpo a tierra.
+            self.vent_zones = []
+            scale = self.map.scale
+            for o in self.find_objects("vents_trigger"):
+                self.vent_zones.append(pygame.Rect(
+                    int(o.x * scale), int(o.y * scale),
+                    int(o.width * scale), int(o.height * scale)))
+            print(f"[VENTS] zonas de ventilación cargadas: {len(self.vent_zones)}")   # TEMPORAL: borrar después de probar.
 
             self.radar.build(self.map.width, self.map.height, self.walls)
         self.enemies_group.empty()
@@ -424,7 +434,7 @@ class Game:
                         print(f"Error cargando sprite de la caja: {e}")
 
                 # Ración de comida (camión de truck_interior_2)
-                elif obj.name == "food_ration" and hasattr(self, 'player') and "food_ration" not in self.player.inventory:
+                elif obj.name == "food_ration" and hasattr(self, 'player') and "food_ration" not in self.player.inventory and not self.ration_eaten:
                     scale = self.map.scale
                     try:
                         ration_item = Item("food_ration", 0, 0, "assets/sprites/items/racion_roja.png", scale=1.7)
@@ -704,6 +714,7 @@ class Game:
     def _do_transition(self, trigger):
         props = trigger["properties"]
         target_map = props.get("target_map")
+        self.player.set_force_crawl(False)   # Se vuelve a activar solo si el mapa nuevo tiene zonas de ventilación.
         self.load_level(target_map)
 
         # La misión sale del mapa de destino. Antes se tomaba solo de la propiedad "mission" del
@@ -789,18 +800,15 @@ class Game:
     def _reset_mission_stats(self):
         self.stat_time = 0.0     # segundos jugados (la pausa, el inventario y el codec no cuentan)
         self.stat_alerts = 0     # veces que te descubrieron
-        self.stat_items = 0      # raciones / medicinas usadas
+        self.stat_items = 0      # raciones usadas
         self.stat_shots = 0      # disparos efectuados
+        Enemy.kills = 0
 
     def _count_life_items_used(self, inventory_before):
-        """Cuenta las raciones/medicinas que salieron del inventario entre antes y ahora."""
-        remaining = [str(n) for n in self.player.inventory]
-        for name in inventory_before:
-            name = str(name)
-            if name in remaining:
-                remaining.remove(name)
-            elif any(k in name.lower() for k in self.LIFE_ITEM_KEYWORDS):
-                self.stat_items += 1
+        """Cuenta las raciones que salieron del inventario entre antes y ahora."""
+        used = inventory_before.count("food_ration") - self.player.inventory.count("food_ration")
+        if used > 0:
+            self.stat_items += used
 
     def _victory_menu_ready(self):
         return pygame.time.get_ticks() - self.victory_timer >= self.VICTORY_MENU_DELAY_MS
@@ -1007,19 +1015,15 @@ class Game:
         p.anim_timer = 0.0
         p.input_locked = False
         p.health = p.max_health
+        p.damage_taken = 0
         p.is_dead = False
         p.update_offsets_for_stance()
 
         # 1b) Armas de cero (sin Stinger, munición inicial) y pickups del mapa disponibles otra vez.
         self.reset_weapons()
         self.picked_pickups = set()
+        self.ration_eaten = False
 
-        # 1c) Olvidar el estado guardado de los mapas (guardias muertos y posiciones). Sin esto,
-        #     load_level() guardaba cómo quedó el mapa actual justo antes de recargarlo y los
-        #     guardias que habías matado no reaparecían. Con la clave en None no guarda nada.
-        self.map_states = {}
-        self.current_map_key = None
-        
         # 2) Mapa de la misión desde cero (enemigos + ítems como la caja del camión).
         #    Si Snake estaba dentro del camión, esto también lo devuelve al mapa principal.
         self.load_level(self.mission_number)
@@ -1196,7 +1200,7 @@ class Game:
                     elif event.key == pygame.K_h:
                         self.player.take_damage(10)
                     elif event.key == pygame.K_j:
-                        self.player.heal(10)
+                        self.use_ration()
                     elif event.key == pygame.K_TAB:
                         self.state = "RADIO_MENU"
                     elif event.key == pygame.K_F1:
@@ -1228,6 +1232,26 @@ class Game:
                             self.cine_phase = "TAKEOFF"
                 self.player.punch_self_event(event)
         return None
+
+    def use_ration(self):
+        """Tecla J: Snake se come la ración y recupera 40 de vida."""
+        p = self.player
+        if self.state != "PLAYING" or p.is_dead or p.is_dying:
+            return
+        if "food_ration" not in p.inventory:
+            self.weapons.notify("NO TENÉS RACIONES")
+            return
+        if p.health >= p.max_health:
+            self.weapons.notify("TENÉS LA VIDA COMPLETA")   # No gasta la ración si no hace falta.
+            return
+
+        p.inventory.remove("food_ration")
+        self.stat_items += 1          # <- nueva
+        self.ration_eaten = True
+        if getattr(p, "equipped_item", None) == "food_ration":
+            p.equipped_item = None
+        p.heal(40)
+        self.weapons.notify("RACIÓN: +40 DE VIDA")
 
     def execute_radio_call(self):
         target_call_id = "default"
@@ -1331,6 +1355,18 @@ class Game:
 
         if self.rain_active:
             self.rain.update(dt)
+
+        # Dentro de las ventilaciones Snake va siempre cuerpo a tierra.
+        in_vents = any(self.player.rect.colliderect(zone) for zone in self.vent_zones)
+        self.player.set_force_crawl(in_vents)
+
+        # El Stinger no se puede usar cuerpo a tierra: vuelve al arma de fuego anterior.
+        if in_vents and self.weapons.current.kind == "launcher":
+            if self.weapons.last_firearm_id in self.weapons.owned:
+                self.weapons.equip(self.weapons.last_firearm_id)
+            else:
+                self.weapons.current.on_unequip(self.player)
+                self.weapons.current_id = None
 
         # Con el Stinger equipado Snake queda quieto y mira hacia donde apunta la mira.
         self.player.weapon_locked = self.weapons.blocks_movement
@@ -1591,13 +1627,15 @@ class Game:
                 filas = [
                     ("TIEMPO DE JUEGO", tiempo),
                     ("VECES DESCUBIERTO", str(self.stat_alerts)),
-                    ("RACIONES Y MEDICINAS USADAS", str(self.stat_items)),
+                    ("ENEMIGOS ELIMINADOS", str(Enemy.kills)),
+                    ("RACIONES USADAS", str(self.stat_items)),
                     ("DISPAROS EFECTUADOS", str(self.stat_shots)),
+                    ("DAÑO TOTAL RECIBIDO", str(int(self.player.damage_taken))),
                 ]
-                step = max(28, int(h * 0.047))
+                step = max(26, int(h * 0.042))
                 pad = step // 2
                 pw, ph = min(560, w - 40), step * len(filas) + pad * 2
-                px, py = (w - pw) // 2, int(h * 0.57)
+                px, py = (w - pw) // 2, int(h * 0.38)
                 panel = pygame.Surface((pw, ph), pygame.SRCALPHA)
                 panel.fill((6, 8, 6, 175))
                 surface.blit(panel, (px, py))

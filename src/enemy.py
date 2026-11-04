@@ -98,6 +98,7 @@ class Enemy(pygame.sprite.Sprite):
     NOISE_SAME_SPOT = 48       # px: un ruido a menos de esto del anterior no recalcula nada ( ráfagas desde el mismo lugar ).
     NOISE_MAX_ASTARS = 3       # Máx. A* que prueba _strict_target por ruido ( antes llegaba a 24 ).
     _search_budget = SEARCHES_PER_FRAME   # Se repone con Enemy.begin_frame().
+    kills = 0   # Guardias eliminados en la misión actual (lo lee y reinicia Game).
     @classmethod
     def begin_frame(cls):
         """Game.update() la llama UNA vez por frame, antes del bucle de guardias."""
@@ -492,12 +493,15 @@ class Enemy(pygame.sprite.Sprite):
         return moved
 
     def take_damage(self, amount, stun_time=0.0, source_pos=None):
+        if self.health <= 0:
+            return          # Ya estaba muerto: evita contar dos veces (ej. dos misiles en el mismo frame).
         self.health = max(0, self.health - amount)
         if self.health == 0:
+            Enemy.kills += 1
             self.kill()  # Lo saca de enemies_group (y de cualquier otro grupo).
         else:
             self.stun_timer = max(self.stun_timer, stun_time)
-            self.hop_timer = self.HOP_DURATION      # <- inicia el saltito
+            self.hop_timer = self.HOP_DURATION
             if stun_time > 0 and source_pos is not None:
                 self.hit_from = source_pos
 
