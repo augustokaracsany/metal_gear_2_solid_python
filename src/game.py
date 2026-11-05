@@ -88,8 +88,9 @@ class Game:
     VICTORY_ANIM_SHADE = 55                            # oscurecimiento general del fondo animado (0-255)
     VICTORY_BG_PATH = "assets/images/victory_bg.png"   # fondo de la pantalla de victoria (si no existe, usa el degradado de siempre)
     VENT_ZONE_MUSIC_PATH = "assets/audio/music/2048_63.mp3"
-    
-
+    DEBUG_ENABLED_AT_START = False
+    debug_mode = DEBUG_ENABLED_AT_START
+    intro_cinematic_played = False
 
     def __init__(self, mission_number=1, skip_boss_intro=False):
         # Por si venimos de una partida anterior con el Stinger apuntando: mouse normal.
@@ -285,6 +286,9 @@ class Game:
 
         self.cine = None
         self.cutscenes_done = set()
+        if self.mission_number == 2 and not Game.intro_cinematic_played:
+            Game.intro_cinematic_played = True  # La marcamos como reproducida
+            self.start_vent_cutscene()
 
     def _level_music_path(self):
         if self.mission_number == 1:
@@ -1295,45 +1299,52 @@ class Game:
 
                 # Si el juego NO está en pausa, responde a las acciones del jugador
                 if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_k:  # Tecla de prueba de muerte
-                        self.cleanup()
-                        self.trigger_death_sequence()
-                    elif event.key == pygame.K_v:
-                        self.cleanup()
-                        self.trigger_victory_sequence()
-                    elif event.key == pygame.K_h:
-                        self.player.take_damage(10)
+                    # --- Activar / desactivar el modo DEBUG ---
+                    if event.key == pygame.K_F9:
+                        self.debug_mode = not self.debug_mode
+                        self.weapons.notify("DEBUG: ACTIVADO" if self.debug_mode else "DEBUG: DESACTIVADO")
+
+                    # --- Teclas normales del juego (siempre activas) ---
                     elif event.key == pygame.K_j:
                         self.use_ration()
                     elif event.key == pygame.K_TAB:
                         self.state = "RADIO_MENU"
-                    elif event.key == pygame.K_F1:
-                        self.debug_start_boss()
-                    elif event.key == pygame.K_F2 and self.boss:
-                        self.boss.take_hit(HIT_DAMAGE)          # respeta "un impacto por ventana"
-                    # --- Debug del jefe (flags en hind.DEBUG) ---
-                    elif event.key == pygame.K_F3:
-                        hind_mod.DEBUG["strip_box"] = not hind_mod.DEBUG["strip_box"]
-                    elif event.key == pygame.K_F4:
-                        hind_mod.DEBUG["impact_hitbox"] = not hind_mod.DEBUG["impact_hitbox"]
-                    elif event.key == pygame.K_F5:
-                        hind_mod.DEBUG["hind_hitbox"] = not hind_mod.DEBUG["hind_hitbox"]
-                    elif event.key == pygame.K_F6:
-                        hind_mod.HIND_DEBUG = not hind_mod.HIND_DEBUG
-                    elif event.key == pygame.K_F7:
-                        on = not hind_mod.DEBUG["sprite_rect"]
-                        hind_mod.DEBUG["sprite_rect"] = on
-                        hind_mod.DEBUG["player_hitbox"] = on
-                    elif event.key == pygame.K_F8:
-                        # Debug: Stinger + misiles al instante (sin ir a los camiones).
-                        for wid in ("beretta", "m16", "uzi", "stinger"):
-                            self.weapons.add_weapon(wid)
-                        self.weapons.add_ammo("stinger", WS.STINGER_MISSILES_PER_PICKUP)
-                        self.weapons.notify("DEBUG: TODAS LAS ARMAS + MISILES")
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE) and self.boss_mode == "CUTSCENE":
                         self.boss.skip_takeoff()                # saltear cinemática
                         if self.cine_phase in ("DELAY", "PAN_IN"):
                             self.cine_phase = "TAKEOFF"
+
+                    # --- Teclas de DEBUG (solo con el modo activo) ---
+                    elif self.debug_mode:
+                        if event.key == pygame.K_k:
+                            self.cleanup()
+                            self.trigger_death_sequence()
+                        elif event.key == pygame.K_v:
+                            self.cleanup()
+                            self.trigger_victory_sequence()
+                        elif event.key == pygame.K_h:
+                            self.player.take_damage(10)
+                        elif event.key == pygame.K_F1:
+                            self.debug_start_boss()
+                        elif event.key == pygame.K_F2 and self.boss:
+                            self.boss.take_hit(HIT_DAMAGE)
+                        elif event.key == pygame.K_F3:
+                            hind_mod.DEBUG["strip_box"] = not hind_mod.DEBUG["strip_box"]
+                        elif event.key == pygame.K_F4:
+                            hind_mod.DEBUG["impact_hitbox"] = not hind_mod.DEBUG["impact_hitbox"]
+                        elif event.key == pygame.K_F5:
+                            hind_mod.DEBUG["hind_hitbox"] = not hind_mod.DEBUG["hind_hitbox"]
+                        elif event.key == pygame.K_F6:
+                            hind_mod.HIND_DEBUG = not hind_mod.HIND_DEBUG
+                        elif event.key == pygame.K_F7:
+                            on = not hind_mod.DEBUG["sprite_rect"]
+                            hind_mod.DEBUG["sprite_rect"] = on
+                            hind_mod.DEBUG["player_hitbox"] = on
+                        elif event.key == pygame.K_F8:
+                            for wid in ("beretta", "m16", "uzi", "stinger"):
+                                self.weapons.add_weapon(wid)
+                            self.weapons.add_ammo("stinger", WS.STINGER_MISSILES_PER_PICKUP)
+                            self.weapons.notify("DEBUG: TODAS LAS ARMAS + MISILES")
                 self.player.punch_self_event(event)
         return None
 
@@ -2028,6 +2039,9 @@ class Game:
             self._draw_alert(surface)
             self.radar.draw(surface, self.player, self.enemies_group)
             self.item_message.draw(surface)
+            if self.debug_mode:
+                tag = self.alert_font.render("DEBUG", True, (255, 60, 60))
+                surface.blit(tag, (10, surface.get_height() - tag.get_height() - 10))
 
         # DIBUJAR HUD DE INVENTARIO SOBRE LA PANTALLA PRINCIPAL
         self.hud_inventory.draw(surface, self.player)
