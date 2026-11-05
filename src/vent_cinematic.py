@@ -14,7 +14,7 @@ class VentCinematic:
     BG_PATH = "assets/sprites/maps/cinematic_building1.png"     # ajustá la ruta
     MAP_SCALE = 2
 
-    SOLDIER_SPRITE = "assets/sprites/red_beret/look_down1.png"
+    SOLDIER_SPRITE = "assets/sprites/red_beret/walk_down1.png"
     PRISONER_SPRITES = [
         "assets/sprites/prisoners/lau_walkdown1.png",     # prisioner1
         "assets/sprites/prisoners/ambar_walkdown1.png",   # prisioner2

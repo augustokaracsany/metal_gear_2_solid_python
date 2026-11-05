@@ -59,6 +59,7 @@ class Game:
         "assets/audio/music/musica_entry_point.mp3": 0.7,   # primer mapa: un poco más bajo
         "assets/audio/music/Advance Immediately.mp3": 1.0,
         "assets/audio/music/encounter.mp3": 1.0,            # persecución: más fuerte que el resto
+        "assets/audio/music/2048_63.mp3": 1.0,
     }
     CHASE_MUSIC_ENABLED = True   # True = al ser detectado suena la música de persecución en bucle
     ALERT_FONT_PATH = "assets/fonts/PixelOperator8-Bold.ttf"
@@ -83,10 +84,10 @@ class Game:
     VICTORY_STATS_START_MS = 1400
     VICTORY_ROW_MS = 280
     VICTORY_MENU_DELAY_MS = 3100
-    VICTORY_ANIM_DIR = "assets/images/victory_anim"    # frames PNG (frame_00.png, frame_01.png...) del fondo animado de victoria
     VICTORY_ANIM_FRAME_MS = 80                         # duración de cada frame de la animación
     VICTORY_ANIM_SHADE = 55                            # oscurecimiento general del fondo animado (0-255)
     VICTORY_BG_PATH = "assets/images/victory_bg.png"   # fondo de la pantalla de victoria (si no existe, usa el degradado de siempre)
+    VENT_ZONE_MUSIC_PATH = "assets/audio/music/2048_63.mp3"
     
 
 
@@ -97,6 +98,7 @@ class Game:
 
         self.mission_number = mission_number
         self.pending_action = None   # ("restart", n) o ("menu", None)
+        self._current_track = None   # canción que debería estar sonando
         self.death_music_started = False
         self.exit_fade_start = 0
         self.exit_fade_volume = 1.0
@@ -284,38 +286,38 @@ class Game:
         self.cine = None
         self.cutscenes_done = set()
 
-    def start_level_music(self):
-        """Música de fondo en bucle según la misión actual.
-
-        Usa el volumen actual del slider de OPCIONES de la pausa, así lo que se ve
-        en pantalla coincide con lo que suena. Si el archivo no está, el juego sigue
-        sin música (solo avisa por consola)."""
-        
-        # 1. Determinamos qué canción cargar según la misión actual
+    def _level_music_path(self):
         if self.mission_number == 1:
-            music_path = "assets/audio/music/musica_entry_point.mp3"
-        elif self.mission_number == 2:
-            music_path = "assets/audio/music/Advance Immediately.mp3"
-        else:
-            return  # Si hay otra misión que aún no tiene canción, no hace nada
+            return "assets/audio/music/musica_entry_point.mp3"
+        if self.mission_number == 2:
+            return "assets/audio/music/Advance Immediately.mp3"
+        return None
 
-        # 2. Cargar y reproducir la pista seleccionada
+    def _desired_track(self, in_vents):
+        return self.VENT_ZONE_MUSIC_PATH if in_vents else self._level_music_path()
+
+    def start_level_music(self):
+        music_path = self._level_music_path()
+        if music_path is None:
+            return
         try:
             pygame.mixer.music.load(music_path)
             pygame.mixer.music.set_volume(self.pause_menu.music_volume)
             if self.restart_music:
                 self.pause_menu.music_gain = self.TRACK_GAIN.get(music_path, 1.0)
                 pygame.mixer.music.set_volume(self.pause_menu.music_volume * self.pause_menu.music_gain)
-                pygame.mixer.music.play(-1, 0, 1000)  # -1 = bucle infinito
+                pygame.mixer.music.play(-1, 0, 1000)
             else:
-                pygame.mixer.music.play(-1)  # -1 = bucle infinito
+                pygame.mixer.music.play(-1)
+            self._current_track = music_path
         except Exception as e:
             print(f"Aviso música (Misión {self.mission_number}): {e}")
 
     def fade_to_music(self, path, out_s=None, in_s=None, loops=-1):
-        """Baja la música actual y entra `path` con fade in, sin bloquear el juego."""
+        self._current_track = path
         self._mf = {
             "path": path, "loops": loops,
+            "gain": self.TRACK_GAIN.get(path, 1.0),
             "out": self.MUSIC_FADE_OUT_S if out_s is None else out_s,
             "in": self.MUSIC_FADE_IN_S if in_s is None else in_s,
             "t": 0.0,
@@ -347,7 +349,7 @@ class Game:
         if mf["phase"] == "in":
             mf["t"] += dt
             k = min(1.0, mf["t"] / max(0.01, mf["in"]))
-            pygame.mixer.music.set_volume(self.pause_menu.music_volume * k)
+            pygame.mixer.music.set_volume(self.pause_menu.music_volume * mf["gain"] * k)
             if k >= 1.0:
                 self._mf = None
 
@@ -1017,11 +1019,13 @@ class Game:
 
     def _on_alert_start(self):
         self.stat_alerts += 1
+        self._mf = None                                   # no dejar un fundido viejo pisando la alarma
         self.chase_music_active = self.CHASE_MUSIC_ENABLED
         if self.CHASE_MUSIC_ENABLED:
-            pygame.mixer.music.stop()   # corta la música del nivel para que se oiga el SFX
+            pygame.mixer.music.stop()
+            self._current_track = self.CHASE_MUSIC_PATH
         else:
-            pygame.mixer.music.pause()  # se pausa (no se corta) y sigue donde estaba al terminar la alarma
+            pygame.mixer.music.pause()
         if self.found_sfx:
             self.found_sfx.play()
             self.music_delay = self.found_sfx.get_length()
@@ -1041,8 +1045,7 @@ class Game:
         self.music_delay = None
         if self.chase_music_active:
             self.chase_music_active = False
-            self.restart_music = True
-            # Reiniciar la música del nivel actual (Misión 1 o Misión 2)
+            self._current_track = None     # fuerza el fundido a la música del nivel / ventilación
             self.start_level_music()
 
     def _reset_alert(self):
@@ -1477,6 +1480,12 @@ class Game:
         # Dentro de las ventilaciones Snake va siempre cuerpo a tierra.
         in_vents = any(self.player.rect.colliderect(zone) for zone in self.vent_zones)
         self.player.set_force_crawl(in_vents)
+
+        if (self.state == "PLAYING" and not self.chase_music_active
+                and self.music_delay is None and self._mf is None):
+            want = self._desired_track(in_vents)
+            if want and want != self._current_track:
+                self.fade_to_music(want)
 
         # El Stinger no se puede usar cuerpo a tierra: vuelve al arma de fuego anterior.
         if in_vents and self.weapons.current.kind == "launcher":
