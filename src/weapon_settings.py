@@ -66,7 +66,7 @@ STARTING_WEAPONS = []
 MISSION_START_WEAPONS = {}
 
 # ----------------------------------------------------------------- STINGER
-STINGER_DAMAGE              = 10
+STINGER_DAMAGE              = 40
 STINGER_MISSILES_PER_PICKUP = 4
 HIND_ALTITUDE               = 90
 

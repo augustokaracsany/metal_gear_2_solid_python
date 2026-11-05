@@ -1,56 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="60" height="48" tilewidth="16" tileheight="16" infinite="0" nextlayerid="9" nextobjectid="84">
+<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="60" height="48" tilewidth="16" tileheight="16" infinite="0" nextlayerid="10" nextobjectid="95">
  <tileset firstgid="1" source="colisiones.tsx"/>
  <imagelayer id="3" name="swamp2-960x768">
   <image source="swamp-960x768.png" width="960" height="768"/>
  </imagelayer>
- <objectgroup color="#55aa00" id="8" name="pickups">
-  <object id="69" name="ammo_m16" x="672" y="676">
-   <point/>
-  </object>
-  <object id="70" name="ammo_uzi" x="672" y="708">
-   <point/>
-  </object>
-  <object id="71" name="ammo_beretta" x="672" y="740">
-   <point/>
-  </object>
-  <object id="72" name="stinger_missiles" x="784" y="660">
-   <point/>
-  </object>
-  <object id="73" name="stinger_missiles" x="784" y="692">
-   <point/>
-  </object>
-  <object id="74" name="stinger_missiles" x="688" y="596">
-   <point/>
-  </object>
-  <object id="75" name="stinger_missiles" x="720" y="596">
-   <point/>
-  </object>
-  <object id="76" name="stinger_missiles" x="656" y="596">
-   <point/>
-  </object>
-  <object id="77" name="stinger_missiles" x="752" y="596">
-   <point/>
-  </object>
-  <object id="78" name="stinger_missiles" x="784" y="596">
-   <point/>
-  </object>
-  <object id="79" name="stinger_missiles" x="784" y="628">
-   <point/>
-  </object>
-  <object id="80" name="m16_rifle" x="624" y="676">
-   <point/>
-  </object>
-  <object id="81" name="uzi_smg" x="624" y="708">
-   <point/>
-  </object>
-  <object id="82" name="beretta_pistol" x="624" y="740">
-   <point/>
-  </object>
-  <object id="83" name="stinger_launcher" x="624" y="644">
-   <point/>
-  </object>
- </objectgroup>
+ <objectgroup color="#55aa00" id="8" name="pickups"/>
  <objectgroup color="#ff5500" id="6" name="enemy_patrols">
   <object id="45" name="FirstZone_Path" x="16" y="20">
    <polygon points="0,0 0,84 132,84 132,0 132,84 48,84 8,84 0,84"/>
@@ -187,6 +141,16 @@
     <property name="target_map" value="assets/sprites/maps/hind-d_boss_fight-576x1344.tmx"/>
    </properties>
   </object>
+ </objectgroup>
+ <objectgroup color="#00ff00" id="9" name="swamp_zones">
+  <object id="84" x="600" y="408" width="192" height="24"/>
+  <object id="87" x="608" y="432" width="184" height="16"/>
+  <object id="89" x="616" y="480" width="176" height="16"/>
+  <object id="90" x="640" y="448" width="152" height="32"/>
+  <object id="91" x="608" y="496" width="184" height="16"/>
+  <object id="92" x="616" y="544" width="120" height="16"/>
+  <object id="93" x="672" y="528" width="64" height="16"/>
+  <object id="94" x="752" y="512" width="40" height="108"/>
  </objectgroup>
  <objectgroup id="5" name="enemy_patrols"/>
  <objectgroup color="#ff0000" id="2" name="colisiones_objs">
