@@ -70,8 +70,8 @@ SFX = {
     "warn":         dict(file="helicopter-fly-over-04.wav",           volume=0.8, loop=False),
     "warn_still":   dict(file="helicopter-fly-over-04.wav",           volume=0.9, loop=False),
     "warn_missile": dict(file="helicopter-fly-over-04.wav",           volume=1.0, loop=False),
-    "hit":          dict(file="sfx/hind_hit.mp3",                     volume=0.9, loop=False),
-    "down":         dict(file="sfx/hind_explosion.mp3",               volume=1.0, loop=False),
+    "hit":          dict(file="hind_hit.wav",                     volume=2.0, loop=False),
+    "down":         dict(file="hind_explosion.wav",               volume=3.0, loop=False),
 }
 
 MUSIC = {
@@ -129,8 +129,8 @@ STILL_WARN_TIME   = 1.2
 STILL_DURATION    = 4.0
 STILL_BURST_GAP   = 0.18
 STILL_BURST_SIZE  = 4
-STILL_CONE_HALF   = 55
-STILL_RANGE       = 260
+STILL_CONE_HALF   = 70
+STILL_RANGE       = 400
 STILL_RANGE_MIN   = 60
 STILL_DAMAGE      = IMPACT_DAMAGE
 STILL_FOLLOW      = True
@@ -161,12 +161,12 @@ PHASES = {
     ),
     2: dict(
         window=5.0, warn=1.1, strip_length=520, gap=0.5,
-        radius=200, orbit_speed=100, pass_speed=440,
+        radius=200, orbit_speed=160, pass_speed=440,
         attack_sequence=["pass", "still", "pass", "still"],
     ),
     3: dict(
         window=4.0, warn=0.9, strip_length=640, gap=0.4,
-        radius=160, orbit_speed=120, pass_speed=500,
+        radius=160, orbit_speed=180, pass_speed=500,
         attack_sequence=["pass", "still", "mpass", "pass", "still", "mpass"],
     ),
 }

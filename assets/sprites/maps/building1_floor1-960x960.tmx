@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="60" height="60" tilewidth="16" tileheight="16" infinite="0" nextlayerid="18" nextobjectid="359">
+<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="60" height="60" tilewidth="16" tileheight="16" infinite="0" nextlayerid="18" nextobjectid="361">
  <tileset firstgid="1" source="colisiones.tsx"/>
  <tileset firstgid="2" source="hidden_roofs.tsx"/>
  <imagelayer id="14" name="building1_floor1-960x960">
@@ -253,14 +253,6 @@
     <property name="spawn_x" type="int" value="430"/>
     <property name="spawn_y" type="int" value="10"/>
     <property name="target_map" value="assets/sprites/maps/vents-576x192.tmx"/>
-   </properties>
-  </object>
-  <object id="318" name="exit_trigger" x="80" y="0" width="72" height="6">
-   <properties>
-    <property name="prone" type="bool" value="false"/>
-    <property name="spawn_x" type="int" value="115"/>
-    <property name="spawn_y" type="int" value="750"/>
-    <property name="target_map" value="assets/sprites/maps/swamp2-960x768.tmx"/>
    </properties>
   </object>
   <object id="319" name="exit_trigger" x="292" y="200" width="24" height="28">

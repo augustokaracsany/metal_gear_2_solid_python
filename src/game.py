@@ -268,7 +268,14 @@ class Game:
             music_path = "assets/audio/music/musica_entry_point.mp3"
         elif self.mission_number == 2:
             music_path = "assets/audio/music/Advance Immediately.mp3"
+        elif self.mission_number == 3:
+            music_path = "assets/audio/music/Shallow (Alert Mode Level 1 Part 4 & Swamp BGM).mp3"
+        elif self.mission_number == 4:
+            music_path = "assets/audio/music/Level 1 Warning (Alert Mode Level 1 Part 5).mp3"
         else:
+
+
+            
             return  # Si hay otra misión que aún no tiene canción, no hace nada
 
         # 2. Cargar y reproducir la pista seleccionada
