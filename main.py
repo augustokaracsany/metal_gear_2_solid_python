@@ -1,7 +1,7 @@
 import pygame
 import sys
 from src.settings import SCREEN_WIDTH, SCREEN_HEIGHT, FPS
-from src.menu import MenuManager
+from src.menu import MenuManager, play_music
 from src.prologue import PrologueState
 from src.intro_state import IntroState
 from src.game import Game 
@@ -102,12 +102,15 @@ def main():
             
             # Si en el menú de pausa se selecciona "VOLVER AL MENÚ"
             if game_action == "GOTO_MENU":
-                menu_manager.state = "MAIN_MENU"   # <- agregar
-                game_instance = None               # <- opcional, libera la partida
+                menu_manager.state = "MAIN_MENU"
+                game_instance = None
                 current_state = menu_manager
+                play_music()
 
             if getattr(current_state, "return_to_menu", False):
+                menu_manager.state = "MAIN_MENU"
                 current_state = menu_manager
+                play_music()
                 
             for event in events:
                 if event.type == pygame.QUIT:

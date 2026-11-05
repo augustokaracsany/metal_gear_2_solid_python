@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="36" height="48" tilewidth="16" tileheight="16" infinite="0" nextlayerid="13" nextobjectid="171">
+<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="36" height="48" tilewidth="16" tileheight="16" infinite="0" nextlayerid="13" nextobjectid="172">
  <editorsettings>
   <export target="entry_point_brightness3-576x768.tmx" format="tmx"/>
  </editorsettings>
@@ -60,7 +60,7 @@
 0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0
 </data>
  </layer>
- <objectgroup id="12" name="codec_trigger" visible="0">
+ <objectgroup id="12" name="codec_trigger">
   <object id="149" name="enemy_call" x="0" y="0" width="576" height="496">
    <properties>
     <property name="call_id" value="enemy_call"/>
@@ -232,6 +232,7 @@
   <object id="130" x="568" y="64" width="8" height="16"/>
   <object id="131" x="496" y="144" width="16" height="8"/>
   <object id="132" x="464" y="144" width="16" height="8"/>
+  <object id="171" x="160" y="320" width="8" height="128"/>
  </objectgroup>
  <objectgroup color="#aa00ff" id="8" name="zonas_oculto">
   <object id="110" x="456" y="432" width="16" height="72"/>
@@ -293,12 +294,6 @@
   </object>
   <object id="153" name="SecondZone_Path" x="524" y="232">
    <polygon points="0,0 0,64 -124,64 -124,208 -288,208 -124,208 -124,64 0,64"/>
-  </object>
-  <object id="156" name="SixthZone_Path" x="432" y="372">
-   <polygon points="0,0 0,124 -132,124 -132,180 -8,180 -8,144 64,144 64,44 104,44 104,0"/>
-  </object>
-  <object id="157" name="Soldier6_Waypoint" x="496" y="416">
-   <point/>
   </object>
   <object id="161" name="Soldier8_Waypoint" x="80" y="312">
    <point/>
