@@ -773,8 +773,7 @@ class Player(pygame.sprite.Sprite):
         anims = self.weapon_animations.get(set_name)
         if not anims:
             return None
-        if set_name == "gun" and not self.is_aiming():
-            return None
+        
         return anims[self.facing]
 
     def draw_with_camera(self, surface, camera):

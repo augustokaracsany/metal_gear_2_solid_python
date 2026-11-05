@@ -202,6 +202,18 @@ class Unarmed:
     def update(self, *args, **kwargs):
         pass
 
+    def hud_info(self):
+        return {
+            "name": "MANOS VACÍAS",
+            "icon": None,
+            "main": "",
+            "sub": "",
+            "modes": [],
+            "mode_index": 0,
+            "progress": None,
+            "low": False,
+        }
+
 
 # ====================================================================== MANAGER
 class WeaponManager:
@@ -247,11 +259,17 @@ class WeaponManager:
         return getattr(self.current, "cam_offset", None)
 
     def neighbors(self):
-        n = len(self.owned)
-        if n < 2 or self.current_id not in self.owned:
+        slots = list(self.owned) + [None]
+        n = len(slots)
+        if n < 2:
             return None, None
-        i = self.owned.index(self.current_id)
-        return self.weapons[self.owned[(i - 1) % n]], self.weapons[self.owned[(i + 1) % n]]
+        try:
+            i = slots.index(self.current_id)
+        except ValueError:
+            return None, None
+        def _resolve(wid):
+            return self.weapons[wid] if wid is not None else self.unarmed
+        return _resolve(slots[(i - 1) % n]), _resolve(slots[(i + 1) % n])
 
     def notify(self, text):
         self.notices.append([text, WS.NOTICE_TIME])
@@ -292,14 +310,23 @@ class WeaponManager:
         return True
 
     def cycle(self, step=1):
-        if self.current_id is None:
-            if self.owned:
-                self.equip(self.owned[0])
+        # La rotación incluye siempre None (manos vacías) como último slot.
+        slots = list(self.owned) + [None]
+        if not self.owned:
             return
-        if len(self.owned) < 2:
-            return
-        i = self.owned.index(self.current_id)
-        self.equip(self.owned[(i + step) % len(self.owned)])
+        # Índice actual en la lista extendida.
+        try:
+            i = slots.index(self.current_id)
+        except ValueError:
+            i = 0
+        next_id = slots[(i + step) % len(slots)]
+        if next_id is None:
+            # Ir a manos vacías: des-equipar el arma actual.
+            self.current.on_unequip(self.player)
+            self.current_id = None
+            self.popup_timer = WS.HUD_POPUP_TIME
+        else:
+            self.equip(next_id)
 
     # ---- mouse (pausa / inventario / menú)
     def suspend(self):
@@ -422,28 +449,31 @@ def make_pickup(name, center, uid=None):
 # La clave es el nombre del objeto de Tiled (y Item.name).
 PICKUPS = {
     # --- armas (nombre del objeto en Tiled) ---
-    "beretta_pistol":   {"weapon": "beretta", "msg": "OBTENIDO: BERETTA M92FS"},
-    "m16_rifle":        {"weapon": "m16",     "msg": "OBTENIDO: M16"},
-    "uzi_smg":          {"weapon": "uzi",     "msg": "OBTENIDO: MICRO UZI"},
-    "stinger_launcher": {"weapon": "stinger", "msg": "OBTENIDO: FIM-92 STINGER"},
+    "beretta_pistol":   {"weapon": "beretta", "msg": "OBTENIDO: BERETTA M92-FS",
+                        "image": "assets/sprites/weapons/beretta_m92fs_handgun.png", "scale": 2},
+    "m16_rifle":        {"weapon": "m16",     "msg": "OBTENIDO: FUSIL M16A1",
+                        "image": "assets/sprites/weapons/m16a1_rifle.png", "scale": 2},
+    "uzi_smg":          {"weapon": "uzi",     "msg": "OBTENIDO: MICRO-UZI",
+                        "image": "assets/sprites/weapons/micro_uzi_submachine-gun.png", "scale": 2},
+    "stinger_launcher": {"weapon": "stinger", "msg": "OBTENIDO: FIM-92 STINGER",
+                        "image": "assets/sprites/weapons/fim-92_stinger_hind-d-killer.png", "scale": 2},
     # Objeto viejo del mapa Entry Point: ahora es la Beretta del sistema de armas.
-    "pistola":          {"weapon": "beretta", "msg": "OBTENIDO: BERETTA M92FS",
-                         "image": "assets/sprites/weapons/pistola.png", "scale": 1.2},
+
     # --- munición ---
     "stinger_missiles": {"ammo": ("stinger", WS.STINGER_MISSILES_PER_PICKUP),
-                         "msg": "MISILES STINGER x{n}"},
-    "ammo_beretta": {"ammo": ("beretta", 15), "msg": "MUNICIÓN BERETTA x{n}"},
-    "ammo_m16": {"ammo": ("m16", 30), "msg": "MUNICIÓN M16 x{n}"},
-    "ammo_uzi": {"ammo": ("uzi", 32), "msg": "MUNICIÓN UZI x{n}"},
-    # Objeto viejo "ammo" (ductos): ahora da balas de Beretta, ya no un ítem en el inventario.
-    "ammo": {"ammo": ("beretta", 15), "msg": "MUNICIÓN BERETTA x{n}",
-             "image": "assets/sprites/items/municiones.png", "scale": 1.5},
+                        "msg": "MISILES STINGER x{n}",
+                        "image": "assets/sprites/items/stinger_missiles.png", "scale": 2},
+    "ammo_beretta": {"ammo": ("beretta", 15), "msg": "MUNICIÓN BERETTA x{n}",
+                    "image": "assets/sprites/items/ammo_beretta.png", "scale": 2},
+    "ammo_m16": {"ammo": ("m16", 30), "msg": "MUNICIÓN M16 x{n}",
+                "image": "assets/sprites/items/ammo_m16.png", "scale": 2},
+    "ammo_uzi": {"ammo": ("uzi", 32), "msg": "MUNICIÓN UZI x{n}",
+                "image": "assets/sprites/items/ammo_uzi.png", "scale": 2},
+    
 }
 
 
 def collect_pickups(player_rect, items, manager, reach=20, item_message=None, sfx_volume=1.0):
-    """Recoge armas/munición al acercarse (los camiones suelen ser sólidos, por eso `reach`).
-    Devuelve la lista de pickup_id recogidos (para no volver a generarlos al recargar el mapa)."""
     collected = []
     for item in list(items):
         spec = PICKUPS.get(getattr(item, "name", None))
@@ -451,31 +481,47 @@ def collect_pickups(player_rect, items, manager, reach=20, item_message=None, sf
             continue
         if not player_rect.colliderect(item.rect.inflate(reach * 2, reach * 2)):
             continue
+        
         n = 0
         msg = spec["msg"]
         ammo_wid = None
+        is_new_weapon = False
+
         if "weapon" in spec:
             wid = spec["weapon"]
             if not manager.add_weapon(wid):
-                # Ya tenía el arma: el pickup se convierte en munición.
+                # Ya tenía el arma: se convierte en munición
                 w = manager.weapons[wid]
                 n = (WS.STINGER_MISSILES_PER_PICKUP if wid == "stinger"
                      else getattr(w, "mag_size", 0))
                 manager.add_ammo(wid, n)
                 msg = f"MUNICIÓN {getattr(w, 'name', wid.upper())} x{{n}}"
                 ammo_wid = wid
+            else:
+                # Es un arma NUEVA que acaba de recoger
+                is_new_weapon = True
+                w = manager.weapons.get(wid)
+                nombre = getattr(w, "name", None) or wid.upper()
+
         if "ammo" in spec:
             wid, n = spec["ammo"]
             manager.add_ammo(wid, n)
             ammo_wid = wid
-        if ammo_wid is not None and item_message is not None:
-            # Munición: cartel azul, igual que al recoger los demás ítems.
-            w = manager.weapons.get(ammo_wid)
-            nombre = getattr(w, "name", None) or ammo_wid.upper()
-            unidad = "misiles" if ammo_wid == "stinger" else "balas"
-            item_message.show_text("Munición recargada", f"{n} {unidad} de {nombre}", sfx_volume)
+
+        # Mostrar mensaje y reproducir sonido de recogida
+        if item_message is not None:
+            if is_new_weapon:
+                # Mensaje y sonido para arma nueva
+                item_message.show_text("Arma obtenida", nombre, sfx_volume)
+            elif ammo_wid is not None:
+                # Mensaje y sonido para munición
+                w = manager.weapons.get(ammo_wid)
+                nombre = getattr(w, "name", None) or ammo_wid.upper()
+                unidad = "misiles" if ammo_wid == "stinger" else "balas"
+                item_message.show_text("Munición recargada", f"{n} {unidad} de {nombre}", sfx_volume)
         else:
             manager.notify(msg.format(n=n))
+
         collected.append(getattr(item, "pickup_id", None))
         item.kill()
     return collected

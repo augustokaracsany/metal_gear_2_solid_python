@@ -38,7 +38,7 @@ from src.fire_fx import FireFX
 
 
 # Misión (clave de levels_data) donde pelea el jefe HIND-D.
-BOSS_MISSION = 3
+BOSS_MISSION = 4
 
 
 class _CamTarget:
@@ -160,17 +160,14 @@ class Game:
                 "png": "assets/sprites/maps/building1_floor1-960x960.png"
             },
             3: {
+                "tmx": "assets/sprites/maps/swamp-960x768.tmx",
+                "png": "assets/sprites/maps/swamp-960x768.png"
+            },
+            4: {
                 "tmx": "assets/sprites/maps/hind-d_boss_fight-576x1344.tmx",
                 "png": "assets/sprites/maps/hind-d_boss_fight-576x1344.png"
             },
-            4: {
-                "tmx": "assets/sprites/maps/mission4_map.tmx",
-                "png": "assets/sprites/maps/mission4_map.png"
-            },
-            "truck": {
-                "tmx": "assets/sprites/maps/truck_interior.tmx",
-                "png": "assets/sprites/maps/truck_interior.jpg"
-            }
+            
         }
         
         current_level = self.levels_data.get(self.mission_number, self.levels_data[1])
@@ -632,8 +629,10 @@ class Game:
         try:
             if value:
                 pygame.mixer.pause()
+                self.weapons.suspend()
             else:
                 pygame.mixer.unpause()
+                self.weapons.resume()
         except pygame.error:
             pass
         # El menú de pausa se maneja con mouse: lo liberamos mientras dura la pausa.
@@ -804,6 +803,11 @@ class Game:
         if nueva_mision != self.mission_number:
             self.mission_number = nueva_mision
             self.start_level_music()    # la música cambia junto con la misión
+            # Si llegamos al mapa del jefe, inicializar el boss fight
+            if self.mission_number == BOSS_MISSION:
+                self.boss      = None
+                self.boss_mode = None
+                self.setup_boss()
 
         scale = self.map.scale if self.map else 2
         spawn_x = float(props.get("spawn_x", 180)) * scale
@@ -1277,6 +1281,7 @@ class Game:
                     self.set_paused(False)
                 elif action == "VOLVER AL MENÚ":
                     self.stop_all_audio()          # Música + efectos fuera: no se trasladan al menú.
+                    self.weapons.suspend()         # Mouse normal para el menú principal.
                     self.set_paused(False)
                     return "GOTO_MENU"
             else:

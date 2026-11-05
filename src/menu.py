@@ -1,5 +1,5 @@
 import pygame
-import os     
+import os
 from src.settings import SCREEN_WIDTH, SCREEN_HEIGHT, COLOR_BG, COLOR_TEXT, COLOR_ACCENT, COLOR_HOVER, COLOR_DISABLED
 from src.controls_view import ControlsView
 from src.credits_view import CreditsView
@@ -51,7 +51,7 @@ class Button:
 
         # Líneas finas y rectangulares características del iDroid
         pygame.draw.rect(surface, color, self.rect, 1)
-        
+
         txt_surf = self.font.render(self.text, True, color if self.is_enabled else COLOR_DISABLED)
         txt_rect = txt_surf.get_rect(center=self.rect.center)
         surface.blit(txt_surf, txt_rect)
@@ -227,9 +227,9 @@ class MenuManager:
         self.state = "MAIN_MENU"  # MAIN_MENU, MISSIONS, CONTROLS, CREDITS, START_GAME, EXIT
         FONT_PATH = "assets/fonts/PressStart2P-Regular.ttf"
         self.font_title = pygame.font.Font(FONT_PATH, 24)
-        self.font_subtitle = pygame.font.Font(FONT_PATH, 14) 
-        self.font_btn = pygame.font.Font(FONT_PATH, 12)       
-        self.font_small = pygame.font.Font(FONT_PATH, 9)      
+        self.font_subtitle = pygame.font.Font(FONT_PATH, 14)
+        self.font_btn = pygame.font.Font(FONT_PATH, 12)
+        self.font_small = pygame.font.Font(FONT_PATH, 9)
 
         # Cargar e escalar la imagen del título del juego
         try:
@@ -248,14 +248,20 @@ class MenuManager:
         
         self.selected_mission_id = 1
 
+        # ── Scroll de la lista de misiones ──────────────────────────────────────
+        # _list_scroll_offset: cuántas misiones desplazamos hacia abajo
+        # _list_visible:       cuántas caben en pantalla (calculado en _mission_layout)
+        self._list_scroll_offset = 0
+        self._list_visible = 3   # valor provisional; se recalcula en layout
+
         # Base de datos de misiones con numeración Peace Walker, calaveras de dificultad,
         # mapas TMX reales y tareas (Mission Tasks estilo MGSV)
         self.missions_data = {
             1: {
                 "id": "001",
                 "title": "ENTRY POINT",
-                "difficulty": 2, # Cantidad de calaveras
-                "map_file": "assets/maps/mapa_edificio1.tmx", # Ajusta según tu ruta de TMX
+                "difficulty": 2,
+                "map_file": "assets/sprites/maps/entry_point_brightness3-576x768.tmx",
                 "unlocked": True,
                 "objective": "Infiltrarse en la nación fortificada de Zanzibar Land.",
                 "situation": "El agente legendario Solid Snake ha sido movilizado de urgencia para rescatar al Dr. Kio Marv, creador del OILIX.",
@@ -267,9 +273,9 @@ class MenuManager:
             },
             2: {
                 "id": "002",
-                "title": "Edificio 1",
+                "title": "EDIFICIO 1",
                 "difficulty": 3,
-                "map_file": "assets/maps/mapa_pantano.tmx", # Ajusta según tu ruta de TMX
+                "map_file": "assets/sprites/maps/building1_floor1-960x960.tmx",
                 "unlocked": True,
                 "objective": "Localizar el paradero del Dr. Marv en el edificio.",
                 "situation": "El edificio está fuertemente custodiado por fuerzas especiales y cámaras de seguridad.",
@@ -281,16 +287,30 @@ class MenuManager:
             },
             3: {
                 "id": "003",
+                "title": "PANTANO",
+                "difficulty": 3,
+                "map_file": "assets/sprites/maps/swamp-960x768.tmx",
+                "unlocked": True,
+                "objective": "Cruzar el pantano y llegar al área del Hind-D.",
+                "situation": "Una extensión de terreno cenagoso separa a Snake del helicóptero. Las patrullas son densas y la cobertura, escasa.",
+                "tasks": [
+                    "Cruzar el pantano sin ser detectado.",
+                    "Eliminar o evitar las patrullas enemigas.",
+                    "Alcanzar la zona de combate del Hind-D."
+                ]
+            },
+            4: {
+                "id": "004",
                 "title": "HIND-D",
-                "difficulty": 4,
+                "difficulty": 5,
                 "map_file": "assets/sprites/maps/hind-d_boss_fight-576x1344.tmx",
                 "unlocked": True,
                 "objective": "Destruir el helicóptero de ataque Hind-D.",
-                "situation": "Zanzibar Land despliega su arma aérea. Sin cobertura, no hay salida.",
+                "situation": "Zanzibar Land despliega su arma aérea definitiva. Sin cobertura, no hay salida.",
                 "tasks": [
                     "Mantenerse con vida bajo el fuego aéreo.",
-                    "Usar la cobertura para evitar las ráfagas.",
-                    "Derribar el Hind-D."
+                    "Usar la cobertura para evitar las ráfagas y los misiles.",
+                    "Derribar el Hind-D con el Stinger."
                 ]
             }
         }
@@ -311,6 +331,22 @@ class MenuManager:
         self.back_button = RetroButton("VOLVER", int(SCREEN_WIDTH * 0.05), SCREEN_HEIGHT - 64, 190, 42, back=True, key_hint="ESC")
         self.deploy_button = RetroButton("DESPLEGAR", SCREEN_WIDTH - 280, SCREEN_HEIGHT - 64, 250, 42, key_hint="ENTER")
 
+    # ── Scroll helpers ────────────────────────────────────────────────────────
+    def _clamp_scroll(self):
+        ids = sorted(self.missions_data)
+        max_scroll = max(0, len(ids) - self._list_visible)
+        self._list_scroll_offset = max(0, min(self._list_scroll_offset, max_scroll))
+
+    def _ensure_selected_visible(self):
+        """Ajusta el scroll para que la misión seleccionada siempre sea visible."""
+        ids = sorted(self.missions_data)
+        pos = ids.index(self.selected_mission_id)
+        if pos < self._list_scroll_offset:
+            self._list_scroll_offset = pos
+        elif pos >= self._list_scroll_offset + self._list_visible:
+            self._list_scroll_offset = pos - self._list_visible + 1
+        self._clamp_scroll()
+
     def handle_events(self, events):
         mouse_pos = pygame.mouse.get_pos()
         action = None
@@ -319,7 +355,7 @@ class MenuManager:
             if event.type == pygame.QUIT:
                 return "EXIT"
 
-            # ESC: volver al menú principal desde Misiones, Controles o Créditos   <- nuevo
+            # ESC: volver al menú principal desde Misiones, Controles o Créditos
             if (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE
                     and self.state in ("MISSIONS", "CONTROLS", "CREDITS")):
                 play_sound("cancel")
@@ -335,13 +371,19 @@ class MenuManager:
                 elif chosen == 2:
                     self.state = "CREDITS"
                 elif chosen == 3:
-                    play_sound("cancel")        # <- nuevo (salir del juego)
+                    play_sound("cancel")
                     return "EXIT"
 
             elif self.state == "MISSIONS":
                 lay = self._mission_layout(*pygame.display.get_surface().get_size())
 
-                # Clic en una misión de la lista
+                # Rueda del mouse: scroll de la lista
+                if event.type == pygame.MOUSEWHEEL:
+                    # y > 0 = scroll up = ver misiones anteriores
+                    self._list_scroll_offset -= event.y
+                    self._clamp_scroll()
+
+                # Clic en una misión de la lista (sólo las visibles tienen rect en lay)
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     for idx, rect in lay["items"].items():
                         if rect.collidepoint(event.pos) and idx != self.selected_mission_id:
@@ -355,9 +397,11 @@ class MenuManager:
                     if event.key in (pygame.K_UP, pygame.K_w):
                         self.selected_mission_id = ids[(pos - 1) % len(ids)]
                         play_sound("select")
+                        self._ensure_selected_visible()
                     elif event.key in (pygame.K_DOWN, pygame.K_s):
                         self.selected_mission_id = ids[(pos + 1) % len(ids)]
                         play_sound("select")
+                        self._ensure_selected_visible()
                     elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
                         result = self._try_deploy()
                         if result:
@@ -376,7 +420,7 @@ class MenuManager:
 
             elif self.state in ["CONTROLS", "CREDITS"]:
                 if self.back_button.is_clicked(event):
-                    play_sound("cancel")        # <- nuevo
+                    play_sound("cancel")
                     self.state = "MAIN_MENU"
 
         return action
@@ -386,33 +430,59 @@ class MenuManager:
 
     # ------------------------------------------------------------ MISIONES
     def _mission_layout(self, W, H):
-        """Calcula dónde va cada cosa según el tamaño real de la pantalla (y ubica el botón DESPLEGAR)."""
+        """Calcula dónde va cada cosa según el tamaño real de la pantalla.
+
+        Con scroll: sólo se muestran _list_visible tarjetas a la vez.
+        """
         m = int(W * 0.05)
         top = int(H * 0.23)
         bottom = self.back_button.rect.y - int(H * 0.03)
         left_w = int(W * 0.30)
         right_x = m + left_w + int(W * 0.03)
 
-        card_h, card_gap = int(H * 0.105), int(H * 0.018)
-        items = {}
-        for i, idx in enumerate(sorted(self.missions_data)):
-            items[idx] = pygame.Rect(m, top + i * (card_h + card_gap), left_w, card_h)
+        card_h = int(H * 0.105)
+        card_gap = int(H * 0.018)
 
-        sh = int(H * 0.2)
+        # El panel de atajos ocupa la parte baja de la columna izquierda
+        sh = int(H * 0.18)
+        keys_top = bottom - sh - int(H * 0.015)   # margen entre lista y panel atajos
+
+        # Cuántas tarjetas caben ENCIMA del panel de atajos (sin pisarlo)
+        list_area_h = keys_top - top - 20          # 20 px de margen para las flechas de scroll
+        ids_sorted = sorted(self.missions_data)
+        total = len(ids_sorted)
+        visible = max(1, (list_area_h + card_gap) // (card_h + card_gap))
+        self._list_visible = visible
+
+        self._clamp_scroll()
+
+        # Sólo creamos rects para las misiones visibles en la ventana actual
+        items = {}
+        for screen_pos in range(visible):
+            data_pos = screen_pos + self._list_scroll_offset
+            if data_pos >= total:
+                break
+            idx = ids_sorted[data_pos]
+            items[idx] = pygame.Rect(m, top + screen_pos * (card_h + card_gap), left_w, card_h)
+
         dw = max(250, int(W * 0.19))
         self.deploy_button.rect.update(W - m - dw, self.back_button.rect.y, dw, self.back_button.rect.h)
 
         return {
             "m": m, "top": top, "left_w": left_w, "right_x": right_x,
+            "card_h": card_h, "card_gap": card_gap,
+            "total": total, "visible": visible,
             "items": items,
-            "keys": pygame.Rect(m, bottom - sh, left_w, sh),
+            "keys": pygame.Rect(m, keys_top, left_w, sh),
             "detail": pygame.Rect(right_x, top, W - m - right_x, bottom - top),
         }
 
     def _mission_assets(self, W, H, lay):
         """Fondo, atajos y overlays: se arman una sola vez por tamaño de pantalla."""
         a = getattr(self, "_m_assets", None)
-        if a is not None and a["size"] == (W, H):
+        # También invalida si el panel de atajos cambió de posición (distintas misiones visibles)
+        keys_y = lay["keys"].y
+        if a is not None and a["size"] == (W, H) and a.get("keys_y") == keys_y:
             return a
 
         m = lay["m"]
@@ -457,9 +527,9 @@ class MenuManager:
         pad = max(12, int(kr.h * 0.1))
         lab = f_desc.render("ATAJOS", True, _R_DIM)
         bg.blit(lab, (kr.x + pad + 8, kr.y + pad))
-        rows = [(["W", "S"], "ELEGIR MISIÓN"), (["ENTER"], "DESPLEGAR"), (["ESC"], "VOLVER")]
+        rows = [(["W", "S"], "ELEGIR MISIÓN"), (["RUEDA"], "DESPLAZAR"), (["ENTER"], "DESPLEGAR"), (["ESC"], "VOLVER")]
         area_top = kr.y + pad + lab.get_height() + 12
-        row_h = (kr.bottom - pad - area_top) // len(rows)
+        row_h = max(1, (kr.bottom - pad - area_top) // len(rows))
         cs = int(row_h * 0.72)
         for i, (caps, text) in enumerate(rows):
             cy = area_top + i * row_h + row_h // 2
@@ -486,7 +556,7 @@ class MenuManager:
         black = pygame.Surface((W, H))
         black.fill((0, 0, 0))
 
-        self._m_assets = {"size": (W, H), "bg": bg, "scan": scan,
+        self._m_assets = {"size": (W, H), "keys_y": lay["keys"].y, "bg": bg, "scan": scan,
                         "vig": pygame.transform.smoothscale(vig, (W, H)), "black": black}
         return self._m_assets
 
@@ -508,10 +578,37 @@ class MenuManager:
         t = now - self._m_open
 
         surface.blit(assets["bg"], (0, 0))
+
+        # Tarjetas de misión (sólo las visibles)
         for pos, (idx, rect) in enumerate(lay["items"].items()):
             p = _r_ease((t - 150 - pos * 90) / 320.0)
             if p > 0:
                 self._draw_mission_card(surface, idx, rect, mouse_pos, p, H)
+
+        # Flechas de scroll si hay más misiones que las que caben
+        total   = lay["total"]
+        visible = lay["visible"]
+        m       = lay["m"]
+        left_w  = lay["left_w"]
+        top     = lay["top"]
+        card_h  = lay["card_h"]
+        card_gap = lay["card_gap"]
+        list_bottom = top + visible * (card_h + card_gap) - card_gap
+
+        if self._list_scroll_offset > 0:
+            # Flecha arriba
+            ax = m + left_w // 2
+            ay = top - 14
+            pygame.draw.polygon(surface, _R_ACCENT,
+                                [(ax, ay), (ax - 10, ay + 12), (ax + 10, ay + 12)])
+
+        if self._list_scroll_offset + visible < total:
+            # Flecha abajo
+            ax = m + left_w // 2
+            ay = list_bottom + 14
+            pygame.draw.polygon(surface, _R_ACCENT,
+                                [(ax, ay), (ax - 10, ay - 12), (ax + 10, ay - 12)])
+
         self._draw_mission_detail(surface, lay, H)
 
         surface.blit(assets["scan"], (0, 0))
@@ -639,11 +736,9 @@ class MenuManager:
         elif self.state == "MISSIONS":
             self._draw_missions(surface, mouse_pos)
 
-
         elif self.state == "CONTROLS":
             self.controls_view.draw(surface)
             self.back_button.draw(surface, mouse_pos)
-        
 
         elif self.state == "CREDITS":
             self.credits_view.draw(surface)
