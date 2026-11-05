@@ -1,9 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="36" height="84" tilewidth="16" tileheight="16" infinite="0" nextlayerid="12" nextobjectid="127">
+<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="36" height="84" tilewidth="16" tileheight="16" infinite="0" nextlayerid="13" nextobjectid="128">
  <tileset firstgid="1" source="colisiones.tsx"/>
  <imagelayer id="2" name="hind-d_boss_fight-576x1344">
   <image source="hind-d_boss_fight-576x1344.png" width="576" height="1344"/>
  </imagelayer>
+ <objectgroup id="12" name="codec_trigger">
+  <object id="127" x="0" y="0" width="576" height="1344">
+   <properties>
+    <property name="call_id" value="chopper_call"/>
+   </properties>
+  </object>
+ </objectgroup>
  <layer id="1" name="colisiones_grid" width="36" height="84">
   <data encoding="csv">
 1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,

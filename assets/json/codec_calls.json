@@ -48,11 +48,11 @@
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "La ubicación apróximada del objetivo es el ala de ingeniería, ubicada en el extremo derecho del complejo."
+                    "texto": "La ubicación apróximada del objetivo es el ala de ingeniería, ubicada en el extremo superior izquierdo del complejo."
                 },
                 {
                     "habla": "Snake",
-                    "texto": "¿Ala derecha? Entendido."
+                    "texto": "¿Ala izquierda? Entendido."
                 },
                 {
                     "habla": "Campbell",
@@ -100,33 +100,6 @@
                 {
                     "habla": "Snake",
                     "texto": "Entendido, coronel."
-                }
-            ]
-        },
-        "enemy_call": {
-            "frecuencia": "140.83",
-            "nombre_contacto": "Roy Campbell",
-            "codec_background": "assets/codec/codec1.png",
-            "dialogo": [
-                {
-                    "habla": "Campbell",
-                    "texto": "Esa base esta lleno de soldados enemigos. Son obligados a patrullar una zona específica. Tenes que evitar que te vean."
-                },
-                {
-                    "habla": "Campbell",
-                    "texto": "Hay varias formas para lograr esto: una de ellas es moviendote por fuera de su rango de vision..."
-                },
-                {
-                    "habla": "Campbell",
-                    "texto": "o podrias generar una distracción, como un ruido, para que vayan a revisar y vos poder continuar."
-                },
-                {
-                    "habla": "Campbell",
-                    "texto": "Tambien podrías noquearlo usando técnicas de CQC o usar armas letales para que no obstruyan el camino."
-                },
-                {
-                    "habla": "Campbell",
-                    "texto": "Eso depende de vos."
                 }
             ]
         },
@@ -178,6 +151,90 @@
                 {
                     "habla": "Snake",
                     "texto": "Entendido, coronel."
+                }
+            ]
+        },
+        "enemy_call": {
+            "frecuencia": "140.83",
+            "nombre_contacto": "Roy Campbell",
+            "codec_background": "assets/codec/codec1.png",
+            "dialogo": [
+                {
+                    "habla": "Campbell",
+                    "texto": "Esa base esta lleno de soldados enemigos. Son obligados a patrullar una zona específica. Tenes que evitar que te vean."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Hay varias formas para lograr esto: una de ellas es moviendote por fuera de su rango de vision..."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "o podrias generar una distracción, como un ruido, para que vayan a revisar y vos poder continuar."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Tambien podrías noquearlo usando técnicas de CQC o usar armas letales para que no obstruyan el camino."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Eso depende de vos."
+                }
+            ]
+        },
+        "building_call": {
+            "frecuencia": "140.83",
+            "nombre_contacto": "Roy Campbell",
+            "codec_background": "assets/codec/codec1.png",
+            "dialogo": [
+                {
+                    "habla": "Campbell",
+                    "texto": "Tenes que dirigirte al ala de ingeniería del complejo."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "¿Recuerdas la ubicación? Parte superior izquierda."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "¿Ves algúna forma de llegar ahi?"
+                }
+            ]
+        },
+        "swamp_call": {
+            "frecuencia": "140.83",
+            "nombre_contacto": "Roy Campbell",
+            "codec_background": "assets/codec/codec1.png",
+            "dialogo": [
+                {
+                    "habla": "Campbell",
+                    "texto": "Un pantano en pleno complejo. Hum... eso si que es extraño."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Tenemos la ligera sospecha de que se trata de un pantano artificial. Ten mucho cuidado."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Es altamente probable que te encuentres con un soldado con un rifle mas que con un cocodrilo hambriento."
+                }
+            ]
+        },
+        "chopper_call": {
+            "frecuencia": "140.83",
+            "nombre_contacto": "Roy Campbell",
+            "codec_background": "assets/codec/codec1.png",
+            "dialogo": [
+                {
+                    "habla": "Campbell",
+                    "texto": "¡Ten cuidado! Hay un helicoptero enemigo en esa zona."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Usa el arma que se te fue proporcionada en la zona para derribar al helicoptero."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Ten cuidado con que no te den. Una ráfaga de balas y no podrás contarla."
                 }
             ]
         }
