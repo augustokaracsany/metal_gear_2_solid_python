@@ -401,7 +401,10 @@
    <point/>
   </object>
  </objectgroup>
- <objectgroup color="#55aa00" id="16" name="items"/>
+  <objectgroup color="#55aa00" id="16" name="items">
+  <object id="297" name="tarjeta_azul" x="519" y="228" width="12" height="12"/>
+  <object id="298" name="food_ration" x="520" y="303" width="12" height="12"/>
+ </objectgroup>
  <layer id="10" name="techos" width="60" height="60">
   <data encoding="csv">
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,

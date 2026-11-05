@@ -51,6 +51,15 @@ class Game:
     ALERT_DECAY_TIME = 15.0    # en segundos
     FOUND_SFX_PATH = "assets/audio/sfx/found.mp3"
     CHASE_MUSIC_PATH = "assets/audio/music/encounter.mp3"
+    # Volumen relativo de cada canción (1.0 = tal cual el slider de OPCIONES; 0.7 = 30 % más bajo).
+    # Va de 0.0 a 1.0: si el slider ya está al 100 % no se puede subir más, por eso conviene bajar
+    # las demás canciones y dejar la que querés más fuerte en 1.0.
+    TRACK_GAIN = {
+        "assets/audio/music/musica_entry_point.mp3": 0.7,   # primer mapa: un poco más bajo
+        "assets/audio/music/Advance Immediately.mp3": 1.0,
+        "assets/audio/music/encounter.mp3": 1.0,            # persecución: más fuerte que el resto
+    }
+    CHASE_MUSIC_ENABLED = True   # True = al ser detectado suena la música de persecución en bucle
     ALERT_FONT_PATH = "assets/fonts/PixelOperator8-Bold.ttf"
     ALERTED_STATES = ("ALERT", "CHASE")
     NOISE_PUNCH_RADIUS = 250   # px
@@ -68,6 +77,18 @@ class Game:
     VENT_MUSIC_PATH = "assets/audio/music/the_man_who_sold_the_world.mp3"
     MUSIC_FADE_OUT_S = 0.8     # baja la música del nivel
     MUSIC_FADE_IN_S = 2.0      # entra la música de la cinemática
+    # Pantalla de victoria: el título se escribe, después aparecen las estadísticas una por una
+    # y recién al final el menú REINTENTAR / SIGUIENTE / SALIR.
+    VICTORY_STATS_START_MS = 1400
+    VICTORY_ROW_MS = 280
+    VICTORY_MENU_DELAY_MS = 3100
+    VICTORY_ANIM_DIR = "assets/images/victory_anim"    # frames PNG (frame_00.png, frame_01.png...) del fondo animado de victoria
+    VICTORY_ANIM_FRAME_MS = 80                         # duración de cada frame de la animación
+    VICTORY_ANIM_SHADE = 55                            # oscurecimiento general del fondo animado (0-255)
+    VICTORY_BG_PATH = "assets/images/victory_bg.png"   # fondo de la pantalla de victoria (si no existe, usa el degradado de siempre)
+    
+
+
     def __init__(self, mission_number=1, skip_boss_intro=False):
         # Por si venimos de una partida anterior con el Stinger apuntando: mouse normal.
         pygame.mouse.set_visible(True)
@@ -171,6 +192,7 @@ class Game:
 
         # Armas/munición del mapa ya recogidas (para que no reaparezcan al recargar el mapa).
         self.picked_pickups = set()
+        self.ration_eaten = False   # True cuando Snake ya se comió la ración (para que no reaparezca en el camión).
         
         self.enemy_bullets = pygame.sprite.Group()
 
@@ -179,6 +201,7 @@ class Game:
         self.current_map_key = None
         self.current_route_count = 0
         self.codec_zones = []
+        self.vent_zones = []
 
         self.alert_level = 0.0
         self.chase_music_active = False   # True si la música de persecución tomó el control
@@ -197,6 +220,7 @@ class Game:
         self._was_punching = False
         self.radar = Radar(self.ALERTED_STATES)
         self._shot_noise_cd = 0.0     # espera entre ruidos de disparo
+        self._reset_mission_stats()   # estadísticas para la pantalla de victoria
 
         # Escalado final de la pantalla virtual a la ventana ( ver _scale_to_screen ).
         self._scale_mode = "direct"   # "direct" | "buffer" | "plain"
@@ -358,6 +382,7 @@ class Game:
 
     def shoot_bullet(self, damage_mult):
         """Callback del WeaponManager: crea la bala de las armas de fuego."""
+        self.stat_shots += 1
         muzzle = self.fire_fx.muzzle_pos(self.player, self.weapons.current_id)
         self.bullets_group.add(self.player.fire_bullet(damage_mult, muzzle=muzzle))
         self.fire_fx.on_shot(self.player, self.weapons.current_id)
@@ -417,6 +442,14 @@ class Game:
             self.top_barriers = self.map.get_top_barriers("limites_top") or []
             self.walls = self.map.get_collision_rects()   # cacheadas una sola vez
             self.codec_zones = self.map.load_codec_zones()
+            # Zonas de ventilación (capa "vents_trigger"): ahí Snake va siempre cuerpo a tierra.
+            self.vent_zones = []
+            scale = self.map.scale
+            for o in self.find_objects("vents_trigger"):
+                self.vent_zones.append(pygame.Rect(
+                    int(o.x * scale), int(o.y * scale),
+                    int(o.width * scale), int(o.height * scale)))
+            print(f"[VENTS] zonas de ventilación cargadas: {len(self.vent_zones)}")   # TEMPORAL: borrar después de probar.
 
             self.radar.build(self.map.width, self.map.height, self.walls)
         self.enemies_group.empty()
@@ -464,7 +497,7 @@ class Game:
                         print(f"Error cargando sprite de la caja: {e}")
 
                 # Ración de comida (camión de truck_interior_2)
-                elif obj.name == "food_ration" and hasattr(self, 'player') and "food_ration" not in self.player.inventory:
+                elif obj.name == "food_ration" and hasattr(self, 'player') and "food_ration" not in self.player.inventory and not self.ration_eaten:
                     scale = self.map.scale
                     try:
                         ration_item = Item("food_ration", 0, 0, "assets/sprites/items/racion_roja.png", scale=1.7)
@@ -585,13 +618,13 @@ class Game:
     def set_paused(self, value):
         """Pausa/reanuda el juego y también los sonidos y la música."""
         self.is_paused = value
+        # Solo se pausan los efectos de sonido. La música sigue sonando durante la pausa
+        # (así se oye el cambio de volumen del slider de OPCIONES al moverlo).
         try:
             if value:
                 pygame.mixer.pause()
-                pygame.mixer.music.pause()
             else:
                 pygame.mixer.unpause()
-                pygame.mixer.music.unpause()
         except pygame.error:
             pass
         # El menú de pausa se maneja con mouse: lo liberamos mientras dura la pausa.
@@ -732,13 +765,36 @@ class Game:
                     self.fox_screen.start(lambda t=trigger: self._do_transition(t))
                 break
 
+    def _mission_for_map(self, tmx_path):
+        """Número de misión al que pertenece un mapa principal (entry point = 1, edificio = 2, etc.).
+        Devuelve None para mapas que no son el inicio de una misión (ducto, pantano, camión...)."""
+        if not tmx_path:
+            return None
+        destino = os.path.normpath(tmx_path)
+        for num, data in self.levels_data.items():
+            if isinstance(num, int) and os.path.normpath(data["tmx"]) == destino:
+                return num
+        return None
+
     def _do_transition(self, trigger):
         props = trigger["properties"]
         target_map = props.get("target_map")
+        self.player.set_force_crawl(False)   # Se vuelve a activar solo si el mapa nuevo tiene zonas de ventilación.
         self.load_level(target_map)
 
-        if "mission" in props:
-            self.mission_number = int(props["mission"])
+        # La misión sale del mapa de destino. Antes se tomaba solo de la propiedad "mission" del
+        # trigger, y la salida del ducto hacia el Entry Point decía mission=2: volvías a la misión 1
+        # pero el juego creía que estabas en la 2, y "Reiniciar misión" te mandaba a la 2.
+        mision_destino = self._mission_for_map(target_map)
+        if mision_destino is not None:
+            nueva_mision = mision_destino
+        elif "mission" in props:
+            nueva_mision = int(props["mission"])
+        else:
+            nueva_mision = self.mission_number
+        if nueva_mision != self.mission_number:
+            self.mission_number = nueva_mision
+            self.start_level_music()    # la música cambia junto con la misión
 
         scale = self.map.scale if self.map else 2
         spawn_x = float(props.get("spawn_x", 180)) * scale
@@ -813,6 +869,109 @@ class Game:
         
         return tmx_exists or png_exists
 
+    # ===================== ESTADÍSTICAS DE MISIÓN =====================
+    def _reset_mission_stats(self):
+        self.stat_time = 0.0     # segundos jugados (la pausa, el inventario y el codec no cuentan)
+        self.stat_alerts = 0     # veces que te descubrieron
+        self.stat_items = 0      # raciones usadas
+        self.stat_shots = 0      # disparos efectuados
+        Enemy.kills = 0
+
+    def _count_life_items_used(self, inventory_before):
+        """Cuenta las raciones que salieron del inventario entre antes y ahora."""
+        used = inventory_before.count("food_ration") - self.player.inventory.count("food_ration")
+        if used > 0:
+            self.stat_items += used
+
+    def _victory_menu_ready(self):
+        return pygame.time.get_ticks() - self.victory_timer >= self.VICTORY_MENU_DELAY_MS
+
+    def _get_victory_bg(self, w, h):
+        """Fondo de victoria ya escalado, oscurecido y con degradado arriba/abajo (se arma una sola vez)."""
+        if getattr(self, "_vic_bg_key", None) == (w, h):
+            return self._vic_bg
+        self._vic_bg_key = (w, h)
+        self._vic_bg = None
+        try:
+            img = pygame.image.load(self.VICTORY_BG_PATH).convert()
+        except Exception as e:
+            print(f"Aviso fondo de victoria: {e}")
+            return None
+        iw, ih = img.get_size()
+        k = max(w / iw, h / ih)                       # "cover": llena la pantalla sin deformar
+        img = pygame.transform.smoothscale(img, (int(iw * k) + 1, int(ih * k) + 1))
+        bg = pygame.Surface((w, h))
+        bg.blit(img, ((w - img.get_width()) // 2, (h - img.get_height()) // 2))
+
+        shade = pygame.Surface((w, h), pygame.SRCALPHA)
+        shade.fill((0, 0, 0, 85))                     # oscurece todo un poco
+        top_h, bot_h = int(h * 0.26), int(h * 0.30)   # degradados negros: el título y el menú se leen bien
+        for y in range(top_h):
+            pygame.draw.line(shade, (0, 0, 0, int(190 * (1 - y / top_h) ** 1.4)), (0, y), (w, y))
+        for y in range(bot_h):
+            pygame.draw.line(shade, (0, 0, 0, int(230 * (1 - y / bot_h) ** 1.4)), (0, h - 1 - y), (w, h - 1 - y))
+        bg.blit(shade, (0, 0))
+        self._vic_bg = bg
+        return bg
+
+    def _load_victory_anim(self):
+        """Carga una sola vez los frames del fondo animado de victoria (si la carpeta no existe, queda vacío)."""
+        self._vic_anim_src = []
+        try:
+            names = sorted(n for n in os.listdir(self.VICTORY_ANIM_DIR) if n.lower().endswith(".png"))
+            for n in names:
+                self._vic_anim_src.append(pygame.image.load(os.path.join(self.VICTORY_ANIM_DIR, n)).convert())
+        except Exception as e:
+            print(f"Aviso fondo animado de victoria: {e}")
+            self._vic_anim_src = []
+
+    def _build_victory_shade(self, w, h):
+        """Capa de sombra con degradados arriba/abajo para que el título y el menú se lean bien."""
+        shade = pygame.Surface((w, h), pygame.SRCALPHA)
+        shade.fill((0, 0, 0, self.VICTORY_ANIM_SHADE))
+        top_h, bot_h = int(h * 0.26), int(h * 0.30)
+        for y in range(top_h):
+            pygame.draw.line(shade, (0, 0, 0, int(190 * (1 - y / top_h) ** 1.4)), (0, y), (w, y))
+        for y in range(bot_h):
+            pygame.draw.line(shade, (0, 0, 0, int(230 * (1 - y / bot_h) ** 1.4)), (0, h - 1 - y), (w, h - 1 - y))
+        return shade
+
+    def _get_victory_anim_frame(self, w, h):
+        """Frame actual del fondo animado ya escalado y oscurecido (se cachea cada frame al usarlo). None si no hay animación."""
+        if not hasattr(self, "_vic_anim_src"):
+            self._load_victory_anim()
+        src = self._vic_anim_src
+        if not src:
+            return None
+        if getattr(self, "_vic_anim_key", None) != (w, h):
+            self._vic_anim_key = (w, h)
+            self._vic_anim_cache = {}
+            self._vic_anim_shade = self._build_victory_shade(w, h)
+        idx = ((pygame.time.get_ticks() - self.victory_timer) // self.VICTORY_ANIM_FRAME_MS) % len(src)
+        frame = self._vic_anim_cache.get(idx)
+        if frame is None:
+            img = src[idx]
+            iw, ih = img.get_size()
+            k = max(w / iw, h / ih)                   # "cover": llena la pantalla sin deformar
+            img = pygame.transform.smoothscale(img, (int(iw * k) + 1, int(ih * k) + 1))
+            frame = pygame.Surface((w, h))
+            frame.blit(img, ((w - img.get_width()) // 2, (h - img.get_height()) // 2))
+            frame.blit(self._vic_anim_shade, (0, 0))
+            self._vic_anim_cache[idx] = frame
+        return frame
+
+    @staticmethod
+    def _render_spaced(font, text, color, spacing):
+        """Texto con espacio extra entre letras (el título se ve más 'cinemático')."""
+        glyphs = [font.render(c, False, color) for c in text]
+        width = sum(g.get_width() for g in glyphs) + spacing * max(0, len(glyphs) - 1)
+        surf = pygame.Surface((max(1, width), font.get_height()), pygame.SRCALPHA)
+        x = 0
+        for g in glyphs:
+            surf.blit(g, (x, 0))
+            x += g.get_width() + spacing
+        return surf
+
     def _update_alert(self, dt):
         detected = any(e.sees_player for e in self.enemies_group)
         hunting = any(e.state in self.ALERTED_STATES for e in self.enemies_group)
@@ -829,16 +988,26 @@ class Game:
             if self.alert_level <= 0:
                 self._on_alert_end()
 
-        # La música arranca cuando termina el sonido de alerta.
+        # Cuando termina el sonido de alerta, la música del nivel vuelve a sonar.
         if self.music_delay is not None:
-            self.music_delay = 0
+            self.music_delay -= dt
             if self.music_delay <= 0:
                 self.music_delay = None
-                self._start_chase_music()
+                if self.CHASE_MUSIC_ENABLED:
+                    self._start_chase_music()
+                else:
+                    try:
+                        pygame.mixer.music.unpause()
+                    except pygame.error:
+                        pass
 
     def _on_alert_start(self):
-        self.chase_music_active = True
-        pygame.mixer.music.stop()   # corta la música del nivel para que se oiga el SFX
+        self.stat_alerts += 1
+        self.chase_music_active = self.CHASE_MUSIC_ENABLED
+        if self.CHASE_MUSIC_ENABLED:
+            pygame.mixer.music.stop()   # corta la música del nivel para que se oiga el SFX
+        else:
+            pygame.mixer.music.pause()  # se pausa (no se corta) y sigue donde estaba al terminar la alarma
         if self.found_sfx:
             self.found_sfx.play()
             self.music_delay = self.found_sfx.get_length()
@@ -863,7 +1032,9 @@ class Game:
     def _reset_alert(self):
         """Apaga todo de golpe (cambio de nivel, muerte)."""
         if self.chase_music_active:
-            pygame.mixer.music.fadeout(1000)
+            pygame.mixer.music.stop()
+        elif self.music_delay is not None:
+            pygame.mixer.music.unpause()    # la alarma se cortó a la mitad: la música no se queda pausada
         if getattr(self, "found_sfx", None):
             self.found_sfx.stop()
         self.alert_level = 0.0
@@ -894,6 +1065,8 @@ class Game:
         except pygame.error:
             pass
 
+        self._reset_mission_stats()
+
         # 1) Estado del jugador (ANTES de cargar el nivel: la caja solo reaparece
         #    si Snake no la tiene en el inventario).
         p = self.player
@@ -916,13 +1089,15 @@ class Game:
         p.anim_timer = 0.0
         p.input_locked = False
         p.health = p.max_health
+        p.damage_taken = 0
         p.is_dead = False
         p.update_offsets_for_stance()
 
         # 1b) Armas de cero (sin Stinger, munición inicial) y pickups del mapa disponibles otra vez.
         self.reset_weapons()
         self.picked_pickups = set()
-        
+        self.ration_eaten = False
+
         # 2) Mapa de la misión desde cero (enemigos + ítems como la caja del camión).
         #    Si Snake estaba dentro del camión, esto también lo devuelve al mapa principal.
         self.load_level(self.mission_number)
@@ -953,6 +1128,8 @@ class Game:
         if self.mission_number == BOSS_MISSION:
             self.skip_boss_intro = False    # Cinemática de inicio otra vez.
             self.setup_boss()
+        else:
+            self.start_level_music()        # La canción de la misión vuelve a sonar desde 0.
 
     def handle_events(self, events):
         for event in events:
@@ -967,6 +1144,11 @@ class Game:
             if self.state == "VICTORY":
                 has_next = self.has_next_mission()
                 max_options = 3 if has_next else 2
+
+                if not self._victory_menu_ready():
+                    if event.type == pygame.KEYDOWN and event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                        self.victory_timer = pygame.time.get_ticks() - self.VICTORY_MENU_DELAY_MS   # saltar animación
+                    continue
 
                 if event.type == pygame.KEYDOWN:
                     if event.key in (pygame.K_a, pygame.K_LEFT):
@@ -1046,7 +1228,10 @@ class Game:
                 continue        # Sin esto, el MISMO ESC le llega al menú de pausa y la cierra al instante.
             # Inventario: se abre con la tecla I y mientras está abierto el juego queda pausado.
             if self.inventory_open:
-                if self.inventory_menu.handle_input(event, self.player) == "CLOSE":
+                inv_before = list(self.player.inventory)
+                inv_action = self.inventory_menu.handle_input(event, self.player)
+                self._count_life_items_used(inv_before)
+                if inv_action == "CLOSE":
                     self.inventory_open = False
                     self.weapons.resume()       # Si quedó equipado el Stinger, vuelve la mira.
                 continue
@@ -1093,7 +1278,7 @@ class Game:
                     elif event.key == pygame.K_h:
                         self.player.take_damage(10)
                     elif event.key == pygame.K_j:
-                        self.player.heal(10)
+                        self.use_ration()
                     elif event.key == pygame.K_TAB:
                         self.state = "RADIO_MENU"
                     elif event.key == pygame.K_F1:
@@ -1125,6 +1310,26 @@ class Game:
                             self.cine_phase = "TAKEOFF"
                 self.player.punch_self_event(event)
         return None
+
+    def use_ration(self):
+        """Tecla J: Snake se come la ración y recupera 40 de vida."""
+        p = self.player
+        if self.state != "PLAYING" or p.is_dead or p.is_dying:
+            return
+        if "food_ration" not in p.inventory:
+            self.weapons.notify("NO TENÉS RACIONES")
+            return
+        if p.health >= p.max_health:
+            self.weapons.notify("TENÉS LA VIDA COMPLETA")   # No gasta la ración si no hace falta.
+            return
+
+        p.inventory.remove("food_ration")
+        self.stat_items += 1          # <- nueva
+        self.ration_eaten = True
+        if getattr(p, "equipped_item", None) == "food_ration":
+            p.equipped_item = None
+        p.heal(40)
+        self.weapons.notify("RACIÓN: +40 DE VIDA")
 
     def execute_radio_call(self):
         target_call_id = "default"
@@ -1238,11 +1443,25 @@ class Game:
                 self.fade_to_music("assets/audio/music/Advance Immediately.mp3", out_s=1.5, in_s=1.5)
                 self.execute_radio_call_id("vent_radio", True)
             return
+        
+        self.stat_time += dt
 
         walls = self.walls
 
         if self.rain_active:
             self.rain.update(dt)
+
+        # Dentro de las ventilaciones Snake va siempre cuerpo a tierra.
+        in_vents = any(self.player.rect.colliderect(zone) for zone in self.vent_zones)
+        self.player.set_force_crawl(in_vents)
+
+        # El Stinger no se puede usar cuerpo a tierra: vuelve al arma de fuego anterior.
+        if in_vents and self.weapons.current.kind == "launcher":
+            if self.weapons.last_firearm_id in self.weapons.owned:
+                self.weapons.equip(self.weapons.last_firearm_id)
+            else:
+                self.weapons.current.on_unequip(self.player)
+                self.weapons.current_id = None
 
         # Con el Stinger equipado Snake queda quieto y mira hacia donde apunta la mira.
         self.player.weapon_locked = self.weapons.blocks_movement
@@ -1269,11 +1488,13 @@ class Game:
         self._check_punch_noise()
 
         # Armas y munición del mapa (camiones del Stinger).
-        got = collect_pickups(self.player.rect, self.items_group, self.weapons)
+        got = collect_pickups(self.player.rect, self.items_group, self.weapons,
+                              item_message=self.item_message, sfx_volume=self.pause_menu.sfx_volume)
         self.picked_pickups.update(uid for uid in got if uid is not None)
 
         # Armas: cadencia, balas, recarga, Stinger (lock-on / misiles) y auto-desequipado.
         boss_target = self.boss if (self.boss and self.boss_mode == "FIGHT") else None
+        missiles_before = len(self.missiles_group)
         self.weapons.update(
             dt,
             self.shoot_bullet,
@@ -1281,6 +1502,7 @@ class Game:
             target=boss_target,
             projectiles=self.missiles_group,
         )
+        self.stat_shots += max(0, len(self.missiles_group) - missiles_before)   # misiles lanzados
         self.fire_fx.update(dt)
         self._shot_noise_cd = max(0.0, self._shot_noise_cd - dt)
         if not self.weapons.blocks_movement:
@@ -1497,11 +1719,73 @@ class Game:
             chars_to_show = min(len(target_text), int(elapsed / 80))
             text_to_render = target_text[:chars_to_show]
             
-            text_surface = font_large.render(text_to_render, True, (50, 225, 100))
-            text_rect = text_surface.get_rect(center=(w // 2, h // 2))
-            surface.blit(text_surface, text_rect)
+            # --- Fondo (imagen) ---
+            bg = self._get_victory_anim_frame(w, h) or self._get_victory_bg(w, h)   # animado; si no hay frames, el fondo estático
+            if bg:
+                surface.blit(bg, (0, 0))
 
-            prompt_delay = 1500
+            # --- Título: letras grandes con espaciado, sombra y brillo verde ---
+            title_size = 48 if h >= 640 else 32
+            if getattr(self, "_vic_title_size", None) != title_size:
+                self._vic_title_size = title_size
+                self._vic_title_font = pygame.font.Font("assets/fonts/PixelOperator8-Bold.ttf", title_size)
+            spacing = title_size // 8
+            full_w = self._render_spaced(self._vic_title_font, target_text, (0, 0, 0), spacing).get_width()
+            title_left = (w - full_w) // 2
+            title_top = int(h * 0.13) - self._vic_title_font.get_height() // 2
+            if chars_to_show > 0:
+                part = text_to_render
+                shadow = self._render_spaced(self._vic_title_font, part, (0, 0, 0), spacing)
+                glow = self._render_spaced(self._vic_title_font, part, (15, 95, 50), spacing)
+                main = self._render_spaced(self._vic_title_font, part, (60, 235, 115), spacing)
+                surface.blit(shadow, (title_left + 4, title_top + 4))
+                for ox, oy in ((-2, 0), (2, 0), (0, -2), (0, 2), (-2, -2), (2, -2), (-2, 2), (2, 2)):
+                    surface.blit(glow, (title_left + ox, title_top + oy))
+                surface.blit(main, (title_left, title_top))
+            if chars_to_show >= len(target_text):
+                line_y = title_top + self._vic_title_font.get_height() + 14
+                pygame.draw.line(surface, (60, 235, 115), (title_left, line_y), (title_left + full_w, line_y), 2)
+                pygame.draw.rect(surface, (60, 235, 115), (title_left - 10, line_y - 3, 6, 8))
+                pygame.draw.rect(surface, (60, 235, 115), (title_left + full_w + 4, line_y - 3, 6, 8))
+
+            # --- Estadísticas de la misión (panel oscuro: se leen bien sobre la imagen) ---
+            if elapsed >= self.VICTORY_STATS_START_MS:
+                if not hasattr(self, "_vic_stat_font"):
+                    self._vic_stat_font = pygame.font.Font("assets/fonts/PixelOperator8.ttf", 16)
+                total = int(self.stat_time)
+                tiempo = f"{total // 3600:02d}:{(total % 3600) // 60:02d}:{total % 60:02d}"
+                filas = [
+                    ("TIEMPO DE JUEGO", tiempo),
+                    ("VECES DESCUBIERTO", str(self.stat_alerts)),
+                    ("ENEMIGOS ELIMINADOS", str(Enemy.kills)),
+                    ("RACIONES USADAS", str(self.stat_items)),
+                    ("DISPAROS EFECTUADOS", str(self.stat_shots)),
+                    ("DAÑO TOTAL RECIBIDO", str(int(self.player.damage_taken))),
+                ]
+                step = max(26, int(h * 0.042))
+                pad = step // 2
+                pw, ph = min(560, w - 40), step * len(filas) + pad * 2
+                px, py = (w - pw) // 2, int(h * 0.38)
+                panel = pygame.Surface((pw, ph), pygame.SRCALPHA)
+                panel.fill((6, 8, 6, 175))
+                surface.blit(panel, (px, py))
+                pygame.draw.rect(surface, (60, 235, 115), (px, py, pw, ph), 1)
+                pygame.draw.line(surface, (60, 235, 115), (px, py), (px + pw, py), 3)
+                col_l, col_r = px + 28, px + pw - 28
+                fh = self._vic_stat_font.get_height()
+                for i, (etiqueta, valor) in enumerate(filas):
+                    if elapsed < self.VICTORY_STATS_START_MS + i * self.VICTORY_ROW_MS:
+                        break
+                    cell = py + pad + i * step
+                    text_y = cell + (step - fh) // 2
+                    s_lab = self._vic_stat_font.render(etiqueta, True, (205, 205, 205))
+                    s_val = self._vic_stat_font.render(valor, True, (60, 235, 115))
+                    surface.blit(s_lab, (col_l, text_y))
+                    surface.blit(s_val, s_val.get_rect(topright=(col_r, text_y)))
+                    if i < len(filas) - 1:
+                        pygame.draw.line(surface, (70, 80, 70), (col_l, cell + step - 1), (col_r, cell + step - 1), 1)
+
+            prompt_delay = self.VICTORY_MENU_DELAY_MS
             if elapsed > prompt_delay:
                 has_next = self.has_next_mission()
                 max_options = 3 if has_next else 2
