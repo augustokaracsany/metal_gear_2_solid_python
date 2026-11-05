@@ -296,10 +296,8 @@ class Game:
         elif self.mission_number == 4:
             music_path = "assets/audio/music/Level 1 Warning (Alert Mode Level 1 Part 5).mp3"
         else:
-
-
-            
-            return  # Si hay otra misión que aún no tiene canción, no hace nada
+            return None  # Si hay otra misión que aún no tiene canción, no hace nada
+        return music_path
 
     def _desired_track(self, in_vents):
         return self.VENT_ZONE_MUSIC_PATH if in_vents else self._level_music_path()
