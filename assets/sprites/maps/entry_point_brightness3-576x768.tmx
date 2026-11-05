@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="36" height="48" tilewidth="16" tileheight="16" infinite="0" nextlayerid="13" nextobjectid="172">
+<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="36" height="48" tilewidth="16" tileheight="16" infinite="0" nextlayerid="13" nextobjectid="173">
  <editorsettings>
   <export target="entry_point_brightness3-576x768.tmx" format="tmx"/>
  </editorsettings>
@@ -124,15 +124,14 @@
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 </data>
  </layer>
- <objectgroup id="11" name="pickups">
-  <object id="147" name="pistola" x="56" y="164" width="34" height="18"/>
-  <object id="167" name="ammo_beretta" x="376" y="92">
+ <objectgroup color="#55aa00" id="11" name="pickups">
+  <object id="167" name="ammo_beretta" x="48" y="432">
    <point/>
   </object>
-  <object id="168" name="m16" x="344" y="92">
+  <object id="169" name="ammo_beretta" x="68" y="140">
    <point/>
   </object>
-  <object id="169" name="ammo_uzi" x="360" y="108">
+  <object id="172" name="beretta_pistol" x="68" y="172">
    <point/>
   </object>
  </objectgroup>

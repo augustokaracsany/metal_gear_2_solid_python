@@ -1,9 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="36" height="12" tilewidth="16" tileheight="16" infinite="0" nextlayerid="5" nextobjectid="4">
+<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="36" height="12" tilewidth="16" tileheight="16" infinite="0" nextlayerid="6" nextobjectid="5">
  <tileset firstgid="1" source="colisiones.tsx"/>
  <imagelayer id="1" name="ducto">
   <image source="vents-576x192.png" width="576" height="192"/>
  </imagelayer>
+ <objectgroup color="#55aa00" id="5" name="pickups">
+  <object id="4" name="ammo_beretta" x="308" y="60">
+   <point/>
+  </object>
+ </objectgroup>
  <layer id="2" name="colisiones_grid" width="36" height="12">
   <data encoding="csv">
 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
