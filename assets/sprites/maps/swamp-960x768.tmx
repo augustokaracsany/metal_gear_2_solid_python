@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="60" height="48" tilewidth="16" tileheight="16" infinite="0" nextlayerid="10" nextobjectid="95">
+<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="60" height="48" tilewidth="16" tileheight="16" infinite="0" nextlayerid="11" nextobjectid="96">
  <tileset firstgid="1" source="colisiones.tsx"/>
  <imagelayer id="3" name="swamp2-960x768">
   <image source="swamp-960x768.png" width="960" height="768"/>
@@ -192,5 +192,12 @@
   <object id="41" x="52" y="120" width="4" height="20"/>
   <object id="42" x="32" y="120" width="4" height="20"/>
   <object id="43" x="0" y="128" width="8" height="32"/>
+ </objectgroup>
+ <objectgroup id="10" name="codec_trigger">
+  <object id="95" x="0" y="0" width="960" height="768">
+   <properties>
+    <property name="call_id" value="swamp_call"/>
+   </properties>
+  </object>
  </objectgroup>
 </map>

@@ -1076,11 +1076,7 @@ class Enemy(pygame.sprite.Sprite):
             t = 1 - self.hop_timer / self.HOP_DURATION     # 0 -> 1
             hop = int(4 * self.HOP_HEIGHT * t * (1 - t))
         draw_y -= hop
-
-        pygame.draw.rect(surface, (255, 0, 0), dest_rect, 1)
-        surface.blit(current_image, (draw_x, draw_y))
-
-        pygame.draw.rect(surface, (255, 0, 0), dest_rect, 1)
+        
         surface.blit(current_image, (draw_x, draw_y))
         if self.flash_timer > 0:
             self._draw_muzzle_flash(surface, dest_rect)
