@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<tileset version="1.10" tiledversion="1.12.2" name="hidden_roofs1" tilewidth="32" tileheight="80" tilecount="11" columns="0">
+<tileset version="1.10" tiledversion="1.12.2" name="hidden_roofs1" tilewidth="32" tileheight="80" tilecount="8" columns="0">
  <grid orientation="orthogonal" width="1" height="1"/>
  <tile id="0">
   <image source="hid/fence_hid0.png" width="32" height="32"/>
@@ -24,14 +24,5 @@
  </tile>
  <tile id="7">
   <image source="hid/truck_hid4.png" width="16" height="80"/>
- </tile>
- <tile id="9">
-  <image source="../../../../../../Downloads/hidden_roof2.png" width="32" height="64"/>
- </tile>
- <tile id="10">
-  <image source="../../../../../../Downloads/truck2.png" width="32" height="80"/>
- </tile>
- <tile id="11">
-  <image source="../../../../../../Downloads/truck.png" width="32" height="80"/>
  </tile>
 </tileset>
