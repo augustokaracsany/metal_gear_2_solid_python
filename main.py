@@ -140,6 +140,7 @@ def main():
                 current_state = Game(1)
 
         # 2. RENDERIZADO GLOBAL.
+        
         screen.fill((0, 0, 0))
         current_state.draw(screen)
         pygame.display.flip()

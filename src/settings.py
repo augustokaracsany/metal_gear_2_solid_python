@@ -73,7 +73,9 @@ PUNCH_STUN_TIME = 1.5   # Segundos que el enemigo queda quieto después de recib
 
 # Sonido del golpe.
 PUNCH_SOUND_PATH = "assets/audio/sfx/punch.wav"   # CAMBIAR si el archivo tiene otro nombre o extensión.
-PUNCH_SOUND_VOLUME = 0.5                          # De 0.0 (mudo) a 1.0 (volumen máximo).
+PUNCH_HIT_SOUND_PATH = "assets/audio/sfx/golpe_enemigo_seco.mp3"   # suena cuando el golpe LE PEGA a un enemigo.
+PUNCH_HIT_SOUND_VOLUME = 0.5                                # De 0.0 (mudo) a 1.0 (volumen máximo).
+PUNCH_SOUND_VOLUME = 1.0                        # De 0.0 (mudo) a 1.0 (volumen máximo).
 
 # Lluvia (misión 1).
 RAIN_DROPS = 170                  # Cantidad de gotas en pantalla.
