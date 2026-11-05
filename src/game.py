@@ -14,6 +14,7 @@ from src.codec import CodecManager
 from src.settings import ENEMY_CONTACT_DAMAGE
 from src.pause import PauseMenu
 from src.settings import PUNCH_DAMAGE, PUNCH_HIT_PADDING, PUNCH_STUN_TIME
+from src.settings import PUNCH_HIT_SOUND_PATH, PUNCH_HIT_SOUND_VOLUME
 from src.inventory import InventoryMenu
 from src.item_message import ItemMessage
 from src.hud_inventory import HUDInventory  # <--- HUD de inventario equipado activo
@@ -207,6 +208,12 @@ class Game:
         self.chase_music_active = False   # True si la música de persecución tomó el control
         self.music_delay = None           # segundos hasta que arranque la música tras el SFX
         try:
+            self.punch_hit_sfx = pygame.mixer.Sound(PUNCH_HIT_SOUND_PATH)
+            self.punch_hit_sfx.set_volume(PUNCH_HIT_SOUND_VOLUME)
+        except Exception as e:
+            print(f"Aviso sonido de golpe a enemigo: {e}")
+            self.punch_hit_sfx = None
+        try:
             self.found_sfx = pygame.mixer.Sound(self.FOUND_SFX_PATH)
         except Exception as e:
             print(f"Aviso SFX de alerta: {e}")
@@ -300,6 +307,8 @@ class Game:
             pygame.mixer.music.load(music_path)
             pygame.mixer.music.set_volume(self.pause_menu.music_volume)
             if self.restart_music:
+                self.pause_menu.music_gain = self.TRACK_GAIN.get(music_path, 1.0)
+                pygame.mixer.music.set_volume(self.pause_menu.music_volume * self.pause_menu.music_gain)
                 pygame.mixer.music.play(-1, 0, 1000)  # -1 = bucle infinito
             else:
                 pygame.mixer.music.play(-1)  # -1 = bucle infinito
@@ -1017,6 +1026,8 @@ class Game:
     def _start_chase_music(self):
         try:
             pygame.mixer.music.load(self.CHASE_MUSIC_PATH)
+            self.pause_menu.music_gain = self.TRACK_GAIN.get(self.CHASE_MUSIC_PATH, 1.0)
+            pygame.mixer.music.set_volume(self.pause_menu.music_volume * self.pause_menu.music_gain)
             pygame.mixer.music.play(-1)
         except Exception as e:
             print(f"Aviso música de persecución: {e}")
@@ -1097,6 +1108,12 @@ class Game:
         self.reset_weapons()
         self.picked_pickups = set()
         self.ration_eaten = False
+
+        # 1c) Olvidar el estado guardado de los mapas (guardias muertos y posiciones). Sin esto,
+        #     load_level() guardaba cómo quedó el mapa actual justo antes de recargarlo y los
+        #     guardias que habías matado no reaparecían. Con la clave en None no guarda nada.
+        self.map_states = {}
+        self.current_map_key = None
 
         # 2) Mapa de la misión desde cero (enemigos + ítems como la caja del camión).
         #    Si Snake estaba dentro del camión, esto también lo devuelve al mapa principal.
@@ -1534,6 +1551,8 @@ class Game:
                 if punch_rect.colliderect(enemy.rect.inflate(PUNCH_HIT_PADDING, PUNCH_HIT_PADDING)):
                     enemy.take_damage(PUNCH_DAMAGE, PUNCH_STUN_TIME, self.player.rect.center)
                     self.player.punch_hit_done = True
+                    if self.punch_hit_sfx:
+                        self.punch_hit_sfx.play()   # solo suena cuando el golpe conecta
                     break
 
         # Balas: se mueven y chocan contra paredes, enemigos o el borde del mapa.

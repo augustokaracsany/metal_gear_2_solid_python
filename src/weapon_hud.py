@@ -25,9 +25,10 @@ from src.hud import draw_text_shadow
 # ── Fuente ─────────────────────────────────────────────────────────────────
 # Poné acá la MISMA fuente que usa HealthBar para "SOLID PYTHON".
 FONT_PATH        = WS.UI_FONT_BOLD
-FONT_SIZE_NAME   = 20     # nombre del arma
-FONT_SIZE_AMMO   = 20     # "30/90"
-FONT_SIZE_MODE   = 12     # "semi" / "burst" / "auto"
+FONT_SIZE_NAME   = 12     # nombre del arma (si no entra en la caja se achica solo hasta FONT_SIZE_NAME_MIN)
+FONT_SIZE_NAME_MIN = 8
+FONT_SIZE_AMMO   = 16     # "15/60"
+FONT_SIZE_MODE   = 10     # "semi" / "burst" / "auto"
 FONT_SIZE_NOTICE = 12     # avisos centrados arriba
 
 # ── Cajas ──────────────────────────────────────────────────────────────────
@@ -36,26 +37,27 @@ SLOT_H      = 100         # alto de cada caja
 SLOT_GAP_X  = 16          # separación horizontal entre cajas
 SLOT_GAP_Y  = 14          # separación vertical entre cajas
 MARGIN      = WS.HUD_MARGIN
-PAD         = 8           # margen interno de las cajas
+PAD         = 7           # margen interno de las cajas
 
 # ── Colores ────────────────────────────────────────────────────────────────
 BG_COLOR      = (10, 8, 5)
 BG_ALPHA      = 190       # 0 = invisible, 255 = opaco
-BORDER_COLOR  = None      # ej: (150, 165, 152) para borde fino; None = sin borde
+BORDER_COLOR  = (88, 98, 92)   # borde fino de la caja; None = sin borde
+DIVIDER_COLOR = (62, 70, 65)   # línea que separa el nombre del arma
 COLOR_TEXT    = (240, 240, 235)
 COLOR_DIM     = (120, 120, 112)
 COLOR_LOW     = (230, 70, 60)     # munición baja
 COLOR_MODE    = (235, 235, 230)   # texto/íconos del modo de disparo
 
 # ── Íconos ─────────────────────────────────────────────────────────────────
-ICON_TOP     = 30         # espacio reservado arriba (nombre)
-ICON_BOTTOM  = 46         # espacio reservado abajo (números + balas)
+ICON_TOP     = 24         # espacio reservado arriba (nombre)
+ICON_BOTTOM  = 34         # espacio reservado abajo (números + balas)
 
 # ── Texto de munición ─────────────────────────────────────────────────────
 AMMO_ALIGN   = "right"    # "right" o "left"
 
 # ── Tira de balas ──────────────────────────────────────────────────────────
-BULLET_H         = 8
+BULLET_H         = 6
 BULLET_FILL      = 0.5    # 0..1: qué parte del paso ocupa cada bala (grosor)
 BULLET_COLOR_ON  = (240, 240, 235)
 BULLET_COLOR_OFF = (70, 68, 62)
@@ -98,6 +100,17 @@ class WeaponHUD:
         self.font_mode   = _font(FONT_PATH, FONT_SIZE_MODE)
         self.font_notice = _font(FONT_PATH, FONT_SIZE_NOTICE)
         self._icon_cache = {}
+        self._name_fonts = {}
+
+    def _fit_name_font(self, text, max_w):
+        """Fuente más grande (hasta FONT_SIZE_NAME) con la que el nombre entra en max_w."""
+        for size in range(FONT_SIZE_NAME, FONT_SIZE_NAME_MIN - 1, -1):
+            font = self._name_fonts.get(size)
+            if font is None:
+                font = self._name_fonts[size] = _font(FONT_PATH, size)
+            if font.size(text)[0] <= max_w:
+                return font
+        return font
 
     # ── helpers ──────────────────────────────────────────────────────────────
     def _scaled_icon(self, key, icon, max_w, max_h):
@@ -123,7 +136,7 @@ class WeaponHUD:
         mode = _fire_mode(weapon)
         if mode is None:
             return
-        x, y = PAD, PAD + 3
+        x, y = PAD, PAD + 1
         if MODE_STYLE == "icon":
             lit = MODE_BULLETS[mode]
             for i in range(3):
@@ -170,9 +183,13 @@ class WeaponHUD:
         if BORDER_COLOR is not None:
             pygame.draw.rect(slot, BORDER_COLOR, slot.get_rect(), 1)
 
-        # Nombre (arriba a la derecha)
-        draw_text_shadow(slot, self.font_name, info["name"], COLOR_TEXT,
+        # Nombre (arriba a la derecha). Deja lugar al modo de disparo si el arma lo tiene.
+        mode = _fire_mode(weapon)
+        reserved = (self.font_mode.size(MODE_LABELS[mode])[0] + 8) if (mode and MODE_STYLE == "text") else 0
+        name_font = self._fit_name_font(info["name"], w - 2 * PAD - reserved)
+        draw_text_shadow(slot, name_font, info["name"], COLOR_TEXT,
                          w - PAD, PAD, align_right=True)
+        pygame.draw.line(slot, DIVIDER_COLOR, (PAD, ICON_TOP - 3), (w - PAD, ICON_TOP - 3))
 
         # Modo de disparo (arriba a la izquierda)
         self._draw_fire_mode(slot, weapon)
@@ -189,13 +206,14 @@ class WeaponHUD:
                              w - PAD, text_y, align_right=True)
             self._draw_reload_bar(slot, w, h, info["progress"])
         else:
+            # Cargador en blanco (rojo si queda poco) y reserva "/60" más apagada.
             color = COLOR_LOW if info["low"] else COLOR_TEXT
-            txt = f'{info["main"]}{info["sub"]}'
-            if AMMO_ALIGN == "left":
-                draw_text_shadow(slot, self.font_ammo, txt, color, PAD, text_y)
-            else:
-                draw_text_shadow(slot, self.font_ammo, txt, color,
-                                 w - PAD, text_y, align_right=True)
+            main_txt, sub_txt = str(info["main"]), str(info["sub"])
+            main_w = self.font_ammo.size(main_txt)[0]
+            sub_w = self.font_ammo.size(sub_txt)[0]
+            x0 = PAD if AMMO_ALIGN == "left" else w - PAD - main_w - sub_w
+            draw_text_shadow(slot, self.font_ammo, main_txt, color, x0, text_y)
+            draw_text_shadow(slot, self.font_ammo, sub_txt, COLOR_DIM, x0 + main_w, text_y)
             self._draw_bullet_strip(slot, w, h, weapon, info)
 
         if alpha < 1.0:
