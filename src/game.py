@@ -616,6 +616,7 @@ class Game:
             pygame.mixer.stop()
         except pygame.error:
             pass
+        self._mf = None
         self._music_key = None
         # Al salir al menú el mouse tiene que volver a ser el normal (el Stinger lo oculta).
         if hasattr(self, "weapons"):
@@ -1627,6 +1628,7 @@ class Game:
         """Llamar siempre que se abandone el nivel (ESC, menú, salir)."""
         self._reset_alert()
         pygame.mixer.music.stop()   # por si quedó sonando algo del nivel
+        self._mf = None
 
     def _build_dead_text(self):
         font = pygame.font.Font("assets/fonts/PixelOperator8-Bold.ttf", 28)

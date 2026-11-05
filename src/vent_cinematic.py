@@ -15,7 +15,12 @@ class VentCinematic:
     MAP_SCALE = 2
 
     SOLDIER_SPRITE = "assets/sprites/red_beret/look_down1.png"
-    PRISONER_SPRITE = "assets/sprites/prisoners/ambar_walkdown1.png"
+    PRISONER_SPRITES = [
+        "assets/sprites/prisoners/lau_walkdown1.png",     # prisioner1
+        "assets/sprites/prisoners/ambar_walkdown1.png",   # prisioner2
+        "assets/sprites/prisoners/valen_walkdown1.png",   # prisioner3
+        "assets/sprites/prisoners/gus_walkdown1.png",     # prisioner4
+    ]
     SNAKE_DIR = "assets/sprites/solid_python/"
 
     FADE_OUT_S = 0.6
@@ -34,11 +39,29 @@ class VentCinematic:
 
     # (quién habla, texto). Reemplazalos por los diálogos reales.
     DIALOGUE = [
-        ("Lautaro", "Por favor, dejanos ir. No tenemos nada que ver con el incidente Outer Heaven."),
-        ("Soldado", "Ustedes nos van a ayudar a construir Outer Heaven."),
-        ("Soldado", "A cambio, le vamos a dar vivienda, alimento y lo que sea necesario para sobrevivir."),
-        ("Lautaro", "No, por favor. Le tengo miedo a los trabajos de tiempo completo."),
-        ("Soldado", "Outer Heaven se saca adelante trabajando. ¡Hora de moverse!")
+        ("Soldado", "¿Alguna vez han escuchado hablar sobre Outer Heaven?"),
+        ("Lautaro", "No."),
+        ("Ambar", "No."),
+        ("Valen", "No."),
+        ("Augusto", "¡Si!... digo, no."),
+        ("Soldado", "Outer Heaven era un palacio, y nos lo arrebataron..."),
+        ("Soldado", "estan obligados a ayudarnos a reconstruirlo. Si se abstienen, TABLA."),
+        ("Soldado", "O les vamos a pegar con cables pelados."),
+        ("Ambar", "¿Cómo que reconstruirlo?"),
+        ("Valen", "No sabemos absolutamente nada de construcción."),
+        ("Soldado", "Todo se aprende. Van a hacer cursos de albañilería."),
+        ("Lautaro", "¡NOOOOOOO! NO UN TRABAJO DE TIEMPO COMPLETO."),
+        ("Augusto", "No es para tanto. Yo hice cosas peores."),
+        ("Ambar", "Hay algo que no entiendo, ¿por qué nos reclutarían a nosotros?"),
+        ("Lautaro (dev)", "En realidad nos forzaron a incluirnos, por eso estamos acá."),
+        ("Lautaro (dev)", "Pero bueno... le voy a meter una excusa mas elaborada."),
+        ("Soldado", "Por que ustedes son los elegidos por el..."),
+        ("Soldado", "¡THE BIGGEST BOSS!"),
+        ("Valen", "Que feo nombre, ¿no tenía otro mejor?"),
+        ("Augusto", "Re poco original el wachin."),
+        ("Soldado", "Ya me estoy arrepintiendo de haberlos secuestado..."),
+        ("Soldado", "no importa. Ahora los voy a llevar a las salas de entrenamiento, para luego..."),
+        ("Soldado", "¡empezar a trabajar!"),
     ]
 
     def __init__(self):
@@ -190,10 +213,16 @@ class VentCinematic:
         except Exception:
             self.soldier_img = None
         try:
-            self.prisoner_img = self._img(self.PRISONER_SPRITE) if self.PRISONER_SPRITE else None
+            self.prisoner_imgs = []
+            for path in self.PRISONER_SPRITES:
+                try:
+                    self.prisoner_imgs.append(self._img(path))
+                except Exception as e:
+                    print(f"Aviso: no se pudo cargar {path}: {e}")
+                    self.prisoner_imgs.append(None)
         except Exception:
             self.prisoner_img = None
-        if self.prisoner_img is None and self.soldier_img is not None:
+        if self.prisoner_imgs is None and self.soldier_img is not None:
             self.prisoner_img = self.soldier_img.copy()
             self.prisoner_img.fill((90, 90, 90, 255), special_flags=pygame.BLEND_RGBA_MULT)
 
@@ -356,8 +385,9 @@ class VentCinematic:
         if self.bg:
             vs.blit(self.bg, (-cam_x, -cam_y))
 
-        for p in self.prisoners:
-            self._blit_actor(self.prisoner_img, p, cam)
+        for i, p in enumerate(self.prisoners):
+            img = self.prisoner_imgs[i % len(self.prisoner_imgs)] if self.prisoner_imgs else None
+            self._blit_actor(img, p, cam)
         for p in self.soldiers:
             self._blit_actor(self.soldier_img, p, cam)
 
