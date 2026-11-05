@@ -74,7 +74,7 @@ class Enemy(pygame.sprite.Sprite):
     BOX_FOOLS_GUARDS = True
 
     # True = Dibuja la ruta A* en amarillo. (Se eliminaron los prints molestos de consola).
-    DEBUG_AI = True
+    DEBUG_AI = False
 
     DIRS = {"UP": (0, -1), "DOWN": (0, 1), "LEFT": (-1, 0), "RIGHT": (1, 0)}
 
@@ -1023,38 +1023,38 @@ class Enemy(pygame.sprite.Sprite):
                 cls._sound_icon = pygame.Surface((1, 1), pygame.SRCALPHA)
         return cls._sound_icon
 
-    def draw_vision(self, surface, camera):
-        dir_x, dir_y = self.DIRS[self._vision_facing()]
-        start_x, start_y = self._eye_pos()
-        perp_x, perp_y = -dir_y, dir_x
+    # def draw_vision(self, surface, camera):
+    #     dir_x, dir_y = self.DIRS[self._vision_facing()]
+    #     start_x, start_y = self._eye_pos()
+    #     perp_x, perp_y = -dir_y, dir_x
 
-        rng = self.VISION_RANGE
-        w = self.CONE_TAN
-        left = (start_x + (dir_x - perp_x * w) * rng, start_y + (dir_y - perp_y * w) * rng)
-        right = (start_x + (dir_x + perp_x * w) * rng, start_y + (dir_y + perp_y * w) * rng)
+    #     rng = self.VISION_RANGE
+    #     w = self.CONE_TAN
+    #     left = (start_x + (dir_x - perp_x * w) * rng, start_y + (dir_y - perp_y * w) * rng)
+    #     right = (start_x + (dir_x + perp_x * w) * rng, start_y + (dir_y + perp_y * w) * rng)
 
-        ox, oy = camera.camera_rect.x, camera.camera_rect.y
-        points = [(start_x + ox, start_y + oy), (left[0] + ox, left[1] + oy), (right[0] + ox, right[1] + oy)]
+    #     ox, oy = camera.camera_rect.x, camera.camera_rect.y
+    #     points = [(start_x + ox, start_y + oy), (left[0] + ox, left[1] + oy), (right[0] + ox, right[1] + oy)]
 
-        alerted = self.state in ("ALERT", "CHASE")
-        color = (255, 0, 0, 100) if alerted else (0, 255, 0, 100)
+    #     alerted = self.state in ("ALERT", "CHASE")
+    #     color = (255, 0, 0, 100) if alerted else (0, 255, 0, 100)
 
-        xs = [p[0] for p in points]
-        ys = [p[1] for p in points]
-        x0, y0 = math.floor(min(xs)), math.floor(min(ys))
-        box = pygame.Rect(x0, y0, math.ceil(max(xs)) - x0 + 2, math.ceil(max(ys)) - y0 + 2)
-        box = box.clip(surface.get_rect())
-        if box.width > 0 and box.height > 0:
-            vision_surface = pygame.Surface(box.size, pygame.SRCALPHA)
-            local = [(x - box.x, y - box.y) for x, y in points]
-            pygame.draw.polygon(vision_surface, color, local)
-            surface.blit(vision_surface, box.topleft)
+    #     xs = [p[0] for p in points]
+    #     ys = [p[1] for p in points]
+    #     x0, y0 = math.floor(min(xs)), math.floor(min(ys))
+    #     box = pygame.Rect(x0, y0, math.ceil(max(xs)) - x0 + 2, math.ceil(max(ys)) - y0 + 2)
+    #     box = box.clip(surface.get_rect())
+    #     if box.width > 0 and box.height > 0:
+    #         vision_surface = pygame.Surface(box.size, pygame.SRCALPHA)
+    #         local = [(x - box.x, y - box.y) for x, y in points]
+    #         pygame.draw.polygon(vision_surface, color, local)
+    #         surface.blit(vision_surface, box.topleft)
 
-        if self.DEBUG_AI and self.path:
-            fx, fy = self._fcenter()
-            line = [(fx + ox, fy + oy)] + [(px + ox, py + oy) for px, py in self.path]
-            if len(line) > 1:
-                pygame.draw.lines(surface, (255, 255, 0), False, line, 1)
+    #     if self.DEBUG_AI and self.path:
+    #         fx, fy = self._fcenter()
+    #         line = [(fx + ox, fy + oy)] + [(px + ox, py + oy) for px, py in self.path]
+    #         if len(line) > 1:
+    #             pygame.draw.lines(surface, (255, 255, 0), False, line, 1)
 
     def draw_with_camera(self, surface, camera):
         if self.state == "LOOKING":

@@ -35,13 +35,14 @@
    <properties>
     <property name="mission" type="int" value="2"/>
     <property name="prone" type="bool" value="true"/>
-    <property name="spawn_x" type="int" value="627"/>
-    <property name="spawn_y" type="int" value="930"/>
+    <property name="spawn_x" type="int" value="632"/>
+    <property name="spawn_y" type="int" value="905"/>
     <property name="target_map" value="assets/sprites/maps/building1_floor1-960x960.tmx"/>
    </properties>
   </object>
   <object id="27" name="exit_trigger" x="40" y="186" width="24" height="6">
    <properties>
+    <property name="fox_menu" type="bool" value="false"/>
     <property name="mission" type="int" value="2"/>
     <property name="prone" type="bool" value="false"/>
     <property name="spawn_x" type="int" value="50"/>
@@ -54,7 +55,8 @@
     <property name="mission" type="int" value="2"/>
     <property name="prone" type="bool" value="true"/>
     <property name="spawn_x" type="int" value="265"/>
-    <property name="spawn_y" type="int" value="940"/>
+    <property name="spawn_y" type="int" value="935"/>
+    <property name="start_cinematic" type="bool" value="false"/>
     <property name="target_map" value="assets/sprites/maps/building1_floor1-960x960.tmx"/>
    </properties>
   </object>

@@ -24,127 +24,39 @@
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "¡Muy bien! Necesito que recuerdes por qué estas acá."
-                },
-                {
-                    "habla": "Snake",
-                    "texto": "Un tanque esta siendo desarrollado acá que amenaza con tomar el control de todo un continente..."
-                },
-                {
-                    "habla": "Snake",
-                    "texto": "y podría expandirse al resto del mundo. Lo usual."
+                    "texto": "Bien, ahora voy a hablarte de tu primer objetivo."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Por eso necesitamos que te infiltres en el laboratorio y sabotees el avance de este proyecto."
+                    "texto": "Veras, hay un gran ingeniero detras de toda esta... bueno... obra de la ingeniería."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Quien esta detras de todo este plan y su proposito no es información del cual tengamos conocimiento."
+                    "texto": "Estamos hablando del Ingeniero Modnar. Es el que está al mando del desarrollo del Metal Gear.."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Puede ser por venganza, por ego, por recursos, territorio... en fin, muchas posibilidades."
+                    "texto": "Fue reclutado hace 2 años por un ejercito privado llamado PMCA. También conocido como 'Ejercito privado de Africa Central'."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "Lo que si ideamos es un plan a llevar a cabo para cumplir nuestro objetivo."
-                },
-                {
-                    "habla": "Snake",
-                    "texto": "¿De qué trata el plan?"
+                    "texto": "Extraer al Ingeniero Modnar es fundamental para frenar temporalmente el desarrollo del Metal Gear."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "El plan consiste en una serie de pasos, debido a que no será posible cumplir con la misión..."
+                    "texto": "La foto de tu objetivo está subido a tu iDroid. Velo cuando puedas."
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "de forma directa. Por lo que será necesario ir por partes."
-                },
-                {
-                    "habla": "Campbell",
-                    "texto": "Tu primer objetivo va a ser relativamente sencillo. Veras, hay un gran ingeniero detras de toda esta... bueno... obra de la ingeniería."
-                },
-                {
-                    "habla": "Campbell",
-                    "texto": "Estamos hablando del Ingeniero Modnar. Modnar es un ingeniero electrónico con 35 años de experiencia."
-                },
-                {
-                    "habla": "Campbell",
-                    "texto": "Solía dedicarse a realizar encargos a empresas importantes, no fue hasta 5 años atras que se especializo en maquinaria."
-                },
-                {
-                    "habla": "Campbell",
-                    "texto": "Dicha maquinaria contempla no solamente maquinas de automatización industrial, sino también armas vendidas al ejercito."
-                },
-                {
-                    "habla": "Campbell",
-                    "texto": "Sin embargo, el ejercito dejó de comprar su maquinaria debido a que frecuentemente encontraban problemas de seguridad en sus dispositivos."
-                },
-                {
-                    "habla": "Campbell",
-                    "texto": "Esto hizo que su reputación cayese, y no iba a volver a realizar encargos a empresas. Sería un reves para su situación económica."
-                },
-                {
-                    "habla": "Campbell",
-                    "texto": "Parece que un ejercito privado cuyo nombre clave es CAPM, notó la situación de Modnar, y lo reclutaron para este proyecto."
-                },
-                {
-                    "habla": "Campbell",
-                    "texto": "Nada de esto esta totalmente clarificado, va a ser tu misión conseguir información extra al respecto."
-                },
-                {
-                    "habla": "Campbell",
-                    "texto": "Dicha información podrían estar en documentos, o algún guardia podría saber al respecto. Podrías interrogarlos si tenes tiempo."
-                },
-                {
-                    "habla": "Campbell",
-                    "texto": "Volviendo a la misión, extraer al Ingeniero Modnar es fundamental para frenar temporalmente el desarrollo del Metal Gear."
-                },
-                {
-                    "habla": "Snake",
-                    "texto": "Entendido. Voy a necesitar una descripción física del Ingeniero Modnar."
-                },
-                {
-                    "habla": "Campbell",
-                    "texto": "El ingeniero Modnar tiene un aspecto bastante distintivo. Lo vas a reconocer al instante. Voy a pasarte una foto de el por el Codec."
-                },
-                {
-                    "habla": "Campbell",
-                    "texto": "Te sugiero verla con atención antes de empezar."
-                },
-                {
-                    "habla": "Snake",
-                    "texto": "Ahi recibí la imágen."
-                },
-                {
-                    "habla": "Snake",
-                    "texto": "¿Por qué lugares suele moverse habitualmente?"
-                },
-                {
-                    "habla": "Campbell",
-                    "texto": "A pesar de no tener mucha información al respecto, el departamento de ingeniería se encuentra en el ala derecha del laboratorio."
-                },
-                {
-                    "habla": "Campbell",
-                    "texto": "Hay altas chances de que este ahi. Sin embargo, nadie puede garantizar de que realmente este ahi."
+                    "texto": "La ubicación apróximada del objetivo es el ala de ingeniería, ubicada en el extremo derecho del complejo."
                 },
                 {
                     "habla": "Snake",
                     "texto": "¿Ala derecha? Entendido."
                 },
                 {
-                    "habla": "Snake",
-                    "texto": "Creo que sera hora de moverme, no hay tiempo que perder."
-                },
-                {
                     "habla": "Campbell",
-                    "texto": "Espera, una cosa mas. Si necesitas información adicional, puedes llamar en cualquier momento al cuartel general..."
-                },
-                {
-                    "habla": "Campbell",
-                    "texto": "es decir, a nosotros, para recibir información o consejos para tu misión."
+                    "texto": "Recuerda que puedes llamarnos en cualquier momento para recibir consejos."
                 },
                 {
                     "habla": "Campbell",
@@ -160,19 +72,7 @@
                 },
                 {
                     "habla": "Campbell",
-                    "texto": "El laboratorio esta altamente patrullado por todo tipo de soldados y elementos tecnológicos capaces de detectar cualquier intruso."
-                },
-                {
-                    "habla": "Campbell",
-                    "texto": "Es importante que te muevas con especial cuidado en esta misión. De lo contrario, no se si vas a salir con vida."
-                },
-                {
-                    "habla": "Campbell",
                     "texto": "¿Recordas como jugar? Si no tuviste la oportunidad de ver los controles, presiona ESC para abrir el menú y, posteriormente, el apartado de controles."
-                },
-                {
-                    "habla": "Campbell",
-                    "texto": "Recuerda, frecuencia 140.83."
                 },
                 {
                     "habla": "Campbell",
@@ -227,6 +127,57 @@
                 {
                     "habla": "Campbell",
                     "texto": "Eso depende de vos."
+                }
+            ]
+        },
+        "vent_radio": {
+            "frecuencia": "140.83",
+            "nombre_contacto": "Roy Campbell",
+            "codec_background": "assets/codec/codec1.png",
+            "dialogo": [
+                {
+                    "habla": "Snake",
+                    "texto": "Coronel, ya logré infiltrarme en las instalaciones del laboratorio MSX."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "Veo que unos prisioneros estan siendo retenidos en este lugar. Los estan reclutando para trabajar en una construcción."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "El que estan construyendo es lo curioso. Escuché que están tratando de reinstaurar Outer Heaven."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "Ademas, refieren a su jefe como 'The Biggest Boss'"
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "Parece que esto es mucho mas grande de lo que creíamos."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Ahi nuestro equipo de inteligencia logró dar con esos prisioneros."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Sus nombres son: Lautaro, Augusto, Valentina y Ámbar."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Los cuatro son estudiantes de Sistemas en la Da Vinci. Sin embargo, fueron secuestrados y llevados hasta acá."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Van a estar retenidos en un lugar donde van a ser entrenados para albañilería de alto riesgo, y posteriormente empezar a construir."
+                },
+                {
+                    "habla": "Campbell",
+                    "texto": "Rescatarlos no es nuestro objetivo principal. Focalizate en rescatar al Ingeniero Modnar, luego nos encargamos de ellos."
+                },
+                {
+                    "habla": "Snake",
+                    "texto": "Entendido, coronel."
                 }
             ]
         }

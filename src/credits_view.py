@@ -39,6 +39,8 @@ ATTRIBUTIONS = [
     ("value", "METAL GEAR 2: SOLID SNAKE (MSX2)"),
     ("label", "DE"),
     ("value", "HIDEO KOJIMA & KONAMI"),
+    ("label", "CANCIÓN 'THE MAN WHO SOLD THE WORLD'"),
+    ("value", "MIDGE URE"),
 ]
 
 FOOTER_TEXT = ''

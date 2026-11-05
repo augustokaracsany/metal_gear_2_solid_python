@@ -7,20 +7,23 @@ from src.enemy import Enemy
 from src.player import Player
 from src.camera import Camera
 from src.tilemap import TiledMap  # Mapas TMX
-from src.settings import SCREEN_WIDTH, SCREEN_HEIGHT
+from src.settings import SCREEN_WIDTH, SCREEN_HEIGHT, FPS
 from src.items import Item  
 from src.hud import HealthBar
 from src.codec import CodecManager
 from src.settings import ENEMY_CONTACT_DAMAGE
 from src.pause import PauseMenu
 from src.settings import PUNCH_DAMAGE, PUNCH_HIT_PADDING, PUNCH_STUN_TIME
+from src.settings import PUNCH_HIT_SOUND_PATH, PUNCH_HIT_SOUND_VOLUME
 from src.inventory import InventoryMenu
 from src.item_message import ItemMessage
 from src.hud_inventory import HUDInventory  # <--- HUD de inventario equipado activo
 from src.fox import FoxScreenManager
+from src.flashback import FlashbackManager
 import numpy as np
 from src.rain import Rain
 from src.radar import Radar
+from src.vent_cinematic import VentCinematic
 
 import src.hind as hind_mod
 from src.hind import (
@@ -56,6 +59,7 @@ class Game:
         "assets/audio/music/musica_entry_point.mp3": 0.7,   # primer mapa: un poco más bajo
         "assets/audio/music/Advance Immediately.mp3": 1.0,
         "assets/audio/music/encounter.mp3": 1.0,            # persecución: más fuerte que el resto
+        "assets/audio/music/2048_63.mp3": 1.0,
     }
     CHASE_MUSIC_ENABLED = True   # True = al ser detectado suena la música de persecución en bucle
     ALERT_FONT_PATH = "assets/fonts/PixelOperator8-Bold.ttf"
@@ -66,15 +70,24 @@ class Game:
     EXIT_FADE_MS = 700
     DEATH_MUSIC_DELAY_MS = 1500
     DEATH_FADE_DELAY_MS = 1000
+    DEAD_TEXT = "P Y T H O N   I S   D E A D"
+    DEAD_TEXT_DELAY_MS = 250
+    DEAD_TEXT_FADE_MS = 1000
+    DEAD_BLUR_LEVELS = 10
+    DEATH_FADE_MAX = 100
+    DEATH_FADE_RATE = 0.04
+    VENT_MUSIC_PATH = "assets/audio/music/the_man_who_sold_the_world.mp3"
+    MUSIC_FADE_OUT_S = 0.8     # baja la música del nivel
+    MUSIC_FADE_IN_S = 2.0      # entra la música de la cinemática
     # Pantalla de victoria: el título se escribe, después aparecen las estadísticas una por una
     # y recién al final el menú REINTENTAR / SIGUIENTE / SALIR.
     VICTORY_STATS_START_MS = 1400
     VICTORY_ROW_MS = 280
     VICTORY_MENU_DELAY_MS = 3100
-    VICTORY_ANIM_DIR = "assets/images/victory_anim"    # frames PNG (frame_00.png, frame_01.png...) del fondo animado de victoria
     VICTORY_ANIM_FRAME_MS = 80                         # duración de cada frame de la animación
     VICTORY_ANIM_SHADE = 55                            # oscurecimiento general del fondo animado (0-255)
     VICTORY_BG_PATH = "assets/images/victory_bg.png"   # fondo de la pantalla de victoria (si no existe, usa el degradado de siempre)
+    VENT_ZONE_MUSIC_PATH = "assets/audio/music/2048_63.mp3"
     
 
 
@@ -85,9 +98,11 @@ class Game:
 
         self.mission_number = mission_number
         self.pending_action = None   # ("restart", n) o ("menu", None)
+        self._current_track = None   # canción que debería estar sonando
         self.death_music_started = False
         self.exit_fade_start = 0
         self.exit_fade_volume = 1.0
+        self._mf = None
         
         # Estados del juego
         self.state = "PLAYING"
@@ -99,9 +114,11 @@ class Game:
         self.victory_timer = 0.0
         self.game_over_selected_option = 0
         self.return_to_menu = False
+        self._dead_text_levels = None
 
         # Música y audio
         self._music_key = None
+        self.restart_music = False
 
         # --- SISTEMA DE PAUSA ---
         self.is_paused = False
@@ -126,6 +143,10 @@ class Game:
         # --- PANTALLA DEL ZORRO ---
         
         self.fox_screen = FoxScreenManager()
+
+        # --- FLASHBACKS ---
+
+        self.flashbacks = FlashbackManager()
 
         # --- MÚSICA DE FONDO (solo misión 1: Entry Point) ---
         self.start_level_music()
@@ -185,6 +206,12 @@ class Game:
         self.alert_level = 0.0
         self.chase_music_active = False   # True si la música de persecución tomó el control
         self.music_delay = None           # segundos hasta que arranque la música tras el SFX
+        try:
+            self.punch_hit_sfx = pygame.mixer.Sound(PUNCH_HIT_SOUND_PATH)
+            self.punch_hit_sfx.set_volume(PUNCH_HIT_SOUND_VOLUME)
+        except Exception as e:
+            print(f"Aviso sonido de golpe a enemigo: {e}")
+            self.punch_hit_sfx = None
         try:
             self.found_sfx = pygame.mixer.Sound(self.FOUND_SFX_PATH)
         except Exception as e:
@@ -256,14 +283,10 @@ class Game:
         self.fade_alpha = 255
         self.fade_in_timer = pygame.time.get_ticks()
 
-    def start_level_music(self):
-        """Música de fondo en bucle según la misión actual.
+        self.cine = None
+        self.cutscenes_done = set()
 
-        Usa el volumen actual del slider de OPCIONES de la pausa, así lo que se ve
-        en pantalla coincide con lo que suena. Si el archivo no está, el juego sigue
-        sin música (solo avisa por consola)."""
-        
-        # 1. Determinamos qué canción cargar según la misión actual
+    def _level_music_path(self):
         if self.mission_number == 1:
             music_path = "assets/audio/music/musica_entry_point.mp3"
         elif self.mission_number == 2:
@@ -278,13 +301,65 @@ class Game:
             
             return  # Si hay otra misión que aún no tiene canción, no hace nada
 
-        # 2. Cargar y reproducir la pista seleccionada
+    def _desired_track(self, in_vents):
+        return self.VENT_ZONE_MUSIC_PATH if in_vents else self._level_music_path()
+
+    def start_level_music(self):
+        music_path = self._level_music_path()
+        if music_path is None:
+            return
         try:
             pygame.mixer.music.load(music_path)
             pygame.mixer.music.set_volume(self.pause_menu.music_volume)
-            pygame.mixer.music.play(-1)  # -1 = bucle infinito
+            if self.restart_music:
+                self.pause_menu.music_gain = self.TRACK_GAIN.get(music_path, 1.0)
+                pygame.mixer.music.set_volume(self.pause_menu.music_volume * self.pause_menu.music_gain)
+                pygame.mixer.music.play(-1, 0, 1000)
+            else:
+                pygame.mixer.music.play(-1)
+            self._current_track = music_path
         except Exception as e:
             print(f"Aviso música (Misión {self.mission_number}): {e}")
+
+    def fade_to_music(self, path, out_s=None, in_s=None, loops=-1):
+        self._current_track = path
+        self._mf = {
+            "path": path, "loops": loops,
+            "gain": self.TRACK_GAIN.get(path, 1.0),
+            "out": self.MUSIC_FADE_OUT_S if out_s is None else out_s,
+            "in": self.MUSIC_FADE_IN_S if in_s is None else in_s,
+            "t": 0.0,
+            "v0": pygame.mixer.music.get_volume(),
+            "phase": "out" if pygame.mixer.music.get_busy() else "load",
+        }
+
+    def _update_music_fade(self, dt):
+        mf = self._mf
+        if not mf:
+            return
+        if mf["phase"] == "out":
+            mf["t"] += dt
+            k = min(1.0, mf["t"] / max(0.01, mf["out"]))
+            pygame.mixer.music.set_volume(mf["v0"] * (1 - k))
+            if k >= 1.0:
+                mf["phase"] = "load"
+        if mf["phase"] == "load":
+            try:
+                pygame.mixer.music.load(mf["path"])
+                pygame.mixer.music.set_volume(0.0)
+                pygame.mixer.music.play(mf["loops"])
+            except Exception as e:
+                print(f"Aviso música de cinemática: {e}")
+                self._mf = None
+                return
+            mf["phase"], mf["t"] = "in", 0.0
+            return
+        if mf["phase"] == "in":
+            mf["t"] += dt
+            k = min(1.0, mf["t"] / max(0.01, mf["in"]))
+            pygame.mixer.music.set_volume(self.pause_menu.music_volume * mf["gain"] * k)
+            if k >= 1.0:
+                self._mf = None
 
     def _save_map_state(self):
         """Guarda qué guardias siguen vivos en el mapa actual y dónde estaban."""
@@ -418,7 +493,7 @@ class Game:
                 if snap["state"] not in ("WALKING", "LOOKING") and hasattr(guardia, "_set_state"):
                     guardia._set_state("RETURN")   # Si estaba persiguiendo, vuelve a su patrulla.
             else:
-                guardia = Enemy(ruta[0][0], ruta[0][1], ruta, start_delay=i * 1.0)
+                guardia = Enemy(ruta[0][0], ruta[0][1], ruta, start_delay=i * 0.5)
 
             guardia.route_index = i
             self.enemies_group.add(guardia)
@@ -551,6 +626,7 @@ class Game:
             pygame.mixer.stop()
         except pygame.error:
             pass
+        self._mf = None
         self._music_key = None
         # Al salir al menú el mouse tiene que volver a ser el normal (el Stinger lo oculta).
         if hasattr(self, "weapons"):
@@ -697,10 +773,12 @@ class Game:
 
         for trigger in self.map.get_triggers():
             if self.player.rect.colliderect(trigger["rect"]):
-                target = trigger["properties"].get("target_map")
+                props = trigger["properties"]
+                target = props.get("target_map")
+                use_fox = props.get("fox_menu", True)      # false = sin pantalla del zorro
 
-                # Entrar o salir del camión: cambio directo, sin pantalla del zorro.
-                if self._is_truck(target) or self._is_truck(self.current_map_key):
+                # Camión o fox_menu=false: cambio directo, sin zorro.
+                if self._is_truck(target) or self._is_truck(self.current_map_key) or not use_fox:
                     self._do_transition(trigger)
                 else:
                     self.fox_screen.start(lambda t=trigger: self._do_transition(t))
@@ -757,6 +835,14 @@ class Game:
         map_height = self.map.height if self.map else self.map_image.get_height()
         self.camera = Camera(map_width, map_height, self.virtual_width, self.virtual_height)
         self.camera.update(self.player)
+
+        target_map = props.get("target_map")
+        goes_to_building = (
+            target_map is not None
+            and os.path.normpath(str(target_map)) == os.path.normpath(self.levels_data[2]["tmx"])
+        )
+        if goes_to_building and props.get("start_cinematic", True):
+            self.start_vent_cutscene()
 
     def trigger_victory_sequence(self):
         if self.state == "PLAYING":
@@ -941,11 +1027,13 @@ class Game:
 
     def _on_alert_start(self):
         self.stat_alerts += 1
+        self._mf = None                                   # no dejar un fundido viejo pisando la alarma
         self.chase_music_active = self.CHASE_MUSIC_ENABLED
         if self.CHASE_MUSIC_ENABLED:
-            pygame.mixer.music.stop()   # corta la música del nivel para que se oiga el SFX
+            pygame.mixer.music.stop()
+            self._current_track = self.CHASE_MUSIC_PATH
         else:
-            pygame.mixer.music.pause()  # se pausa (no se corta) y sigue donde estaba al terminar la alarma
+            pygame.mixer.music.pause()
         if self.found_sfx:
             self.found_sfx.play()
             self.music_delay = self.found_sfx.get_length()
@@ -955,6 +1043,8 @@ class Game:
     def _start_chase_music(self):
         try:
             pygame.mixer.music.load(self.CHASE_MUSIC_PATH)
+            self.pause_menu.music_gain = self.TRACK_GAIN.get(self.CHASE_MUSIC_PATH, 1.0)
+            pygame.mixer.music.set_volume(self.pause_menu.music_volume * self.pause_menu.music_gain)
             pygame.mixer.music.play(-1)
         except Exception as e:
             print(f"Aviso música de persecución: {e}")
@@ -963,7 +1053,7 @@ class Game:
         self.music_delay = None
         if self.chase_music_active:
             self.chase_music_active = False
-            # Reiniciar la música del nivel actual (Misión 1 o Misión 2)
+            self._current_track = None     # fuerza el fundido a la música del nivel / ventilación
             self.start_level_music()
 
     def _reset_alert(self):
@@ -1021,7 +1111,7 @@ class Game:
         p.active_hidden_top_zone = None
         p.active_hidden_bottom_marker = None
         p.stance = "STAND"
-        p.facing = "DOWN"
+        p.facing = "UP"
         p.frame_index = 0
         p.anim_timer = 0.0
         p.input_locked = False
@@ -1034,6 +1124,12 @@ class Game:
         self.reset_weapons()
         self.picked_pickups = set()
         self.ration_eaten = False
+
+        # 1c) Olvidar el estado guardado de los mapas (guardias muertos y posiciones). Sin esto,
+        #     load_level() guardaba cómo quedó el mapa actual justo antes de recargarlo y los
+        #     guardias que habías matado no reaparecían. Con la clave en None no guarda nada.
+        self.map_states = {}
+        self.current_map_key = None
 
         # 2) Mapa de la misión desde cero (enemigos + ítems como la caja del camión).
         #    Si Snake estaba dentro del camión, esto también lo devuelve al mapa principal.
@@ -1152,6 +1248,10 @@ class Game:
 
             if self.state == "CODEC":
                 self.codec_manager.handle_input([event])
+                continue
+
+            if self.state == "VENT_CINE":
+                self.cine.handle_events([event])
                 continue
 
             # Abrir Pausa con la tecla ESC (cerrar / volver lo maneja el propio menú de pausa)
@@ -1276,6 +1376,10 @@ class Game:
         self.state = "CODEC"
         self.codec_manager.start_call(target_call_id, calling=True)
 
+    def execute_radio_call_id(self, call_id, calling):
+        self.state = "CODEC"
+        self.codec_manager.start_call(call_id, calling)      # calling=False: sin tono
+
     def _begin_exit_fade(self, action, mission=None):
         if self.pending_action:
             return
@@ -1319,6 +1423,9 @@ class Game:
         if self.pending_action:
             self._update_exit_fade()
             return
+        if not self.is_paused:
+            self._update_music_fade(dt)
+
         if self.fox_screen.active:
             self.fox_screen.update(dt)
             return
@@ -1334,9 +1441,10 @@ class Game:
         if self.state == "DYING":
             elapsed_death = pygame.time.get_ticks() - self.death_timer
             fade_elapsed = max(0, elapsed_death - self.DEATH_FADE_DELAY_MS)
-            self.fade_alpha = min(255, int(fade_elapsed * 0.1))
+            self.fade_alpha = min(self.DEATH_FADE_MAX, int(fade_elapsed * self.DEATH_FADE_RATE))
 
             self.player.update_death(dt)
+            self.flashbacks.update(dt)
             
             if not self.death_music_started and elapsed_death >= self.DEATH_MUSIC_DELAY_MS:
                 self.death_music_started = True
@@ -1347,7 +1455,7 @@ class Game:
                 except Exception as e:
                     print(f"No se pudo cargar la música game_over.mp3: {e}")
 
-            if elapsed_death >= 4500:
+            if elapsed_death >= max(4500, self.flashbacks.total_ms() + 500):
                 self.state = "GAME_OVER"
                 self.game_over_timer = pygame.time.get_ticks()
             return
@@ -1361,6 +1469,15 @@ class Game:
                 self.state = "PLAYING"
             return
 
+        if self.state == "VENT_CINE":
+            self.cine.update(dt)
+            if self.cine.finished:
+                self.cine = None
+                self.state = "PLAYING"
+                self.fade_to_music("assets/audio/music/Advance Immediately.mp3", out_s=1.5, in_s=1.5)
+                self.execute_radio_call_id("vent_radio", True)
+            return
+        
         self.stat_time += dt
 
         walls = self.walls
@@ -1371,6 +1488,12 @@ class Game:
         # Dentro de las ventilaciones Snake va siempre cuerpo a tierra.
         in_vents = any(self.player.rect.colliderect(zone) for zone in self.vent_zones)
         self.player.set_force_crawl(in_vents)
+
+        if (self.state == "PLAYING" and not self.chase_music_active
+                and self.music_delay is None and self._mf is None):
+            want = self._desired_track(in_vents)
+            if want and want != self._current_track:
+                self.fade_to_music(want)
 
         # El Stinger no se puede usar cuerpo a tierra: vuelve al arma de fuego anterior.
         if in_vents and self.weapons.current.kind == "launcher":
@@ -1451,6 +1574,8 @@ class Game:
                 if punch_rect.colliderect(enemy.rect.inflate(PUNCH_HIT_PADDING, PUNCH_HIT_PADDING)):
                     enemy.take_damage(PUNCH_DAMAGE, PUNCH_STUN_TIME, self.player.rect.center)
                     self.player.punch_hit_done = True
+                    if self.punch_hit_sfx:
+                        self.punch_hit_sfx.play()   # solo suena cuando el golpe conecta
                     break
 
         # Balas: se mueven y chocan contra paredes, enemigos o el borde del mapa.
@@ -1480,6 +1605,14 @@ class Game:
         if self.player.health <= 0:
             self.trigger_death_sequence()
             return
+
+    def start_vent_cutscene(self):
+        if "vent_exit" in self.cutscenes_done:
+            return
+        self.cutscenes_done.add("vent_exit")
+        self.fade_to_music(self.VENT_MUSIC_PATH)
+        self.cine = VentCinematic()
+        self.state = "VENT_CINE"
 
     def emit_noise(self, pos, radius):
         # Barato: cada guardia solo deja el ruido pendiente; el A* se reparte entre frames (ver Enemy.hear_noise).
@@ -1512,6 +1645,34 @@ class Game:
         """Llamar siempre que se abandone el nivel (ESC, menú, salir)."""
         self._reset_alert()
         pygame.mixer.music.stop()   # por si quedó sonando algo del nivel
+        self._mf = None
+
+    def _build_dead_text(self):
+        font = pygame.font.Font("assets/fonts/PixelOperator8-Bold.ttf", 28)
+        base = font.render(self.DEAD_TEXT, True, (190, 190, 160))
+        pad = 24                                   # margen para que el difuminado no se recorte
+        w, h = base.get_size()
+        canvas = pygame.Surface((w + pad * 2, h + pad * 2), pygame.SRCALPHA)
+        canvas.blit(base, (pad, pad))
+        cw, ch = canvas.get_size()
+
+        self._dead_text_levels = [canvas]          # nivel 0 = nítido
+        for i in range(1, self.DEAD_BLUR_LEVELS):
+            k = 1.0 / (1 + i * 1.0)
+            small = pygame.transform.smoothscale(canvas, (max(1, int(cw * k)), max(1, int(ch * k))))
+            self._dead_text_levels.append(pygame.transform.smoothscale(small, (cw, ch)))
+
+    def _draw_dead_text(self, surface, elapsed, center):
+        if self._dead_text_levels is None:
+            self._build_dead_text()
+        p = (elapsed - self.DEAD_TEXT_DELAY_MS) / self.DEAD_TEXT_FADE_MS
+        p = max(0.0, min(1.0, p))
+        if p <= 0:
+            return
+        levels = self._dead_text_levels
+        img = levels[int((1 - p) * (len(levels) - 1) + 0.5)]   # empieza borroso y se enfoca
+        img.set_alpha(int(255 * p))                            # y aparece a la vez
+        surface.blit(img, img.get_rect(center=center))
 
     def _draw_exit_fade(self, surface):
         if not self.pending_action:
@@ -1779,20 +1940,7 @@ class Game:
             current_time = pygame.time.get_ticks()
             elapsed = current_time - self.game_over_timer
             
-            paradox_delay = 6500 
-            
-            if elapsed < paradox_delay:
-                target_text = "P Y T H O N   I S   D E A D"
-                chars_to_show = min(len(target_text), int(elapsed / 80))
-            else:
-                target_text = "T I M E   P A R A D O X"
-                time_since_paradox = elapsed - paradox_delay
-                chars_to_show = min(len(target_text), int(time_since_paradox / 80))
-                
-            text_to_render = target_text[:chars_to_show]
-            text_surface = font_large.render(text_to_render, True, (190, 190, 160))
-            text_rect = text_surface.get_rect(center=(w // 2, h // 2))
-            surface.blit(text_surface, text_rect)
+            self._draw_dead_text(surface, elapsed, (w // 2, h // 2))
 
             prompt_delay = 2000
             if elapsed > prompt_delay:
@@ -1823,6 +1971,11 @@ class Game:
             self._draw_exit_fade(surface)
             return
 
+        if self.state == "VENT_CINE" and self.cine:
+            self.cine.draw(surface)
+            self.fox_screen.draw(surface)
+            return
+
         # --- RENDERIZADO NORMAL DEL JUEGO (PLAYING / DYING) ---
         if self.map:
             self.map.render_below(self.virtual_surface, self.camera)
@@ -1849,9 +2002,9 @@ class Game:
         for bullet in self.enemy_bullets:
             bullet.draw_with_camera(self.virtual_surface, self.camera)
 
-        for enemy in self.enemies_group:
-            enemy.draw_vision(self.virtual_surface, self.camera)
-        self.fire_fx.draw(self.virtual_surface, self.camera)
+        # for enemy in self.enemies_group:
+        #     enemy.draw_vision(self.virtual_surface, self.camera)
+        # self.fire_fx.draw(self.virtual_surface, self.camera)
         
         if self.map:
             self.map.render_roofs(
@@ -1886,6 +2039,9 @@ class Game:
 
         # DIBUJAR HUD DE INVENTARIO SOBRE LA PANTALLA PRINCIPAL
         self.hud_inventory.draw(surface, self.player)
+
+        if self.state == "DYING":
+            self.flashbacks.draw(surface)
 
         # Mira del Stinger (se dibuja sobre la pantalla real, así queda nítida) y HUD del arma equipada.
         if self.state == "PLAYING" and self.boss_mode != "CUTSCENE":

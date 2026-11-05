@@ -10,6 +10,7 @@ import math
 _SFX_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                         "assets", "audio", "sfx")
 _sounds = {}
+pygame.mixer.init()
 
 def play_sound(name):
     """Reproduce assets/audio/sfx/<name>.wav ('select' o 'cancel'). Si falla, queda en silencio."""
@@ -21,6 +22,17 @@ def play_sound(name):
         snd.play()
     except Exception:
         pass
+
+def play_music(route="assets/audio/music/menu.mp3"):
+    try:
+        # Usamos una ruta absoluta basada en la ubicación de este archivo
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        full_path = os.path.join(base_dir, "..", route) if not os.path.isabs(route) else route
+        
+        pygame.mixer.music.load(full_path)
+        pygame.mixer.music.play(-1) # -1 para que se reproduzca en bucle infinito
+    except Exception as e:
+        print(f"No se encontro la siguiente musica: {e}")
 
 
 from src.main_menu_view import MainMenuView
@@ -226,14 +238,14 @@ class MenuManager:
             self.title_img = pygame.transform.scale(raw_title_img, (450, 90))
         except Exception:
             self.title_img = None
-
-
-
+        
         # Fuentes tipográficas del sistema o Pygame
         self.font_title = pygame.font.Font(None, 28)
         self.font_btn = pygame.font.Font(None, 20)
         self.font_small = pygame.font.Font(None, 16)
 
+        play_music()
+        
         self.selected_mission_id = 1
 
         # ── Scroll de la lista de misiones ──────────────────────────────────────
@@ -545,7 +557,7 @@ class MenuManager:
         black.fill((0, 0, 0))
 
         self._m_assets = {"size": (W, H), "keys_y": lay["keys"].y, "bg": bg, "scan": scan,
-                          "vig": pygame.transform.smoothscale(vig, (W, H)), "black": black}
+                        "vig": pygame.transform.smoothscale(vig, (W, H)), "black": black}
         return self._m_assets
 
     def _try_deploy(self):
@@ -588,14 +600,14 @@ class MenuManager:
             ax = m + left_w // 2
             ay = top - 14
             pygame.draw.polygon(surface, _R_ACCENT,
-                                 [(ax, ay), (ax - 10, ay + 12), (ax + 10, ay + 12)])
+                                [(ax, ay), (ax - 10, ay + 12), (ax + 10, ay + 12)])
 
         if self._list_scroll_offset + visible < total:
             # Flecha abajo
             ax = m + left_w // 2
             ay = list_bottom + 14
             pygame.draw.polygon(surface, _R_ACCENT,
-                                 [(ax, ay), (ax - 10, ay - 12), (ax + 10, ay - 12)])
+                                [(ax, ay), (ax - 10, ay - 12), (ax + 10, ay - 12)])
 
         self._draw_mission_detail(surface, lay, H)
 

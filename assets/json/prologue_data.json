@@ -18,17 +18,7 @@
             "advance_mode": "keypress"
         },
         {
-            "text": "Este tanque contaría ademas con el \nagregado de armas nucleares dentro de \nsu brazo robótico, aunque esto último \naún esta en desarrollo.",
-            "image": "assets/prologue/frame1.jpg",
-            "advance_mode": "keypress"
-        },
-        {
-            "text": "Eso quiere decir que, aún estamos \na tiempo de detener el avance \nde este proyecto.",
-            "image": "assets/prologue/frame1.jpg",
-            "advance_mode": "keypress"
-        },
-        {
-            "text": "Hay que destruir planos, la fábrica \ny el protótipo de la maquina, localizado \nen algún punto del laboratorio MSX.",
+            "text": "Hay que entrar y destruir los planos, la fábrica \ny el protótipo de la maquina, localizado \nen algún punto del laboratorio MSX.",
             "image": "assets/prologue/frame1.jpg",
             "advance_mode": "keypress"
         },
@@ -38,12 +28,7 @@
             "advance_mode": "keypress"
         },
         {
-            "text": "Se rumorea planes de conquistar el \ncentro de África en un principio, \ne ira escalando a todo el \ncontinente...",
-            "image": "assets/prologue/frame2.jpg",
-            "advance_mode": "keypress"
-        },
-        {
-            "text": "Y, si este plan es éxitoso, \nvan a tratar de conquistar el \nmundo.",
+            "text": "Se rumorea planes de conquistar el \ncentro de África en un principio, \ne se expandirá por el mundo",
             "image": "assets/prologue/frame2.jpg",
             "advance_mode": "keypress"
         },
@@ -53,17 +38,7 @@
             "advance_mode": "keypress"
         },
         {
-            "text": "El nombre de la maquina suena \nalgo exagerado, y chistoso, pero las \nconsecuencias podrían ser fatales si no \nlo detenemos...",
-            "image": "assets/prologue/frame3.jpg",
-            "advance_mode": "keypress"
-        },
-        {
             "text": "Debido a la sensibilidad de esta \nmisión, enviar refuerzos no va a \nser posible, por lo que iras solo.",
-            "image": "assets/prologue/frame3.jpg",
-            "advance_mode": "keypress"
-        },
-        {
-            "text": "Snake, confiamos en que vas a \npoder infiltrarte en el laboratorio MSX \nsin dejar rastros para ejecutar nuestro \nplan de contingencia.",
             "image": "assets/prologue/frame3.jpg",
             "advance_mode": "keypress"
         },

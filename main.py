@@ -1,7 +1,7 @@
 import pygame
 import sys
 from src.settings import SCREEN_WIDTH, SCREEN_HEIGHT, FPS
-from src.menu import MenuManager
+from src.menu import MenuManager, play_music
 from src.prologue import PrologueState
 from src.intro_state import IntroState
 from src.game import Game 
@@ -63,7 +63,6 @@ def main():
 
     # Estados iniciales.s
     current_state = IntroState(intro_script, music_path=music_file)
-    menu_manager = MenuManager()
     game_instance = None
 
     running = True
@@ -76,6 +75,7 @@ def main():
             current_state.handle_events(events)
             current_state.update(dt)
             if current_state.finished:
+                menu_manager = MenuManager()
                 # Al terminar la intro completa, pasa al Menú Principal.
                 current_state = menu_manager
 
@@ -90,7 +90,7 @@ def main():
                 if mission_num == 1:
                     # Asignamos el prólogo como estado inicial al elegir la misión 1
                     prologue_instance = PrologueState()
-                    prologue_instance.target_mission = mission_num 
+                    prologue_instance.target_mission = mission_num
                     current_state = prologue_instance
                 else:
                     # Si es otra misión sin prólogo, entra directo
@@ -102,12 +102,15 @@ def main():
             
             # Si en el menú de pausa se selecciona "VOLVER AL MENÚ"
             if game_action == "GOTO_MENU":
-                menu_manager.state = "MAIN_MENU"   # <- agregar
-                game_instance = None               # <- opcional, libera la partida
+                menu_manager.state = "MAIN_MENU"
+                game_instance = None
                 current_state = menu_manager
+                play_music()
 
             if getattr(current_state, "return_to_menu", False):
+                menu_manager.state = "MAIN_MENU"
                 current_state = menu_manager
+                play_music()
                 
             for event in events:
                 if event.type == pygame.QUIT:
@@ -140,6 +143,7 @@ def main():
                 current_state = Game(1)
 
         # 2. RENDERIZADO GLOBAL.
+        
         screen.fill((0, 0, 0))
         current_state.draw(screen)
         pygame.display.flip()
