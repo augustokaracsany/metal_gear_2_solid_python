@@ -287,8 +287,8 @@ class Game:
         self.cine = None
         self.cutscenes_done = set()
         if self.mission_number == 2 and not Game.intro_cinematic_played:
-            Game.intro_cinematic_played = True  # La marcamos como reproducida
-            self.start_vent_cutscene()
+            Game.intro_cinematic_played = True
+            self.start_vent_cutscene(fade_in=True)
 
     def _level_music_path(self):
         if self.mission_number == 1:
@@ -986,6 +986,14 @@ class Game:
             self._vic_anim_cache[idx] = frame
         return frame
 
+    def start_vent_cutscene(self, fade_in=False):
+        if "vent_exit" in self.cutscenes_done:
+            return
+        self.cutscenes_done.add("vent_exit")
+        self.fade_to_music(self.VENT_MUSIC_PATH)
+        self.cine = VentCinematic(fade_in=fade_in)
+        self.state = "VENT_CINE"
+
     @staticmethod
     def _render_spaced(font, text, color, spacing):
         """Texto con espacio extra entre letras (el título se ve más 'cinemático')."""
@@ -1240,6 +1248,9 @@ class Game:
                         self.confirm_game_over_option()
                 continue
 
+            if self.state == "DYING":
+                continue
+
             if self.state == "RADIO_MENU":
                 if event.type == pygame.KEYDOWN:
                     if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
@@ -1278,8 +1289,9 @@ class Game:
 
             # Abrir la pausa con ESC (cerrar / volver lo maneja el propio menú de pausa)
             if (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE
-                    and not self.is_paused and self.state == "PLAYING"):
-                self.is_paused = True
+                    and not self.is_paused and not self.inventory_open
+                    and self.state == "PLAYING"):
+                self.set_paused(True)
                 self.weapons.suspend()          # Mouse normal mientras está el inventario.
                 continue
 
@@ -1538,7 +1550,7 @@ class Game:
 
         # Armas y munición del mapa (camiones del Stinger).
         got = collect_pickups(self.player.rect, self.items_group, self.weapons,
-                              item_message=self.item_message, sfx_volume=self.pause_menu.sfx_volume)
+                            item_message=self.item_message, sfx_volume=self.pause_menu.sfx_volume)
         self.picked_pickups.update(uid for uid in got if uid is not None)
 
         # Armas: cadencia, balas, recarga, Stinger (lock-on / misiles) y auto-desequipado.
@@ -1614,14 +1626,6 @@ class Game:
         if self.player.health <= 0:
             self.trigger_death_sequence()
             return
-
-    def start_vent_cutscene(self):
-        if "vent_exit" in self.cutscenes_done:
-            return
-        self.cutscenes_done.add("vent_exit")
-        self.fade_to_music(self.VENT_MUSIC_PATH)
-        self.cine = VentCinematic()
-        self.state = "VENT_CINE"
 
     def emit_noise(self, pos, radius):
         # Barato: cada guardia solo deja el ruido pendiente; el A* se reparte entre frames (ver Enemy.hear_noise).
@@ -1915,32 +1919,11 @@ class Game:
 
             bar_height = int(h * 0.22)  
             
-            color_center = (26, 13, 9)
-            color_edge = (15, 7, 5)     
-            gradient_size = 75          
-            
-            top_surface = pygame.Surface((w, bar_height))
-            top_surface.fill(color_edge)
-            for y in range(bar_height - gradient_size, bar_height):
-                if y >= 0:
-                    factor = (y - (bar_height - gradient_size)) / gradient_size
-                    r = int(color_edge[0] * (1 - factor) + color_center[0] * factor)
-                    g = int(color_edge[1] * (1 - factor) + color_center[1] * factor)
-                    b = int(color_edge[2] * (1 - factor) + color_center[2] * factor)
-                    pygame.draw.line(top_surface, (r, g, b), (0, y), (w, y))
-            
-            bottom_surface = pygame.Surface((w, bar_height))
-            bottom_surface.fill(color_edge)
-            for y in range(gradient_size):
-                if y < bar_height:
-                    factor = 1.0 - (y / gradient_size)
-                    r = int(color_edge[0] * (1 - factor) + color_center[0] * factor)
-                    g = int(color_edge[1] * (1 - factor) + color_center[1] * factor)
-                    b = int(color_edge[2] * (1 - factor) + color_center[2] * factor)
-                    pygame.draw.line(bottom_surface, (r, g, b), (0, y), (w, y))
-            
-            surface.blit(top_surface, (0, 0))
-            surface.blit(bottom_surface, (0, h - bar_height))
+            pygame.draw.rect(surface, (0, 0, 0), (0, 0, w, bar_height))
+            pygame.draw.rect(surface, (0, 0, 0), (0, h - bar_height, w, bar_height))
+
+            # surface.blit(top_surface, (0, 0))
+            # surface.blit(bottom_surface, (0, h - bar_height))
             
             font_large = pygame.font.Font("assets/fonts/PixelOperator8-Bold.ttf", 28)
             font_small = pygame.font.Font("assets/fonts/PixelOperator8.ttf", 16)

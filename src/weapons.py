@@ -76,7 +76,7 @@ class Firearm:
         self.snd_fire = load_sound(WS.WEAPON_SOUND_DIR, f"{wid}_fire")
         self.snd_reload = load_sound(WS.WEAPON_SOUND_DIR, f"{wid}_reload")
         self.snd_empty = (load_sound(WS.WEAPON_SOUND_DIR, f"{wid}_empty")
-                          or load_sound(WS.WEAPON_SOUND_DIR, "empty"))
+                        or load_sound(WS.WEAPON_SOUND_DIR, "empty"))
         self.snd_mode = load_sound(WS.WEAPON_SOUND_DIR, "mode_switch")
 
         self.cooldown = 0.0
@@ -450,25 +450,25 @@ def make_pickup(name, center, uid=None):
 PICKUPS = {
     # --- armas (nombre del objeto en Tiled) ---
     "beretta_pistol":   {"weapon": "beretta", "msg": "OBTENIDO: BERETTA M92-FS",
-                        "image": "assets/sprites/weapons/beretta_m92fs_handgun.png", "scale": 2},
+                        "image": "assets/sprites/weapons/beretta_m92fs_handgun.png", "scale": 1.2},
     "m16_rifle":        {"weapon": "m16",     "msg": "OBTENIDO: FUSIL M16A1",
-                        "image": "assets/sprites/weapons/m16a1_rifle.png", "scale": 2},
+                        "image": "assets/sprites/weapons/m16a1_rifle.png", "scale": 1.2},
     "uzi_smg":          {"weapon": "uzi",     "msg": "OBTENIDO: MICRO-UZI",
-                        "image": "assets/sprites/weapons/micro_uzi_submachine-gun.png", "scale": 2},
+                        "image": "assets/sprites/weapons/micro_uzi_submachine-gun.png", "scale": 1.2},
     "stinger_launcher": {"weapon": "stinger", "msg": "OBTENIDO: FIM-92 STINGER",
-                        "image": "assets/sprites/weapons/fim-92_stinger_hind-d-killer.png", "scale": 2},
+                        "image": "assets/sprites/weapons/fim-92_stinger_hind-d-killer.png", "scale": 1.2},
     # Objeto viejo del mapa Entry Point: ahora es la Beretta del sistema de armas.
 
     # --- munición ---
     "stinger_missiles": {"ammo": ("stinger", WS.STINGER_MISSILES_PER_PICKUP),
                         "msg": "MISILES STINGER x{n}",
-                        "image": "assets/sprites/items/stinger_missiles.png", "scale": 2},
+                        "image": "assets/sprites/items/stinger_missiles.png", "scale": 1.2},
     "ammo_beretta": {"ammo": ("beretta", 15), "msg": "MUNICIÓN BERETTA x{n}",
-                    "image": "assets/sprites/items/ammo_beretta.png", "scale": 2},
+                    "image": "assets/sprites/items/ammo_beretta.png", "scale": 1.2},
     "ammo_m16": {"ammo": ("m16", 30), "msg": "MUNICIÓN M16 x{n}",
-                "image": "assets/sprites/items/ammo_m16.png", "scale": 2},
+                "image": "assets/sprites/items/ammo_m16.png", "scale": 1.2},
     "ammo_uzi": {"ammo": ("uzi", 32), "msg": "MUNICIÓN UZI x{n}",
-                "image": "assets/sprites/items/ammo_uzi.png", "scale": 2},
+                "image": "assets/sprites/items/ammo_uzi.png", "scale": 1.2},
     
 }
 

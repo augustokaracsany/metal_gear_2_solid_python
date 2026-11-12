@@ -2,6 +2,7 @@ import pygame
 import pytmx
 from pytmx.util_pygame import load_pygame
 from pathfinding.core.grid import Grid
+import os
 
 class TiledMap:
     def __init__(self, filename, scale=2):
@@ -38,6 +39,18 @@ class TiledMap:
                 surf.blit(pygame.transform.scale(
                     img, (int(img.get_width() * self.scale), int(img.get_height() * self.scale))), (0, 0))
                 drew = True
+
+                if isinstance(layer, pytmx.TiledImageLayer):
+                    src = getattr(layer, "source", None)
+                    if src:
+                        path = os.path.join(os.path.dirname(self.tmx_data.filename), src)
+                        img = pygame.image.load(path).convert_alpha()
+                    else:
+                        img = layer.image
+                    if img:
+                        surf.blit(pygame.transform.scale(
+                            img, (int(img.get_width() * self.scale), int(img.get_height() * self.scale))), (0, 0))
+                        drew = True
 
             # 2. Capa de tiles
             elif hasattr(layer, "data"):

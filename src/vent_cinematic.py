@@ -37,6 +37,8 @@ class VentCinematic:
     ENTER_BLINK_MS = 500      # parpadeo del "ENTER"
     SKIP_FADE_S = 0.6
 
+    FADE_IN_S = 1.2
+
     # (quién habla, texto). Reemplazalos por los diálogos reales.
     DIALOGUE = [
         ("Soldado", "¿Alguna vez han escuchado hablar sobre Outer Heaven?"),
@@ -64,8 +66,9 @@ class VentCinematic:
         ("Soldado", "¡empezar a trabajar!"),
     ]
 
-    def __init__(self):
+    def __init__(self, fade_in=False):
         self.finished = False
+        self.fade_in_t = 0.0 if fade_in else self.FADE_IN_S
         self.t = 0.0
         self.cam_t = 0.0          # reloj de la cámara (solo avanza en CRAWL y WATCH)
         self.phase_t = 0.0
@@ -281,6 +284,9 @@ class VentCinematic:
             return
         if self.skip_warning and pygame.time.get_ticks() - self.warning_t > 3000:
             self.skip_warning = False
+        if self.fade_in_t < self.FADE_IN_S:
+            self.fade_in_t += min(dt, 0.05)    # dt limitado: la carga del mapa no se come el fundido
+            return 
 
         if self.skipping:
             self.skip_fade_t += dt
@@ -436,6 +442,12 @@ class VentCinematic:
 
         if self.skipping:
             a = int(255 * min(1.0, self.skip_fade_t / self.SKIP_FADE_S))
+            fade = pygame.Surface((sw, sh))
+            fade.set_alpha(a)
+            surface.blit(fade, (0, 0))
+
+        if self.fade_in_t < self.FADE_IN_S:
+            a = int(255 * (1 - self.fade_in_t / self.FADE_IN_S))
             fade = pygame.Surface((sw, sh))
             fade.set_alpha(a)
             surface.blit(fade, (0, 0))
