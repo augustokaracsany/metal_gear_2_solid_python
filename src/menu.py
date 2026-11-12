@@ -319,7 +319,7 @@ class MenuManager:
         self.main_buttons = [
             Button("EMPEZAR PARTIDA", SCREEN_WIDTH // 2 - 140, 180, 280, 32, self.font_btn),
             Button("VER CONTROLES", SCREEN_WIDTH // 2 - 140, 230, 280, 32, self.font_btn),
-            Button("VER CRÉDITOS", SCREEN_WIDTH // 2 - 140, 280, 280, 32, self.font_btn),
+            Button("VER CREDITOS", SCREEN_WIDTH // 2 - 140, 280, 280, 32, self.font_btn),
             Button("SALIR DEL JUEGO", SCREEN_WIDTH // 2 - 140, 330, 280, 32, self.font_btn),
         ]
         # Vista del menú principal (imagen de Snake + logo con brillo + opciones)
@@ -418,7 +418,18 @@ class MenuManager:
                     play_sound("cancel")
                     self.state = "MAIN_MENU"
 
-            elif self.state in ["CONTROLS", "CREDITS"]:
+            elif self.state == "CONTROLS":
+                # 1. Si hace clic en el botón volver de abajo
+                if self.back_button.is_clicked(event):
+                    play_sound("cancel")
+                    self.state = "MAIN_MENU"
+                else:
+                    # 2. Si no, le pasamos los eventos al ControlsView para cambiar de página (A/D, flechas o clics en pestañas)
+                    handled = self.controls_view.handle_event(event)
+                    if handled:
+                        play_sound("select") # Sonido opcional al cambiar de página
+
+            elif self.state == "CREDITS":
                 if self.back_button.is_clicked(event):
                     play_sound("cancel")
                     self.state = "MAIN_MENU"

@@ -4,11 +4,7 @@ import os
 import pygame
 
 # ---------------------------------------------------------------------------
-# PANTALLA DE CONTROLES — Metal Gear 2: Solid Python
-# Teclado ilustrado con las teclas del juego resaltadas + una tarjeta por
-# acción (numerada y del mismo color que su tecla). Mismo estilo retro que el
-# menú principal. Si pasás el mouse sobre una tarjeta o una tecla, se resalta
-# esa acción y las demás se atenúan.
+# PANTALLA DE CONTROLES — Metal Gear 2: Solid Python (Multisección / Páginas)
 # ---------------------------------------------------------------------------
 
 ACCENT = (0, 255, 128)
@@ -21,42 +17,58 @@ PANEL = (4, 14, 9)
 BASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 FONT_PATH = os.path.join(BASE_DIR, "assets", "fonts", "PressStart2P-Regular.ttf")
 
-# Colores por acción
+# Colores por categoría / acción
 C_MOVE = (0, 255, 128)
+C_PUNCH = (255, 200, 60)
+C_RELOAD = (255, 150, 50)
 C_SHOOT = (255, 90, 90)
 C_CROUCH = (80, 200, 255)
 C_PRONE = (170, 140, 255)
-C_CQC = (255, 200, 60)
+
+C_CODEC = (100, 220, 255)
+C_INV = (220, 180, 255)
+C_RATION = (255, 100, 100)
+C_WEAPON = (255, 220, 100)
 C_PAUSE = (200, 215, 205)
 
-# Para agregar o cambiar una acción: editá esta lista y KEY_ACTION más abajo.
-ACTIONS = [
-    {"name": "MOVIMIENTO",      "desc": "Mover a Snake",            "color": C_MOVE,
-     "caps": ["W", "A", "S", "D", "/", "LEFT", "UP", "DOWN", "RIGHT"]},
-    {"name": "DISPARAR",        "desc": "Disparar el arma",         "color": C_SHOOT,
-     "caps": ["ESPACIO"]},
-    {"name": "AGACHARSE",       "desc": "Agacharse / levantarse",   "color": C_CROUCH,
-     "caps": ["C"]},
-    {"name": "CUERPO A TIERRA", "desc": "Arrastrarse por el suelo", "color": C_PRONE,
-     "caps": ["CTRL"]},
-    {"name": "ACCIÓN CQC",      "desc": "Golpe cuerpo a cuerpo",    "color": C_CQC,
-     "caps": ["E"]},
-    {"name": "PAUSA / SALIR",   "desc": "Pausa durante la partida", "color": C_PAUSE,
-     "caps": ["ESC"]},
+# Definición de las dos páginas de controles
+PAGES = [
+    {
+        "title": "MOVIMIENTOS BÁSICOS",
+        "actions": [
+            {"name": "MOVIMIENTO", "desc": "Mover a Snake", "color": C_MOVE, "caps": ["W", "A", "S", "D", "/", "LEFT", "UP", "DOWN", "RIGHT"]},
+            {"name": "PEGAR", "desc": "Golpe cuerpo a cuerpo", "color": C_PUNCH, "caps": ["E"]},
+            {"name": "RECARGAR", "desc": "Recargar arma actual", "color": C_RELOAD, "caps": ["R"]},
+            {"name": "DISPARAR", "desc": "Disparar el arma", "color": C_SHOOT, "caps": ["ESPACIO"]},
+            {"name": "AGACHARSE", "desc": "Agacharse / levantarse", "color": C_CROUCH, "caps": ["C"]},
+            {"name": "ARRASTRARSE", "desc": "Cuerpo a tierra", "color": C_PRONE, "caps": ["CTRL"]},
+        ],
+        # Mapeo de teclas virtuales que se iluminan en el teclado para esta página
+        "key_action": {
+            "W": 0, "A": 0, "S": 0, "D": 0, "UP": 0, "LEFT": 0, "DOWN": 0, "RIGHT": 0,
+            "E": 1, "R": 2, "ESPACIO": 3, "C": 4, "CTRL": 5,
+        },
+        "badge_keys": {"W": 0, "UP": 0, "E": 1, "R": 2, "ESPACIO": 3, "C": 4, "CTRL": 5}
+    },
+    {
+        "title": "OBJETOS Y GESTIÓN",
+        "actions": [
+            {"name": "CODEC", "desc": "Abrir frecuencia de radio", "color": C_CODEC, "caps": ["TAB"]},
+            {"name": "INVENTARIO", "desc": "Gestionar objetos y equipo", "color": C_INV, "caps": ["I"]},
+            {"name": "RACIÓN", "desc": "Consumir ración de comida", "color": C_RATION, "caps": ["J"]},
+            {"name": "ARMA IZQ.", "desc": "Cambiar de arma anterior", "color": C_WEAPON, "caps": ["1"]},
+            {"name": "ARMA DER.", "desc": "Cambiar de arma siguiente", "color": C_WEAPON, "caps": ["3"]},
+            {"name": "PAUSA", "desc": "Pausa durante la partida", "color": C_PAUSE, "caps": ["ESC"]},
+        ],
+        "key_action": {
+            "TAB": 0, "I": 1, "J": 2, "1": 3, "3": 4, "ESC": 5,
+        },
+        "badge_keys": {"TAB": 0, "I": 1, "J": 2, "1": 3, "3": 4, "ESC": 5}
+    }
 ]
 
-# Qué tecla del teclado dibujado pertenece a qué acción (índice de ACTIONS)
-KEY_ACTION = {
-    "W": 0, "A": 0, "S": 0, "D": 0, "UP": 0, "LEFT": 0, "DOWN": 0, "RIGHT": 0,
-    "ESPACIO": 1, "C": 2, "CTRL": 3, "E": 4, "ESC": 5,
-}
-# En qué teclas se pone el numerito de la acción
-BADGE_KEYS = {"W": 0, "UP": 0, "ESPACIO": 1, "C": 2, "CTRL": 3, "E": 4, "ESC": 5}
-
 ARROWS = ("UP", "DOWN", "LEFT", "RIGHT")
-
-KB_UNITS_WIDE = 15.75   # ancho total del teclado dibujado, en "teclas"
-
+KB_UNITS_WIDE = 15.75
 
 def _font(size):
     try:
@@ -64,15 +76,12 @@ def _font(size):
     except (FileNotFoundError, OSError, pygame.error):
         return pygame.font.SysFont("Courier", int(size * 1.4), bold=True)
 
-
 def _mix(c1, c2, t):
     return tuple(int(a * (1 - t) + b * t) for a, b in zip(c1, c2))
-
 
 def _ease_out(p):
     p = max(0.0, min(1.0, p))
     return 1 - (1 - p) ** 3
-
 
 def _draw_arrow(surface, rect, direction, color):
     cx, cy = rect.center
@@ -92,10 +101,10 @@ class ControlsView:
         self._size = None
         self._last_draw = -100000
         self._open_time = 0
+        self.current_page = 0  # 0: Movimientos básicos, 1: Objetos y gestión
         surf = pygame.display.get_surface()
         self._build(surf.get_size() if surf else (1360, 768))
 
-    # ------------------------------------------------------------------ layout
     def _build(self, size):
         W, H = size
         self._size = size
@@ -117,7 +126,7 @@ class ControlsView:
         self.kb_x = (W - int(KB_UNITS_WIDE * u)) // 2
         self.kb_y = int(H * 0.19)
 
-        D = 1.25  # donde empieza la fila de números (después de ESC)
+        D = 1.25  # Fila de números
         layout = [("ESC", 0, 0, 1.0)]
         layout += [(ch, D + i, 0, 1) for i, ch in enumerate("1234567890")]
         layout += [("TAB", 0, 1, 1.65)]
@@ -127,31 +136,34 @@ class ControlsView:
         layout += [("SHIFT", 0, 3, 2.4)]
         layout += [(ch, D + 1.25 + i, 3, 1) for i, ch in enumerate("ZXCVBNM")]
         layout += [("CTRL", 0, 4, 1.5), ("ALT", 1.5, 4, 1.25),
-                   ("ESPACIO", 2.75, 4, 5.5), ("ALT", 8.25, 4, 1.25)]
-        A = 12.75  # bloque de flechas
+                ("ESPACIO", 2.75, 4, 5.5), ("ALT", 8.25, 4, 1.25)]
+        A = 12.75
         layout += [("UP", A + 1, 3, 1), ("LEFT", A, 4, 1), ("DOWN", A + 1, 4, 1), ("RIGHT", A + 2, 4, 1)]
 
-        self.keys = []  # (label, rect, índice de acción o None)
-        for label, x, row, w in layout:
-            r = pygame.Rect(self.kb_x + int(x * u), self.kb_y + row * u, int(w * u) - g, u - g)
-            self.keys.append((label, r, KEY_ACTION.get(label)))
-
+        self.layout_keys = layout
         self.kb_plate = pygame.Rect(self.kb_x - 24, self.kb_y - 24,
-                                    int(KB_UNITS_WIDE * u) + 48 - g, 5 * u + 48 - g)
+                                   int(KB_UNITS_WIDE * u) + 48 - g, 5 * u + 48 - g)
 
-        # --- Tarjetas de acciones ---
+        # --- Tarjetas de acciones (Soporte dinámico para todas las tarjetas de cualquier página) ---
         gap_x = int(W * 0.018)
         card_w = (W - self.margin * 2 - gap_x) // 2
         card_h = int(H * 0.08)
         gap_y = int(H * 0.015)
         top = int(H * 0.615)
+        
         self.card_rects = []
-        for i in range(len(ACTIONS)):
+        # Cambiamos a 6 para asegurar que existan los rectángulos para todas las acciones de ambas páginas
+        for i in range(6):  
             col, row = i % 2, i // 2
             self.card_rects.append(pygame.Rect(self.margin + col * (card_w + gap_x),
-                                               top + row * (card_h + gap_y), card_w, card_h))
+                                            top + row * (card_h + gap_y), card_w, card_h))
+
         self._card_fill = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
         self._card_fill.fill((*PANEL, 215))
+
+        # Botones de cambio de página visuales en pantalla
+        self.btn_prev = pygame.Rect(self.margin, int(H * 0.145), 140, 26)
+        self.btn_next = pygame.Rect(W - self.margin - 140, int(H * 0.145), 140, 26)
 
         self._build_background(size)
         self._build_overlays(size)
@@ -163,7 +175,6 @@ class ControlsView:
             k = y / float(H)
             bg.fill((int(3 + 4 * (1 - k)), int(12 + 12 * (1 - k)), int(7 + 6 * (1 - k))), (0, y, W, 1))
 
-        # Grilla tenue
         grid = pygame.Surface(size, pygame.SRCALPHA)
         step = max(24, int(H * 0.06))
         for x in range(0, W, step):
@@ -178,13 +189,13 @@ class ControlsView:
         ty = int(H * 0.045)
         pygame.draw.rect(bg, ACCENT, (m, ty - 2, 6, title.get_height() + 4))
         bg.blit(title, (m + 22, ty))
-        sub = self.f_sub.render("PASA EL MOUSE SOBRE UNA ACCIÓN PARA RESALTARLA", True, TEXT_DIM)
+        sub = self.f_sub.render("USA A/D O CLIC EN LAS PESTAÑAS PARA CAMBIAR DE SECCIÓN", True, TEXT_DIM)
         bg.blit(sub, (m + 22, ty + title.get_height() + 8))
         ly = int(H * 0.138)
         pygame.draw.line(bg, LINE, (m, ly), (W - m, ly), 1)
         pygame.draw.rect(bg, ACCENT, (m, ly - 1, int(W * 0.12), 3))
 
-        # Placa del teclado con esquinas estilo HUD
+        # Placa del teclado
         plate = pygame.Surface(self.kb_plate.size, pygame.SRCALPHA)
         plate.fill((*PANEL, 215))
         bg.blit(plate, self.kb_plate.topleft)
@@ -212,15 +223,40 @@ class ControlsView:
                 d = min(1.0, math.sqrt(dx * dx + dy * dy) / 1.25)
                 vig.set_at((xx, yy), (0, 0, 0, int(150 * d ** 2.2)))
         self.vignette = pygame.transform.smoothscale(vig, size)
-
         self.black = pygame.Surface(size)
         self.black.fill((0, 0, 0))
 
-    # -------------------------------------------------------------------- draw
+    def handle_event(self, event):
+        """Permite navegar cíclicamente entre páginas con teclas (A/D, Izq/Der) o clics en pestañas."""
+        total_pages = len(PAGES)
+        
+        if event.type == pygame.KEYDOWN:
+            if event.key in (pygame.K_LEFT, pygame.K_a):
+                # Navegación circular hacia atrás (si está en la 0, pasa a la última)
+                self.current_page = (self.current_page - 1) % total_pages
+                return True
+            elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                # Navegación circular hacia adelante (si está en la última, pasa a la 0)
+                self.current_page = (self.current_page + 1) % total_pages
+                return True
+                
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            mouse_pos = event.pos
+            if self.btn_prev.collidepoint(mouse_pos) and self.current_page != 0:
+                self.current_page = 0
+                return True
+            elif self.btn_next.collidepoint(mouse_pos) and self.current_page != total_pages - 1:
+                self.current_page = total_pages - 1
+                return True
+                
+        return False
+
     def _draw_key(self, surface, label, rect, action, hovered, pulse):
         active = action is not None and (hovered is None or hovered == action)
+        page_data = PAGES[self.current_page]
+        
         if active:
-            color = ACTIONS[action]["color"]
+            color = page_data["actions"][action]["color"]
             face = _mix(color, PANEL, 0.80)
             side = _mix(color, (0, 0, 0), 0.55)
             border = color
@@ -261,7 +297,8 @@ class ControlsView:
             surface.blit(t, t.get_rect(center=rect.center))
 
     def _draw_card(self, surface, i, hovered):
-        a = ACTIONS[i]
+        page_data = PAGES[self.current_page]
+        a = page_data["actions"][i]
         r = self.card_rects[i]
         color = a["color"]
         active = hovered is None or hovered == i
@@ -291,7 +328,7 @@ class ControlsView:
         surface.blit(name, (tx, ty))
         surface.blit(desc, (tx, ty + name.get_height() + 6))
 
-        # Teclas de la acción (alineadas a la derecha)
+        # Teclas de la acción alineadas a la derecha
         cs = int(r.h * 0.44)
         cgap = 4
         items = []
@@ -319,7 +356,7 @@ class ControlsView:
             self._build(size)
 
         now = pygame.time.get_ticks()
-        if now - self._last_draw > 250:  # la pantalla se acaba de mostrar
+        if now - self._last_draw > 250:
             self._open_time = now
         self._last_draw = now
         t = now - self._open_time
@@ -327,26 +364,51 @@ class ControlsView:
         if mouse_pos is None:
             mouse_pos = pygame.mouse.get_pos()
 
-        # Acción bajo el mouse (tarjeta o tecla)
+        page_data = PAGES[self.current_page]
+        key_action_map = page_data["key_action"]
+        badge_keys_map = page_data["badge_keys"]
+
+        # Detectar hover en tarjetas o teclas virtuales
         hovered = None
         for i, r in enumerate(self.card_rects):
             if r.collidepoint(mouse_pos):
                 hovered = i
-        for _label, r, a in self.keys:
-            if a is not None and r.collidepoint(mouse_pos):
-                hovered = a
+        
+        for label, rect, _ in [(l, pygame.Rect(self.kb_x + int(x * self.u), self.kb_y + row * self.u, int(w * self.u) - max(4, int(self.u * 0.1)), self.u - max(4, int(self.u * 0.1))), key_action_map.get(l)) for l, x, row, w in self.layout_keys]:
+            if _ is not None and rect.collidepoint(mouse_pos):
+                hovered = _
 
         surface.blit(self.bg, (0, 0))
 
-        for label, rect, action in self.keys:
-            self._draw_key(surface, label, rect, action, hovered, pulse)
-        for label, rect, action in self.keys:  # numeritos arriba de todo
-            if label in BADGE_KEYS:
-                a = BADGE_KEYS[label]
-                if hovered is None or hovered == a:
-                    self._draw_badge(surface, rect, a + 1, ACTIONS[a]["color"])
+        # Dibujar pestañas de navegación superiores
+        for idx, p in enumerate(PAGES):
+            btn_rect = self.btn_prev if idx == 0 else self.btn_next
+            active_tab = (idx == self.current_page)
+            tab_color = ACCENT if active_tab else TEXT_DIM
+            pygame.draw.rect(surface, PANEL, btn_rect, border_radius=4)
+            pygame.draw.rect(surface, tab_color, btn_rect, 2, border_radius=4)
+            lbl = self.f_desc.render(f"[{idx+1}] {p['title'][:10]}", True, tab_color)
+            surface.blit(lbl, lbl.get_rect(center=btn_rect.center))
 
-        for i in range(len(ACTIONS)):
+        # Dibujar teclado virtual con mapeo de la página actual
+        for label, x, row, w in self.layout_keys:
+            u = self.u
+            g = max(4, int(u * 0.1))
+            rect = pygame.Rect(self.kb_x + int(x * u), self.kb_y + row * u, int(w * u) - g, u - g)
+            action_idx = key_action_map.get(label)
+            self._draw_key(surface, label, rect, action_idx, hovered, pulse)
+
+        for label, x, row, w in self.layout_keys:
+            if label in badge_keys_map:
+                u = self.u
+                g = max(4, int(u * 0.1))
+                rect = pygame.Rect(self.kb_x + int(x * u), self.kb_y + row * u, int(w * u) - g, u - g)
+                a = badge_keys_map[label]
+                if hovered is None or hovered == a:
+                    self._draw_badge(surface, rect, a + 1, page_data["actions"][a]["color"])
+
+        # Dibujar tarjetas de control de la sección actual
+        for i in range(len(page_data["actions"])):
             self._draw_card(surface, i, hovered)
 
         surface.blit(self.scanlines, (0, 0))

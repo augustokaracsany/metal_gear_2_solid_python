@@ -68,9 +68,10 @@ class Game:
     ALLY_CALL_RADIUS = 320     # px: a quién avisa el guardia que te ve
     PUNCH_REACH = 14           # px por delante del jugador
     EXIT_FADE_MS = 700
-    DEATH_MUSIC_DELAY_MS = 1500
+    DEATH_MUSIC_DELAY_MS = 1000
+    OTACON_SCREAM_DELAY_MS = 5500
     DEATH_FADE_DELAY_MS = 1000
-    DEAD_TEXT = "P Y T H O N   I S   D E A D"
+    DEAD_TEXT = "M I S I O N   F A L L I D A"
     DEAD_TEXT_DELAY_MS = 250
     DEAD_TEXT_FADE_MS = 1000
     DEAD_BLUR_LEVELS = 10
@@ -120,6 +121,7 @@ class Game:
         # Música y audio
         self._music_key = None
         self.restart_music = False
+        self.otacon_scream_played = False
 
         # --- SISTEMA DE PAUSA ---
         self.is_paused = False
@@ -1475,6 +1477,15 @@ class Game:
                     pygame.mixer.music.play()
                 except Exception as e:
                     print(f"No se pudo cargar la música game_over.mp3: {e}")
+
+            if not self.otacon_scream_played and elapsed_death >= self.OTACON_SCREAM_DELAY_MS:
+                self.otacon_scream_played = True
+                try:
+                    otacon_sfx = pygame.mixer.Sound("assets/audio/sfx/otacon_scream.mp3")
+                    otacon_sfx.set_volume(self.pause_menu.sfx_volume)
+                    otacon_sfx.play()
+                except Exception as e:
+                    print(f"No se pudo cargar el sfx otacon_scream.mp3: {e}")
 
             if elapsed_death >= max(4500, self.flashbacks.total_ms() + 500):
                 self.state = "GAME_OVER"
